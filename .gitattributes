@@ -1,0 +1,5 @@
+# Chuẩn hóa xuống dòng LF cho cả nhóm (Windows/macOS/Linux) – tránh diff toàn file vì CRLF
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary

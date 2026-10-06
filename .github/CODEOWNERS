@@ -1,0 +1,6 @@
+# Điền GitHub username thật rồi bỏ dấu # (DECISION-06).
+# Owner được tự động mời review PR đụng vào thư mục của mình.
+# /packages/xiangqi-core/   @<phat>
+# /apps/server/             @<kiet>
+# /apps/web/                @<ltk> @<nhan>
+# /.github/                 @LixusThinh @<quang>
