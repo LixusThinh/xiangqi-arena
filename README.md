@@ -18,7 +18,21 @@ Stack (D-02): Next.js · NestJS · PostgreSQL · Socket.IO · TypeScript · pnpm
 ```bash
 corepack enable          # bật pnpm đi kèm Node
 pnpm install
-pnpm build && pnpm test
+```
+
+Khởi chạy backend cùng PostgreSQL (cần Docker Desktop đang chạy):
+
+```bash
+Copy-Item apps\server\.env.example apps\server\.env # PowerShell; chỉ cần làm một lần
+pnpm dev
+```
+
+`pnpm dev` khởi động PostgreSQL, áp dụng migration, seed tài khoản local rồi chạy NestJS. Xem [apps/server/README.md](apps/server/README.md) để biết tài khoản mẫu và lệnh database. Kiểm tra build/test bằng:
+
+```bash
+pnpm build
+pnpm test
+pnpm lint
 ```
 
 Quy trình làm việc: xem [CONTRIBUTING.md](CONTRIBUTING.md).

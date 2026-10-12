@@ -1,0 +1,296 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PLAYER
+  ADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  LOCKED
+}
+
+enum RoomVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum HostColorPref {
+  RED
+  BLACK
+  RANDOM
+}
+
+enum RoomStatus {
+  WAITING
+  PLAYING
+  FINISHED
+  CANCELLED
+}
+
+enum MatchStatus {
+  WAITING
+  ACTIVE
+  FINISHED
+  ABORTED
+}
+
+enum MatchResult {
+  RED_WIN
+  BLACK_WIN
+  DRAW
+}
+
+enum MatchEndReason {
+  CHECKMATE
+  STALEMATE
+  RESIGNATION
+  TIMEOUT
+  DISCONNECT
+  DRAW_AGREEMENT
+  REPETITION
+  MOVE_LIMIT
+}
+
+enum DrawOfferStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+enum ChatType {
+  TEXT
+  EMOJI
+}
+
+enum ReportReason {
+  CHEATING
+  HARASSMENT
+  SPAM
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  PROCESSING
+  CLOSED
+}
+
+model User {
+  id               BigInt          @id @default(autoincrement()) @map("user_id") @db.BigInt
+  username         String          @unique @db.VarChar(50)
+  email            String          @unique @db.VarChar(254)
+  passwordHash     String          @map("password_hash") @db.VarChar(255)
+  displayName      String          @map("display_name") @db.VarChar(80)
+  avatarUrl        String?         @map("avatar_url") @db.VarChar(2048)
+  bio              String?         @db.VarChar(500)
+  role             UserRole        @default(PLAYER)
+  accountStatus    AccountStatus   @default(ACTIVE) @map("account_status")
+  rating           Int             @default(1200)
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastLoginAt      DateTime?       @map("last_login_at") @db.Timestamptz(6)
+  hostedRooms      Room[]          @relation("RoomHost")
+  roomMemberships  RoomMember[]
+  redMatches       Match[]         @relation("RedPlayer")
+  blackMatches     Match[]         @relation("BlackPlayer")
+  moves            Move[]          @relation("MovePlayer")
+  drawOffers       DrawOffer[]     @relation("DrawOfferUser")
+  chats            Chat[]          @relation("ChatSender")
+  ratingHistory    RatingHistory[]
+  submittedReports Report[]        @relation("ReportReporter")
+  receivedReports  Report[]        @relation("ReportReportedUser")
+
+  @@map("users")
+}
+
+model RuleProfile {
+  id                  Int     @id @default(autoincrement()) @map("rule_profile_id")
+  code                String  @unique @db.VarChar(40)
+  baseTimeSec         Int     @map("base_time_sec")
+  incrementSec        Int     @map("increment_sec")
+  naturalMoveLimit    Int     @map("natural_move_limit")
+  repetitionThreshold Int     @map("repetition_threshold")
+  reconnectGraceSec   Int     @map("reconnect_grace_sec")
+  isRanked            Boolean @default(false) @map("is_ranked")
+  rooms               Room[]
+  matches             Match[]
+
+  @@map("rule_profiles")
+}
+
+model Room {
+  id            BigInt         @id @default(autoincrement()) @map("room_id") @db.BigInt
+  roomCode      String         @unique @map("room_code") @db.VarChar(20)
+  name          String         @db.VarChar(80)
+  hostId        BigInt         @map("host_id") @db.BigInt
+  visibility    RoomVisibility @default(PUBLIC)
+  hostColorPref HostColorPref  @default(RANDOM) @map("host_color_pref")
+  ruleProfileId Int            @map("rule_profile_id")
+  status        RoomStatus     @default(WAITING)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  host          User           @relation("RoomHost", fields: [hostId], references: [id], onDelete: Restrict)
+  ruleProfile   RuleProfile    @relation(fields: [ruleProfileId], references: [id], onDelete: Restrict)
+  members       RoomMember[]
+  matches       Match[]
+  chats         Chat[]
+
+  @@index([hostId])
+  @@index([status, visibility])
+  @@map("rooms")
+}
+
+model RoomMember {
+  roomId   BigInt   @map("room_id") @db.BigInt
+  userId   BigInt   @map("user_id") @db.BigInt
+  isReady  Boolean  @default(false) @map("is_ready")
+  joinedAt DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
+  room     Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([roomId, userId])
+  @@index([userId])
+  @@map("room_members")
+}
+
+model Match {
+  id              BigInt          @id @default(autoincrement()) @map("match_id") @db.BigInt
+  roomId          BigInt          @map("room_id") @db.BigInt
+  redPlayerId     BigInt          @map("red_player_id") @db.BigInt
+  blackPlayerId   BigInt          @map("black_player_id") @db.BigInt
+  ruleProfileId   Int             @map("rule_profile_id")
+  status          MatchStatus     @default(WAITING)
+  result          MatchResult?
+  endReason       MatchEndReason? @map("end_reason")
+  currentFen      String?         @map("current_fen") @db.Text
+  currentPly      Int             @default(0) @map("current_ply")
+  redTimeLeftMs   BigInt          @default(0) @map("red_time_left_ms") @db.BigInt
+  blackTimeLeftMs BigInt          @default(0) @map("black_time_left_ms") @db.BigInt
+  turnStartedAt   DateTime?       @map("turn_started_at") @db.Timestamptz(6)
+  startedAt       DateTime?       @map("started_at") @db.Timestamptz(6)
+  endedAt         DateTime?       @map("ended_at") @db.Timestamptz(6)
+  room            Room            @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  redPlayer       User            @relation("RedPlayer", fields: [redPlayerId], references: [id], onDelete: Restrict)
+  blackPlayer     User            @relation("BlackPlayer", fields: [blackPlayerId], references: [id], onDelete: Restrict)
+  ruleProfile     RuleProfile     @relation(fields: [ruleProfileId], references: [id], onDelete: Restrict)
+  moves           Move[]
+  drawOffers      DrawOffer[]
+  chats           Chat[]
+  ratingHistory   RatingHistory[]
+  reports         Report[]
+
+  @@index([roomId])
+  @@index([redPlayerId])
+  @@index([blackPlayerId])
+  @@index([status, startedAt])
+  @@map("matches")
+}
+
+model Move {
+  id                BigInt   @id @default(autoincrement()) @map("move_id") @db.BigInt
+  matchId           BigInt   @map("match_id") @db.BigInt
+  ply               Int
+  playerId          BigInt   @map("player_id") @db.BigInt
+  pieceCode         String   @map("piece_code") @db.VarChar(20)
+  fromSq            String   @map("from_sq") @db.VarChar(5)
+  toSq              String   @map("to_sq") @db.VarChar(5)
+  capturedPieceCode String?  @map("captured_piece_code") @db.VarChar(20)
+  isCheck           Boolean  @default(false) @map("is_check")
+  isCapture         Boolean  @default(false) @map("is_capture")
+  isIrreversible    Boolean  @default(false) @map("is_irreversible")
+  fenAfter          String   @map("fen_after") @db.Text
+  positionHash      String   @map("position_hash") @db.Char(16)
+  thinkTimeMs       Int      @default(0) @map("think_time_ms")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  match             Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player            User     @relation("MovePlayer", fields: [playerId], references: [id], onDelete: Restrict)
+
+  @@unique([matchId, ply])
+  @@index([playerId])
+  @@map("moves")
+}
+
+model DrawOffer {
+  id        BigInt          @id @default(autoincrement()) @map("offer_id") @db.BigInt
+  matchId   BigInt          @map("match_id") @db.BigInt
+  offeredBy BigInt          @map("offered_by") @db.BigInt
+  atPly     Int             @map("at_ply")
+  status    DrawOfferStatus @default(PENDING)
+  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  match     Match           @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user      User            @relation("DrawOfferUser", fields: [offeredBy], references: [id], onDelete: Restrict)
+
+  @@index([matchId, status])
+  @@map("draw_offers")
+}
+
+model Chat {
+  id        BigInt   @id @default(autoincrement()) @map("chat_id") @db.BigInt
+  roomId    BigInt   @map("room_id") @db.BigInt
+  matchId   BigInt?  @map("match_id") @db.BigInt
+  senderId  BigInt   @map("sender_id") @db.BigInt
+  type      ChatType @default(TEXT)
+  message   String   @db.VarChar(300)
+  emojiId   Int?     @map("emoji_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  match     Match?   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  sender    User     @relation("ChatSender", fields: [senderId], references: [id], onDelete: Restrict)
+  emoji     Emoji?   @relation(fields: [emojiId], references: [id], onDelete: SetNull)
+
+  @@index([roomId, createdAt])
+  @@index([matchId, createdAt])
+  @@index([senderId])
+  @@map("chats")
+}
+
+model Emoji {
+  id       Int    @id @default(autoincrement()) @map("emoji_id")
+  code     String @unique @db.VarChar(40)
+  name     String @db.VarChar(80)
+  imageUrl String @map("image_url") @db.VarChar(2048)
+  chats    Chat[]
+
+  @@map("emojis")
+}
+
+model RatingHistory {
+  id           BigInt   @id @default(autoincrement())
+  userId       BigInt   @map("user_id") @db.BigInt
+  matchId      BigInt   @map("match_id") @db.BigInt
+  ratingBefore Int      @map("rating_before")
+  ratingAfter  Int      @map("rating_after")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  match        Match    @relation(fields: [matchId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt])
+  @@index([matchId])
+  @@map("rating_history")
+}
+
+model Report {
+  id             BigInt       @id @default(autoincrement()) @map("report_id") @db.BigInt
+  reporterId     BigInt       @map("reporter_id") @db.BigInt
+  reportedUserId BigInt       @map("reported_user_id") @db.BigInt
+  matchId        BigInt       @map("match_id") @db.BigInt
+  reason         ReportReason
+  status         ReportStatus @default(OPEN)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  reporter       User         @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  reportedUser   User         @relation("ReportReportedUser", fields: [reportedUserId], references: [id], onDelete: Restrict)
+  match          Match        @relation(fields: [matchId], references: [id], onDelete: Restrict)
+
+  @@index([reporterId, createdAt])
+  @@index([reportedUserId, status])
+  @@index([matchId])
+  @@map("reports")
+}
