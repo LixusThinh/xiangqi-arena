@@ -3,9 +3,15 @@
   "private": true,
   "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "build": "pnpm -r --if-present build",
-    "test": "pnpm -r --if-present test",
-    "lint": "pnpm -r --if-present lint"
+    "dev": "corepack pnpm db:up && corepack pnpm db:migrate && corepack pnpm db:seed && corepack pnpm --filter @xiangqi-arena/server dev",
+    "db:up": "docker compose up -d --wait postgres",
+    "db:down": "docker compose down",
+    "db:migrate": "corepack pnpm --filter @xiangqi-arena/server prisma:migrate",
+    "db:seed": "corepack pnpm --filter @xiangqi-arena/server prisma:seed",
+    "db:studio": "corepack pnpm --filter @xiangqi-arena/server prisma:studio",
+    "build": "corepack pnpm -r --if-present build",
+    "test": "corepack pnpm -r --if-present test",
+    "lint": "corepack pnpm -r --if-present lint"
   },
   "engines": { "node": ">=20" }
 }
