@@ -1,2 +1,5 @@
 # docs
-Tài liệu đi kèm code: socket contract (XQT-93), openapi.yaml (XQT-94), engine design (XQT-92).
+
+- [REST Auth Contract v0.1](./api/auth.md) — register, login, and current-user endpoints.
+
+Tài liệu đi kèm code:
