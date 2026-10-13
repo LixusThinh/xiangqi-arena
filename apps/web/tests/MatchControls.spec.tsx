@@ -19,6 +19,9 @@ describe('<MatchControls />', () => {
     expect(screen.getByText(/Ván mới/i)).toBeInTheDocument();
     expect(screen.getByText(/Xin hòa/i)).toBeInTheDocument();
     expect(screen.getByText(/Thoát/i)).toBeInTheDocument();
+
+    expect(screen.getByRole('button', { name: /Phe Đỏ/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /Phe Đen/i })).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('triggers onSelectSide when side buttons are clicked', () => {

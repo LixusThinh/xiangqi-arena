@@ -45,4 +45,33 @@ describe('<Modal />', () => {
     expect(screen.getByText('Đóng')).toBeInTheDocument();
     expect(screen.queryByText('Hủy')).not.toBeInTheDocument();
   });
+
+  it('provides accessible dialog attributes and title association', () => {
+    render(
+      <Modal isOpen={true} title="Ván mới" message="Bắt đầu ván mới?" onConfirm={jest.fn()} onCancel={jest.fn()} />
+    );
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toBeInTheDocument();
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(dialog).toHaveAttribute('aria-labelledby', 'modal-title');
+    expect(screen.getByText('Ván mới')).toHaveAttribute('id', 'modal-title');
+  });
+
+  it('dismisses modal on Escape key press by calling onCancel', () => {
+    const handleCancel = jest.fn();
+    render(
+      <Modal isOpen={true} title="Ván mới" message="Bắt đầu ván mới?" onConfirm={jest.fn()} onCancel={handleCancel} />
+    );
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(handleCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('dismisses notice modal on Escape key press by calling onConfirm', () => {
+    const handleConfirm = jest.fn();
+    render(
+      <Modal isOpen={true} title="Xin hòa" message="Đã gửi đề nghị hòa" isNotice={true} onConfirm={handleConfirm} />
+    );
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(handleConfirm).toHaveBeenCalledTimes(1);
+  });
 });

@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - **Workspace Protocol**: `apps/web` must consume `@xiangqi-arena/xiangqi-core` via `"@xiangqi-arena/xiangqi-core": "workspace:*"`.
-- **Pure Dependency Rule**: No changes to `@xiangqi-arena/xiangqi-core` or `@xiangqi-arena/server`.
+- **Pure Dependency Rule**: No changes to `@xiangqi-arena/xiangqi-core` or `@xiangqi-arena/server` beyond non-breaking additions: specifically, `type Side = Color` and `Position.initial()` were added to `@xiangqi-arena/xiangqi-core` for seamless board integration and type alignment.
 - **Coordinate System**: 90 squares ($0..89$), row 0 is Black base ($y = 10$ px when Red view), row 9 is Red base ($y = 730$ px when Red view).
 - **Single Source of Truth for Orientation**: `orientation = playerSide`.
 - **Deterministic Click-to-Move**:

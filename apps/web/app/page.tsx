@@ -37,6 +37,9 @@ export default function ArenaPage() {
 
   // Turn timer countdown (60s turn timer for active sideToMove)
   useEffect(() => {
+    const activeTimer = sideToMove === 'r' ? redTimer : blackTimer;
+    if (activeTimer <= 0) return;
+
     const timer = setInterval(() => {
       if (sideToMove === 'r') {
         setRedTimer((prev) => (prev > 0 ? prev - 1 : 0));
@@ -46,7 +49,7 @@ export default function ArenaPage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [sideToMove]);
+  }, [sideToMove, redTimer, blackTimer]);
 
   // Click-to-move logic
   const handleSquareClick = (sq: number) => {

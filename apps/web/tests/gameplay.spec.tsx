@@ -96,6 +96,16 @@ describe('Xiangqi Arena Game Room Page', () => {
     expect(screen.getByText('00:58')).toBeInTheDocument();
   });
 
+  it('stops timer ticking when timer reaches 0', () => {
+    render(<ArenaPage />);
+    act(() => {
+      jest.advanceTimersByTime(65000);
+    });
+
+    expect(screen.getByText('00:00')).toBeInTheDocument();
+    expect(screen.getByText('Hết giờ!')).toBeInTheDocument();
+  });
+
   it('handles chat messages and quick chips', () => {
     render(<ArenaPage />);
     const quickChip = screen.getByRole('button', { name: 'Xin chào!' });

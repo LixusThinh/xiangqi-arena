@@ -57,7 +57,7 @@ export default function ChatBox({
       </div>
 
       {/* Danh sách tin nhắn */}
-      <div className="flex-1 p-3 overflow-y-auto flex flex-col gap-2 min-h-[220px] max-h-[360px] text-xs">
+      <div className="flex-1 p-3 overflow-y-auto flex flex-col gap-2 min-h-[220px] text-xs">
         {messages.map((msg) => {
           if (msg.sender === 'system') {
             return (

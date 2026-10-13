@@ -26,6 +26,7 @@ export default function MatchControls({
       <div className="flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-lg border border-slate-800">
         <button
           type="button"
+          aria-pressed={playerSide === 'r'}
           onClick={() => onSelectSide('r')}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
             playerSide === 'r'
@@ -38,6 +39,7 @@ export default function MatchControls({
         </button>
         <button
           type="button"
+          aria-pressed={playerSide === 'b'}
           onClick={() => onSelectSide('b')}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
             playerSide === 'b'

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import PlayerCard from '../components/PlayerCard';
 
 describe('<PlayerCard />', () => {
@@ -65,5 +65,86 @@ describe('<PlayerCard />', () => {
     );
 
     expect(screen.getByText('Hết giờ!')).toBeInTheDocument();
+  });
+
+  it('disables camera toggle button during acquisition and updates on success', async () => {
+    let resolveStream!: (stream: MediaStream) => void;
+    const mockTrack = { stop: jest.fn() };
+    const mockStream = { getTracks: () => [mockTrack] } as unknown as MediaStream;
+
+    Object.defineProperty(global.navigator, 'mediaDevices', {
+      writable: true,
+      value: {
+        getUserMedia: jest.fn(
+          () =>
+            new Promise<MediaStream>((resolve) => {
+              resolveStream = resolve;
+            })
+        ),
+      },
+    });
+
+    render(
+      <PlayerCard
+        name="Bạn"
+        title="Cao Thủ"
+        side="r"
+        timeRemaining={60}
+        isActive={false}
+        isLocalPlayer={true}
+      />
+    );
+
+    const button = screen.getByRole('button', { name: /Bật Camera/i });
+    fireEvent.click(button);
+
+    expect(button).toBeDisabled();
+    expect(screen.getByText(/Đang kết nối/i)).toBeInTheDocument();
+
+    await act(async () => {
+      resolveStream(mockStream);
+    });
+
+    expect(screen.getByText(/Tắt Camera/i)).toBeInTheDocument();
+    expect(screen.getByText(/Tắt Camera/i)).not.toBeDisabled();
+  });
+
+  it('stops media tracks immediately if unmounted before getUserMedia resolves', async () => {
+    let resolveStream!: (stream: MediaStream) => void;
+    const mockTrack = { stop: jest.fn() };
+    const mockStream = { getTracks: () => [mockTrack] } as unknown as MediaStream;
+
+    Object.defineProperty(global.navigator, 'mediaDevices', {
+      writable: true,
+      value: {
+        getUserMedia: jest.fn(
+          () =>
+            new Promise<MediaStream>((resolve) => {
+              resolveStream = resolve;
+            })
+        ),
+      },
+    });
+
+    const { unmount } = render(
+      <PlayerCard
+        name="Bạn"
+        title="Cao Thủ"
+        side="r"
+        timeRemaining={60}
+        isActive={false}
+        isLocalPlayer={true}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Bật Camera/i }));
+
+    unmount();
+
+    await act(async () => {
+      resolveStream(mockStream);
+    });
+
+    expect(mockTrack.stop).toHaveBeenCalled();
   });
 });

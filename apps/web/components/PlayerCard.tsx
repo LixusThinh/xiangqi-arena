@@ -23,11 +23,26 @@ export default function PlayerCard({
   className = '',
 }: PlayerCardProps) {
   const [isCameraOn, setIsCameraOn] = useState(false);
+  const [isCameraLoading, setIsCameraLoading] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+    };
+  }, []);
 
   const toggleCamera = async () => {
+    if (isCameraLoading) return;
+
     if (isCameraOn) {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
@@ -36,6 +51,7 @@ export default function PlayerCard({
       setIsCameraOn(false);
       setCameraError(null);
     } else {
+      setIsCameraLoading(true);
       try {
         setCameraError(null);
         if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
@@ -43,28 +59,31 @@ export default function PlayerCard({
             video: true,
             audio: false,
           });
+          if (!isMounted.current) {
+            stream.getTracks().forEach((track) => track.stop());
+            return;
+          }
           streamRef.current = stream;
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
           }
           setIsCameraOn(true);
         } else {
-          setCameraError('Thiết bị không hỗ trợ');
+          if (isMounted.current) {
+            setCameraError('Thiết bị không hỗ trợ');
+          }
         }
       } catch {
-        setCameraError('Không có camera');
+        if (isMounted.current) {
+          setCameraError('Không có camera');
+        }
+      } finally {
+        if (isMounted.current) {
+          setIsCameraLoading(false);
+        }
       }
     }
   };
-
-  useEffect(() => {
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-      }
-    };
-  }, []);
 
   useEffect(() => {
     if (isCameraOn && videoRef.current && streamRef.current) {
@@ -114,13 +133,14 @@ export default function PlayerCard({
           <button
             type="button"
             onClick={toggleCamera}
-            className={`absolute bottom-2 right-2 px-2.5 py-1 rounded-md text-[10px] font-semibold tracking-wide transition-all backdrop-blur ${
+            disabled={isCameraLoading}
+            className={`absolute bottom-2 right-2 px-2.5 py-1 rounded-md text-[10px] font-semibold tracking-wide transition-all backdrop-blur disabled:opacity-50 disabled:cursor-not-allowed ${
               isCameraOn
                 ? 'bg-red-600/80 hover:bg-red-500 text-white'
                 : 'bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-600'
             }`}
           >
-            {isCameraOn ? '📹 Tắt Camera' : '📷 Bật Camera'}
+            {isCameraLoading ? '⏳ Đang kết nối...' : isCameraOn ? '📹 Tắt Camera' : '📷 Bật Camera'}
           </button>
         )}
       </div>
