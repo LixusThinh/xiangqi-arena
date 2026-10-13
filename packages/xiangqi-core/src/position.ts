@@ -29,6 +29,10 @@ export class Position implements PositionState {
     return new Position(state);
   }
 
+  static initial(): Position {
+    return Position.fromFen(STARTING_FEN);
+  }
+
   applyMove(move: Move): MoveUndo {
     const { from, to } = move;
     if (!isValidSquare(from) || !isValidSquare(to)) {

@@ -1,4 +1,5 @@
 export type Color = 'r' | 'b';
+export type Side = Color;
 export type PieceType = 'k' | 'a' | 'b' | 'n' | 'r' | 'c' | 'p';
 
 export interface Piece {
