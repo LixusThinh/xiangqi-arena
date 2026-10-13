@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { Position, STARTING_FEN, isValidSquare } from '@xiangqi-arena/xiangqi-core';
+import { Position, STARTING_FEN, isValidSquare, Piece } from '@xiangqi-arena/xiangqi-core';
 import {
   getSquareCoordinates,
   BOARD_WIDTH,
@@ -10,7 +10,10 @@ import {
 } from './board-geometry';
 
 export interface BoardProps {
-  /** Chuỗi FEN. Nếu không truyền position, component sẽ parse FEN này. */
+  /** Mảng 90 ô quân cờ trực tiếp từ state */
+  board?: (Piece | null)[];
+
+  /** Chuỗi FEN. Nếu không truyền board hoặc position, component sẽ parse FEN này. */
   fen?: string;
 
   /** Đối tượng Position từ @xiangqi-arena/xiangqi-core. */
@@ -25,7 +28,7 @@ export interface BoardProps {
   /** Nước đi gần nhất để highlight { from, to } */
   lastMove?: { from: number; to: number } | null;
 
-  /** Callback khi click vào bất kỳ ô nào (quân cờ hoặc ô trống) */
+  /** Callback khi click vào bất kỳ ô nào */
   onSquareClick?: (square: number) => void;
 
   /** CSS class tùy biến */
@@ -33,6 +36,7 @@ export interface BoardProps {
 }
 
 export default function Board({
+  board,
   fen,
   position,
   orientation = 'r',
@@ -43,6 +47,9 @@ export default function Board({
 }: BoardProps) {
   // Resolve Position instance or parse FEN safely
   const { currentPos, error } = useMemo(() => {
+    if (board) {
+      return { currentPos: null, error: null };
+    }
     if (position) {
       return { currentPos: position, error: null };
     }
@@ -55,9 +62,9 @@ export default function Board({
         error: err instanceof Error ? err.message : 'Invalid FEN',
       };
     }
-  }, [position, fen]);
+  }, [board, position, fen]);
 
-  if (error || !currentPos) {
+  if (!board && (error || !currentPos)) {
     return (
       <div className={`flex flex-col items-center justify-center p-6 bg-red-50 border border-red-200 rounded-lg text-red-700 ${className}`}>
         <p className="font-semibold">FEN không hợp lệ</p>
@@ -66,7 +73,7 @@ export default function Board({
     );
   }
 
-  const boardArray = currentPos.board;
+  const boardArray = board ?? currentPos!.board;
 
   return (
     <div

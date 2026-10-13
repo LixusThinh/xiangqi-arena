@@ -11,6 +11,21 @@ describe('<Board />', () => {
     expect(pieces).toHaveLength(32);
   });
 
+  it('renders directly with a raw board array prop', () => {
+    const initialBoard = Position.fromFen().board;
+    render(<Board board={initialBoard} />);
+    const pieces = screen.getAllByTestId(/^piece-/);
+    expect(pieces).toHaveLength(32);
+  });
+
+  it('renders a custom board array prop correctly', () => {
+    const customBoard = new Array(90).fill(null);
+    customBoard[0] = { color: 'r', type: 'r' };
+    render(<Board board={customBoard} />);
+    const pieces = screen.getAllByTestId(/^piece-/);
+    expect(pieces).toHaveLength(1);
+  });
+
   it('renders correctly with a Position instance', () => {
     const pos = Position.fromFen(STARTING_FEN);
     render(<Board position={pos} />);
