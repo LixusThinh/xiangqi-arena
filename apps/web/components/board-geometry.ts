@@ -1,3 +1,5 @@
+import { isValidSquare } from '@xiangqi-arena/xiangqi-core';
+
 export const CELL_SIZE = 80;
 export const OFFSET_X = 10;
 export const OFFSET_Y = 10;
@@ -8,6 +10,9 @@ export function getSquareCoordinates(
   sq: number,
   orientation: 'r' | 'b' = 'r',
 ): { x: number; y: number } {
+  if (!isValidSquare(sq)) {
+    throw new RangeError(`Invalid square index: ${sq}`);
+  }
   const col = sq % 9;
   const row = Math.floor(sq / 9);
 

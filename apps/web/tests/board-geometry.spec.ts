@@ -69,6 +69,16 @@ describe('board-geometry', () => {
     });
   });
 
+  describe('bounds checking', () => {
+    it('throws RangeError for invalid square indices', () => {
+      expect(() => getSquareCoordinates(-1)).toThrow(RangeError);
+      expect(() => getSquareCoordinates(90)).toThrow(RangeError);
+      expect(() => getSquareCoordinates(100)).toThrow(RangeError);
+      expect(() => getSquareCoordinates(NaN)).toThrow(RangeError);
+      expect(() => getSquareCoordinates(3.14)).toThrow(RangeError);
+    });
+  });
+
   describe('fen-presets', () => {
     it('contains 4 presets with required properties', () => {
       expect(FEN_PRESETS).toHaveLength(4);

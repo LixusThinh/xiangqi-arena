@@ -65,4 +65,54 @@ describe('<Board />', () => {
     render(<Board fen="invalid-fen-string" />);
     expect(screen.getByText(/FEN không hợp lệ/i)).toBeInTheDocument();
   });
+
+  it('renders selected-mask when valid selectedSquare is provided', () => {
+    render(<Board fen={STARTING_FEN} selectedSquare={85} />);
+    const mask = screen.getByTestId('selected-mask');
+    expect(mask).toBeInTheDocument();
+    expect(mask).toHaveAttribute('href', '/ChessImage/mask.png');
+    expect(mask).toHaveAttribute('x', '330');
+    expect(mask).toHaveAttribute('y', '730');
+  });
+
+  it('renders lastMove highlight masks for origin and destination', () => {
+    render(<Board fen={STARTING_FEN} lastMove={{ from: 70, to: 43 }} />);
+    const fromMask = screen.getByTestId('last-move-from');
+    const toMask = screen.getByTestId('last-move-to');
+
+    expect(fromMask).toBeInTheDocument();
+    expect(fromMask).toHaveAttribute('href', '/ChessImage/mask2.png');
+    expect(toMask).toBeInTheDocument();
+    expect(toMask).toHaveAttribute('href', '/ChessImage/mask2.png');
+  });
+
+  it('does not crash and does not render mask when selectedSquare is out of bounds', () => {
+    const { rerender } = render(<Board fen={STARTING_FEN} selectedSquare={-1} />);
+    expect(screen.queryByTestId('selected-mask')).not.toBeInTheDocument();
+
+    rerender(<Board fen={STARTING_FEN} selectedSquare={90} />);
+    expect(screen.queryByTestId('selected-mask')).not.toBeInTheDocument();
+
+    rerender(<Board fen={STARTING_FEN} selectedSquare={99} />);
+    expect(screen.queryByTestId('selected-mask')).not.toBeInTheDocument();
+  });
+
+  it('does not crash and does not render lastMove masks when squares are invalid or out of bounds', () => {
+    const { rerender } = render(
+      <Board fen={STARTING_FEN} lastMove={{ from: -1, to: 43 }} />,
+    );
+    expect(screen.queryByTestId('last-move-from')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('last-move-to')).not.toBeInTheDocument();
+
+    rerender(<Board fen={STARTING_FEN} lastMove={{ from: 70, to: 99 }} />);
+    expect(screen.queryByTestId('last-move-from')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('last-move-to')).not.toBeInTheDocument();
+  });
+
+  it('applies SVG transform-box:fill-box and origin-center to piece elements', () => {
+    render(<Board fen={STARTING_FEN} />);
+    const piece = screen.getByTestId('piece-85');
+    expect(piece).toHaveClass('[transform-box:fill-box]');
+    expect(piece).toHaveClass('origin-center');
+  });
 });

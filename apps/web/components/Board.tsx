@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { Position, STARTING_FEN } from '@xiangqi-arena/xiangqi-core';
+import { Position, STARTING_FEN, isValidSquare } from '@xiangqi-arena/xiangqi-core';
 import {
   getSquareCoordinates,
   BOARD_WIDTH,
@@ -87,12 +87,13 @@ export default function Board({
         />
 
         {/* Layer 2: Highlight nước vừa đi (lastMove) */}
-        {lastMove && (
+        {lastMove && isValidSquare(lastMove.from) && isValidSquare(lastMove.to) && (
           <>
             {(() => {
               const fromCoords = getSquareCoordinates(lastMove.from, orientation);
               return (
                 <image
+                  data-testid="last-move-from"
                   href="/ChessImage/mask2.png"
                   x={fromCoords.x}
                   y={fromCoords.y}
@@ -106,6 +107,7 @@ export default function Board({
               const toCoords = getSquareCoordinates(lastMove.to, orientation);
               return (
                 <image
+                  data-testid="last-move-to"
                   href="/ChessImage/mask2.png"
                   x={toCoords.x}
                   y={toCoords.y}
@@ -119,7 +121,7 @@ export default function Board({
         )}
 
         {/* Layer 2b: Highlight ô đang chọn (selectedSquare) */}
-        {selectedSquare != null && (
+        {selectedSquare != null && isValidSquare(selectedSquare) && (
           (() => {
             const coords = getSquareCoordinates(selectedSquare, orientation);
             return (
@@ -171,7 +173,7 @@ export default function Board({
               y={y}
               width={CELL_SIZE}
               height={CELL_SIZE}
-              className={`cursor-pointer pointer-events-auto transition-transform duration-100 ${
+              className={`cursor-pointer pointer-events-auto transition-transform duration-100 [transform-box:fill-box] origin-center ${
                 isSelected ? 'scale-105 filter drop-shadow-md' : 'hover:scale-105'
               }`}
               onClick={(e) => {

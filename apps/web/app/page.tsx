@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import Board from '@/components/Board';
 import { FEN_PRESETS } from '@/components/fen-presets';
-import { Position, squareToAlgebraic, squareToCoord } from '@xiangqi-arena/xiangqi-core';
+import { Position, squareToAlgebraic, squareToCoord, isValidSquare } from '@xiangqi-arena/xiangqi-core';
 
 export default function DemoPage() {
   const [currentFen, setCurrentFen] = useState<string>(FEN_PRESETS[0].fen);
@@ -47,7 +47,10 @@ export default function DemoPage() {
     setSelectedSquare((prev) => (prev === sq ? null : sq));
   };
 
-  const selectedPiece = selectedSquare != null && positionInfo.board[selectedSquare];
+  const selectedPiece =
+    selectedSquare != null && isValidSquare(selectedSquare)
+      ? positionInfo.board[selectedSquare]
+      : null;
 
   return (
     <main className="min-h-screen p-4 md:p-8 bg-slate-900 text-slate-100 flex flex-col items-center">
@@ -155,6 +158,11 @@ export default function DemoPage() {
 
           {/* Bảng trạng thái */}
           <div className="bg-slate-900/80 p-4 rounded-lg border border-slate-700 text-xs flex flex-col gap-2 font-mono">
+            {positionInfo.error && (
+              <div className="bg-red-950/50 border border-red-800 text-red-300 p-2 rounded text-xs mb-2">
+                ⚠️ {positionInfo.error}
+              </div>
+            )}
             <div className="flex justify-between border-b border-slate-800 pb-1">
               <span className="text-slate-400 font-sans">Lượt đi:</span>
               <span className="font-bold text-amber-400">{positionInfo.sideToMove}</span>
@@ -166,7 +174,7 @@ export default function DemoPage() {
             <div className="flex justify-between">
               <span className="text-slate-400 font-sans">Ô đang chọn:</span>
               <span className="text-slate-300">
-                {selectedSquare != null
+                {selectedSquare != null && isValidSquare(selectedSquare)
                   ? `${squareToAlgebraic(selectedSquare)} (sq: ${selectedSquare}, col: ${
                       squareToCoord(selectedSquare).col
                     }, row: ${squareToCoord(selectedSquare).row}) ${
