@@ -1,191 +1,281 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Position, Side, Piece } from '@xiangqi-arena/xiangqi-core';
 import Board from '@/components/Board';
-import { FEN_PRESETS } from '@/components/fen-presets';
-import { Position, squareToAlgebraic, squareToCoord, isValidSquare } from '@xiangqi-arena/xiangqi-core';
+import PlayerCard from '@/components/PlayerCard';
+import MatchControls from '@/components/MatchControls';
+import ChatBox, { ChatMessage } from '@/components/ChatBox';
+import Modal, { ModalProps } from '@/components/Modal';
 
-export default function DemoPage() {
-  const [currentFen, setCurrentFen] = useState<string>(FEN_PRESETS[0].fen);
-  const [inputFen, setInputFen] = useState<string>(FEN_PRESETS[0].fen);
-  const [orientation, setOrientation] = useState<'r' | 'b'>('r');
+export default function ArenaPage() {
+  const [board, setBoard] = useState<(Piece | null)[]>(() => Position.initial().board);
+  const [playerSide, setPlayerSide] = useState<Side>('r');
+  const [sideToMove, setSideToMove] = useState<Side>('r');
   const [selectedSquare, setSelectedSquare] = useState<number | null>(null);
+  const [lastMove, setLastMove] = useState<{ from: number; to: number } | null>(null);
 
-  // Position derived for status readout
-  const positionInfo = useMemo(() => {
-    try {
-      const pos = Position.fromFen(currentFen);
-      return {
-        sideToMove: pos.sideToMove === 'r' ? 'Đỏ' : 'Đen',
-        zobristHash: pos.toHashString(),
-        board: pos.board,
-        error: null,
-      };
-    } catch (e) {
-      return {
-        sideToMove: '-',
-        zobristHash: '-',
-        board: [],
-        error: e instanceof Error ? e.message : 'Invalid FEN',
-      };
-    }
-  }, [currentFen]);
+  const [redTimer, setRedTimer] = useState<number>(60);
+  const [blackTimer, setBlackTimer] = useState<number>(60);
 
-  const handleSelectPreset = (fen: string) => {
-    setCurrentFen(fen);
-    setInputFen(fen);
-    setSelectedSquare(null);
-  };
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: 'init-1',
+      sender: 'system',
+      senderName: 'Hệ thống',
+      text: 'Chào mừng kỳ thủ đến với phòng thi đấu!',
+      time: '12:00',
+    },
+  ]);
 
-  const handleApplyCustomFen = (e: React.FormEvent) => {
-    e.preventDefault();
-    setCurrentFen(inputFen.trim());
-    setSelectedSquare(null);
-  };
+  const [modalConfig, setModalConfig] = useState<ModalProps>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
 
+  // Turn timer countdown (60s turn timer for active sideToMove)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (sideToMove === 'r') {
+        setRedTimer((prev) => (prev > 0 ? prev - 1 : 0));
+      } else {
+        setBlackTimer((prev) => (prev > 0 ? prev - 1 : 0));
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [sideToMove]);
+
+  // Click-to-move logic
   const handleSquareClick = (sq: number) => {
-    setSelectedSquare((prev) => (prev === sq ? null : sq));
+    const clickedPiece = board[sq];
+
+    // 1. If no piece selected: selecting any square with a piece selects it
+    if (selectedSquare === null) {
+      if (clickedPiece) {
+        setSelectedSquare(sq);
+      }
+      return;
+    }
+
+    const currentPiece = board[selectedSquare];
+    if (!currentPiece) {
+      if (clickedPiece) {
+        setSelectedSquare(sq);
+      } else {
+        setSelectedSquare(null);
+      }
+      return;
+    }
+
+    // 2. Re-clicking the selected piece: deselects it
+    if (sq === selectedSquare) {
+      setSelectedSquare(null);
+      return;
+    }
+
+    // 3. Clicking another friendly piece: switches selection without moving
+    if (clickedPiece && clickedPiece.color === currentPiece.color) {
+      setSelectedSquare(sq);
+      return;
+    }
+
+    // 4. Clicking empty square or opponent piece: moves/captures, updates lastMove, toggles turn
+    const nextBoard = [...board];
+    nextBoard[sq] = currentPiece;
+    nextBoard[selectedSquare] = null;
+    setBoard(nextBoard);
+    setLastMove({ from: selectedSquare, to: sq });
+    setSelectedSquare(null);
+
+    const nextSide: Side = sideToMove === 'r' ? 'b' : 'r';
+    setSideToMove(nextSide);
+    if (nextSide === 'r') {
+      setRedTimer(60);
+    } else {
+      setBlackTimer(60);
+    }
   };
 
-  const selectedPiece =
-    selectedSquare != null && isValidSquare(selectedSquare)
-      ? positionInfo.board[selectedSquare]
-      : null;
+  const handleSendMessage = (text: string) => {
+    const newMsg: ChatMessage = {
+      id: `msg-${Date.now()}-${Math.random()}`,
+      sender: 'you',
+      senderName: 'Bạn',
+      text,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    setMessages((prev) => [...prev, newMsg]);
+  };
+
+  const handleOpenNewGame = () => {
+    setModalConfig({
+      isOpen: true,
+      title: 'Bắt đầu ván mới',
+      message: 'Bạn có chắc chắn muốn cài lại trạng thái bàn cờ từ đầu không?',
+      confirmText: 'Xác nhận',
+      cancelText: 'Hủy',
+      isNotice: false,
+      onConfirm: () => {
+        setBoard(Position.initial().board);
+        setSelectedSquare(null);
+        setLastMove(null);
+        setSideToMove('r');
+        setRedTimer(60);
+        setBlackTimer(60);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `sys-${Date.now()}`,
+            sender: 'system',
+            senderName: 'Hệ thống',
+            text: 'Ván cờ mới đã bắt đầu! Đỏ đi trước.',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+        ]);
+        setModalConfig((prev) => ({ ...prev, isOpen: false }));
+      },
+      onCancel: () => {
+        setModalConfig((prev) => ({ ...prev, isOpen: false }));
+      },
+    });
+  };
+
+  const handleOpenOfferDraw = () => {
+    setModalConfig({
+      isOpen: true,
+      title: 'Cầu hòa',
+      message: 'Bạn đã gửi yêu cầu xin hòa đến đối thủ. Vui lòng chờ phản hồi.',
+      isNotice: true,
+      onConfirm: () => {
+        setModalConfig((prev) => ({ ...prev, isOpen: false }));
+      },
+    });
+  };
+
+  const handleOpenLeaveRoom = () => {
+    setModalConfig({
+      isOpen: true,
+      title: 'Thoát phòng đấu',
+      message: 'Bạn có chắc chắn muốn rời khỏi phòng đấu không?',
+      confirmText: 'Xác nhận',
+      cancelText: 'Hủy',
+      isNotice: false,
+      onConfirm: () => {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `sys-${Date.now()}`,
+            sender: 'system',
+            senderName: 'Hệ thống',
+            text: 'Bạn đã thoát phòng đấu.',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+        ]);
+        setModalConfig((prev) => ({ ...prev, isOpen: false }));
+      },
+      onCancel: () => {
+        setModalConfig((prev) => ({ ...prev, isOpen: false }));
+      },
+    });
+  };
+
+  const opponentSide: Side = playerSide === 'r' ? 'b' : 'r';
 
   return (
-    <main className="min-h-screen p-4 md:p-8 bg-slate-900 text-slate-100 flex flex-col items-center">
-      <header className="mb-6 text-center">
-        <h1 className="text-3xl font-extrabold tracking-tight text-amber-400">
-          Xiangqi Arena — Bàn Cờ Tướng Web
-        </h1>
-        <p className="text-slate-400 text-sm mt-1">
-          Issue XQA-43: Render bàn cờ từ FEN & Thay đổi góc nhìn Đỏ / Đen
-        </p>
+    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center">
+      {/* Top Header */}
+      <header className="w-full border-b border-slate-800/80 bg-slate-900/60 backdrop-blur px-6 py-3.5 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-bold text-base shadow-sm">
+            象棋
+          </div>
+          <div>
+            <h1 className="text-base font-extrabold text-amber-400 tracking-tight">
+              Xiangqi Arena — Phòng Đấu Cờ Tướng
+            </h1>
+            <p className="text-[11px] text-slate-400">
+              Phòng #01 • Tiêu chuẩn 60s/lượt • Đấu trường trực tuyến
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="flex h-2.5 w-2.5 relative">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+          </span>
+          <span className="text-xs font-semibold text-emerald-400">Đang trực tuyến</span>
+        </div>
       </header>
 
-      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Cột hiển thị bàn cờ */}
-        <section className="lg:col-span-7 flex flex-col items-center">
-          <Board
-            fen={currentFen}
-            orientation={orientation}
-            selectedSquare={selectedSquare}
-            onSquareClick={handleSquareClick}
+      {/* 3-Column Arena Layout */}
+      <div className="w-full max-w-[1520px] p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Player Cards */}
+        <section className="lg:col-span-3 flex flex-col gap-4 order-2 lg:order-1">
+          {/* Đối thủ */}
+          <PlayerCard
+            name="Kỳ Vương Đối Thủ"
+            title="Đại Sư • Elo 2150"
+            side={opponentSide}
+            timeRemaining={opponentSide === 'r' ? redTimer : blackTimer}
+            isActive={sideToMove === opponentSide}
+            isLocalPlayer={false}
+          />
+
+          {/* Người chơi */}
+          <PlayerCard
+            name="Bạn"
+            title="Kiện Tướng • Elo 1980"
+            side={playerSide}
+            timeRemaining={playerSide === 'r' ? redTimer : blackTimer}
+            isActive={sideToMove === playerSide}
+            isLocalPlayer={true}
           />
         </section>
 
-        {/* Cột điều khiển & Thông tin */}
-        <section className="lg:col-span-5 flex flex-col gap-6 bg-slate-800/80 backdrop-blur p-6 rounded-xl border border-slate-700 shadow-xl">
-          {/* Nút lật bàn cờ */}
-          <div>
-            <label className="text-xs font-semibold uppercase text-slate-400 tracking-wider block mb-2">
-              Góc nhìn bàn cờ (Orientation)
-            </label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setOrientation('r')}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-colors ${
-                  orientation === 'r'
-                    ? 'bg-red-600 text-white shadow-lg shadow-red-900/50'
-                    : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
-                }`}
-              >
-                🔴 Góc nhìn Đỏ (Mặc định)
-              </button>
-              <button
-                type="button"
-                onClick={() => setOrientation('b')}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-colors ${
-                  orientation === 'b'
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
-                    : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
-                }`}
-              >
-                ⚫ Góc nhìn Đen (Lật 180°)
-              </button>
-            </div>
-          </div>
+        {/* Center Column: Board and Match Controls */}
+        <section className="lg:col-span-6 flex flex-col items-center gap-4 order-1 lg:order-2">
+          <Board
+            board={board}
+            orientation={playerSide}
+            selectedSquare={selectedSquare}
+            lastMove={lastMove}
+            onSquareClick={handleSquareClick}
+          />
 
-          {/* Chọn 4 FEN mẫu */}
-          <div>
-            <label className="text-xs font-semibold uppercase text-slate-400 tracking-wider block mb-2">
-              Thế cờ mẫu (Acceptance Criteria)
-            </label>
-            <div className="flex flex-col gap-2">
-              {FEN_PRESETS.map((preset, idx) => (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => handleSelectPreset(preset.fen)}
-                  className={`text-left p-3 rounded-lg border text-sm transition-all ${
-                    currentFen === preset.fen
-                      ? 'bg-amber-500/10 border-amber-500/60 text-amber-300'
-                      : 'bg-slate-700/50 border-slate-600 hover:bg-slate-700 text-slate-200'
-                  }`}
-                >
-                  <div className="font-semibold">
-                    {idx + 1}. {preset.name}
-                  </div>
-                  <div className="text-xs text-slate-400 mt-0.5">{preset.description}</div>
-                </button>
-              ))}
-            </div>
-          </div>
+          <MatchControls
+            playerSide={playerSide}
+            onSelectSide={setPlayerSide}
+            onNewGame={handleOpenNewGame}
+            onOfferDraw={handleOpenOfferDraw}
+            onLeaveRoom={handleOpenLeaveRoom}
+          />
+        </section>
 
-          {/* Nhập FEN tùy ý */}
-          <form onSubmit={handleApplyCustomFen} className="flex flex-col gap-2">
-            <label htmlFor="custom-fen" className="text-xs font-semibold uppercase text-slate-400 tracking-wider">
-              Nhập FEN tùy ý
-            </label>
-            <div className="flex gap-2">
-              <input
-                id="custom-fen"
-                type="text"
-                value={inputFen}
-                onChange={(e) => setInputFen(e.target.value)}
-                placeholder="Dán chuỗi FEN vào đây..."
-                className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500"
-              />
-              <button
-                type="submit"
-                className="bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-xs"
-              >
-                Áp dụng
-              </button>
-            </div>
-          </form>
-
-          {/* Bảng trạng thái */}
-          <div className="bg-slate-900/80 p-4 rounded-lg border border-slate-700 text-xs flex flex-col gap-2 font-mono">
-            {positionInfo.error && (
-              <div className="bg-red-950/50 border border-red-800 text-red-300 p-2 rounded text-xs mb-2">
-                ⚠️ {positionInfo.error}
-              </div>
-            )}
-            <div className="flex justify-between border-b border-slate-800 pb-1">
-              <span className="text-slate-400 font-sans">Lượt đi:</span>
-              <span className="font-bold text-amber-400">{positionInfo.sideToMove}</span>
-            </div>
-            <div className="flex justify-between border-b border-slate-800 pb-1">
-              <span className="text-slate-400 font-sans">Zobrist Hash:</span>
-              <span className="text-slate-300">{positionInfo.zobristHash}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400 font-sans">Ô đang chọn:</span>
-              <span className="text-slate-300">
-                {selectedSquare != null && isValidSquare(selectedSquare)
-                  ? `${squareToAlgebraic(selectedSquare)} (sq: ${selectedSquare}, col: ${
-                      squareToCoord(selectedSquare).col
-                    }, row: ${squareToCoord(selectedSquare).row}) ${
-                      selectedPiece ? `[${selectedPiece.color === 'r' ? 'Đỏ' : 'Đen'} ${selectedPiece.type.toUpperCase()}]` : '[Ô trống]'
-                    }`
-                  : 'Chưa chọn'}
-              </span>
-            </div>
-          </div>
+        {/* Right Column: Chat Box */}
+        <section className="lg:col-span-3 flex flex-col h-[600px] order-3">
+          <ChatBox
+            messages={messages}
+            onSendMessage={handleSendMessage}
+            className="h-full"
+          />
         </section>
       </div>
+
+      {/* Confirmation & Notice Modal */}
+      <Modal
+        isOpen={modalConfig.isOpen}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        confirmText={modalConfig.confirmText}
+        cancelText={modalConfig.cancelText}
+        isNotice={modalConfig.isNotice}
+        onConfirm={modalConfig.onConfirm}
+        onCancel={modalConfig.onCancel}
+      />
     </main>
   );
 }
