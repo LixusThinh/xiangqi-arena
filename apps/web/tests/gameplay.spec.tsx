@@ -139,4 +139,69 @@ describe('Xiangqi Arena Game Room Page', () => {
     fireEvent.click(screen.getByRole('button', { name: /Hủy/i }));
     expect(screen.queryByText(/Thoát phòng đấu/i)).not.toBeInTheDocument();
   });
+
+  it('enables undo button after a move, rolls back move on click, and restores previous state', () => {
+    render(<ArenaPage />);
+    const undoButton = screen.getByRole('button', { name: /Quay lại/i });
+    expect(undoButton).toBeDisabled();
+
+    // Red Cannon moves: 64 -> 55
+    fireEvent.click(screen.getByTestId('piece-64'));
+    fireEvent.click(screen.getByTestId('cell-55'));
+
+    expect(screen.getByTestId('piece-55')).toBeInTheDocument();
+    expect(screen.queryByTestId('piece-64')).not.toBeInTheDocument();
+    expect(undoButton).toBeEnabled();
+
+    // Click Undo
+    fireEvent.click(undoButton);
+
+    // Verify move is rolled back
+    expect(screen.getByTestId('piece-64')).toBeInTheDocument();
+    expect(screen.queryByTestId('piece-55')).not.toBeInTheDocument();
+    expect(undoButton).toBeDisabled();
+    expect(screen.getByText('Đã quay lại nước đi.')).toBeInTheDocument();
+  });
+
+  it('restores captured piece upon undoing a capture move', () => {
+    render(<ArenaPage />);
+    const undoButton = screen.getByRole('button', { name: /Quay lại/i });
+
+    // Red Cannon at 64 captures Black Rook at 0
+    fireEvent.click(screen.getByTestId('piece-64'));
+    fireEvent.click(screen.getByTestId('piece-0'));
+
+    expect(screen.getByTestId('piece-0')).toHaveAttribute('data-piece', 'rc');
+    expect(screen.queryByTestId('piece-64')).not.toBeInTheDocument();
+    expect(undoButton).toBeEnabled();
+
+    // Click Undo
+    fireEvent.click(undoButton);
+
+    // Red Cannon is back at 64, Black Rook is back at 0
+    expect(screen.getByTestId('piece-64')).toHaveAttribute('data-piece', 'rc');
+    expect(screen.getByTestId('piece-0')).toHaveAttribute('data-piece', 'br');
+    expect(undoButton).toBeDisabled();
+  });
+
+  it('clears undo history when starting a new game', () => {
+    render(<ArenaPage />);
+    const undoButton = screen.getByRole('button', { name: /Quay lại/i });
+
+    // Make a move
+    fireEvent.click(screen.getByTestId('piece-64'));
+    fireEvent.click(screen.getByTestId('cell-55'));
+    expect(undoButton).toBeEnabled();
+
+    // Start New Game
+    fireEvent.click(screen.getByRole('button', { name: /Ván mới/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Xác nhận/i }));
+
+    // History is cleared and undo button disabled
+    expect(undoButton).toBeDisabled();
+    expect(screen.getByTestId('piece-64')).toBeInTheDocument();
+    expect(screen.queryByTestId('cell-55')).toBeInTheDocument();
+    expect(screen.queryByTestId('piece-55')).not.toBeInTheDocument();
+  });
 });
+
