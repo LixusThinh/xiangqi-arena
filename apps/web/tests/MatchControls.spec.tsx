@@ -16,6 +16,7 @@ describe('<MatchControls />', () => {
 
     expect(screen.getByText(/Phe Đỏ/i)).toBeInTheDocument();
     expect(screen.getByText(/Phe Đen/i)).toBeInTheDocument();
+    expect(screen.getByText(/Quay lại/i)).toBeInTheDocument();
     expect(screen.getByText(/Ván mới/i)).toBeInTheDocument();
     expect(screen.getByText(/Xin hòa/i)).toBeInTheDocument();
     expect(screen.getByText(/Thoát/i)).toBeInTheDocument();
@@ -67,4 +68,49 @@ describe('<MatchControls />', () => {
     fireEvent.click(screen.getByText(/Thoát/i));
     expect(handleLeaveRoom).toHaveBeenCalledTimes(1);
   });
+
+  it('renders disabled undo button when canUndo is false and does not trigger onUndoMove', () => {
+    const handleUndoMove = jest.fn();
+    render(
+      <MatchControls
+        playerSide="r"
+        onSelectSide={jest.fn()}
+        onNewGame={jest.fn()}
+        onOfferDraw={jest.fn()}
+        onLeaveRoom={jest.fn()}
+        onUndoMove={handleUndoMove}
+        canUndo={false}
+      />
+    );
+
+    const undoButton = screen.getByRole('button', { name: /Quay lại/i });
+    expect(undoButton).toBeInTheDocument();
+    expect(undoButton).toBeDisabled();
+
+    fireEvent.click(undoButton);
+    expect(handleUndoMove).not.toHaveBeenCalled();
+  });
+
+  it('renders enabled undo button when canUndo is true and triggers onUndoMove', () => {
+    const handleUndoMove = jest.fn();
+    render(
+      <MatchControls
+        playerSide="r"
+        onSelectSide={jest.fn()}
+        onNewGame={jest.fn()}
+        onOfferDraw={jest.fn()}
+        onLeaveRoom={jest.fn()}
+        onUndoMove={handleUndoMove}
+        canUndo={true}
+      />
+    );
+
+    const undoButton = screen.getByRole('button', { name: /Quay lại/i });
+    expect(undoButton).toBeInTheDocument();
+    expect(undoButton).toBeEnabled();
+
+    fireEvent.click(undoButton);
+    expect(handleUndoMove).toHaveBeenCalledTimes(1);
+  });
 });
+

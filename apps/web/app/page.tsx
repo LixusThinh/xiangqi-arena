@@ -1,15 +1,22 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Position, Side, Piece } from '@xiangqi-arena/xiangqi-core';
+import { Position, Side, Piece, MoveUndo } from '@xiangqi-arena/xiangqi-core';
 import Board from '@/components/Board';
 import PlayerCard from '@/components/PlayerCard';
 import MatchControls from '@/components/MatchControls';
 import ChatBox, { ChatMessage } from '@/components/ChatBox';
 import Modal, { ModalProps } from '@/components/Modal';
 
+interface UndoRecord {
+  undo: MoveUndo;
+  prevLastMove: { from: number; to: number } | null;
+}
+
 export default function ArenaPage() {
+  const [position, setPosition] = useState<Position>(() => Position.initial());
   const [board, setBoard] = useState<(Piece | null)[]>(() => Position.initial().board);
+  const [undoHistory, setUndoHistory] = useState<UndoRecord[]>([]);
   const [playerSide, setPlayerSide] = useState<Side>('r');
   const [sideToMove, setSideToMove] = useState<Side>('r');
   const [selectedSquare, setSelectedSquare] = useState<number | null>(null);
@@ -55,9 +62,9 @@ export default function ArenaPage() {
   const handleSquareClick = (sq: number) => {
     const clickedPiece = board[sq];
 
-    // 1. If no piece selected: selecting any square with a piece selects it
+    // 1. If no piece selected: selecting any square with a piece of the active side selects it
     if (selectedSquare === null) {
-      if (clickedPiece) {
+      if (clickedPiece && clickedPiece.color === sideToMove) {
         setSelectedSquare(sq);
       }
       return;
@@ -65,7 +72,7 @@ export default function ArenaPage() {
 
     const currentPiece = board[selectedSquare];
     if (!currentPiece) {
-      if (clickedPiece) {
+      if (clickedPiece && clickedPiece.color === sideToMove) {
         setSelectedSquare(sq);
       } else {
         setSelectedSquare(null);
@@ -86,14 +93,14 @@ export default function ArenaPage() {
     }
 
     // 4. Clicking empty square or opponent piece: moves/captures, updates lastMove, toggles turn
-    const nextBoard = [...board];
-    nextBoard[sq] = currentPiece;
-    nextBoard[selectedSquare] = null;
-    setBoard(nextBoard);
-    setLastMove({ from: selectedSquare, to: sq });
+    const move = { from: selectedSquare, to: sq };
+    const undoInfo = position.applyMove(move);
+    setUndoHistory((prev) => [...prev, { undo: undoInfo, prevLastMove: lastMove }]);
+    setBoard([...position.board]);
+    setLastMove(move);
     setSelectedSquare(null);
 
-    const nextSide: Side = sideToMove === 'r' ? 'b' : 'r';
+    const nextSide = position.sideToMove;
     setSideToMove(nextSide);
     if (nextSide === 'r') {
       setRedTimer(60);
@@ -113,6 +120,60 @@ export default function ArenaPage() {
     setMessages((prev) => [...prev, newMsg]);
   };
 
+  const handleUndoMove = () => {
+    if (undoHistory.length === 0) return;
+
+    const nextHistory = [...undoHistory];
+    const lastRecord = nextHistory.pop()!;
+    position.undoMove(lastRecord.undo);
+
+    setUndoHistory(nextHistory);
+    setBoard([...position.board]);
+    setSideToMove(position.sideToMove);
+    setLastMove(lastRecord.prevLastMove);
+    setSelectedSquare(null);
+
+    if (position.sideToMove === 'r') {
+      setRedTimer(60);
+    } else {
+      setBlackTimer(60);
+    }
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `sys-${Date.now()}-${Math.random()}`,
+        sender: 'system',
+        senderName: 'Hệ thống',
+        text: 'Đã quay lại nước đi.',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+    ]);
+  };
+
+  const handleConfirmNewGame = () => {
+    const newPos = Position.initial();
+    setPosition(newPos);
+    setBoard([...newPos.board]);
+    setSideToMove('r');
+    setSelectedSquare(null);
+    setLastMove(null);
+    setRedTimer(60);
+    setBlackTimer(60);
+    setUndoHistory([]);
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `sys-${Date.now()}-${Math.random()}`,
+        sender: 'system',
+        senderName: 'Hệ thống',
+        text: 'Ván cờ mới đã bắt đầu! Đỏ đi trước.',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+    ]);
+    setModalConfig((prev) => ({ ...prev, isOpen: false }));
+  };
+
   const handleOpenNewGame = () => {
     setModalConfig({
       isOpen: true,
@@ -121,25 +182,7 @@ export default function ArenaPage() {
       confirmText: 'Xác nhận',
       cancelText: 'Hủy',
       isNotice: false,
-      onConfirm: () => {
-        setBoard(Position.initial().board);
-        setSelectedSquare(null);
-        setLastMove(null);
-        setSideToMove('r');
-        setRedTimer(60);
-        setBlackTimer(60);
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `sys-${Date.now()}`,
-            sender: 'system',
-            senderName: 'Hệ thống',
-            text: 'Ván cờ mới đã bắt đầu! Đỏ đi trước.',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          },
-        ]);
-        setModalConfig((prev) => ({ ...prev, isOpen: false }));
-      },
+      onConfirm: handleConfirmNewGame,
       onCancel: () => {
         setModalConfig((prev) => ({ ...prev, isOpen: false }));
       },
@@ -255,6 +298,8 @@ export default function ArenaPage() {
             onNewGame={handleOpenNewGame}
             onOfferDraw={handleOpenOfferDraw}
             onLeaveRoom={handleOpenLeaveRoom}
+            onUndoMove={handleUndoMove}
+            canUndo={undoHistory.length > 0}
           />
         </section>
 
