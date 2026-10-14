@@ -1,75 +1,105 @@
-# Thiết kế Kỹ thuật XQA-44: Bộ Sinh Nước Đi (MoveGen) cho Tướng, Sĩ, Tượng, Mã
+# Thiết kế Kỹ thuật XQA-44: Bộ Sinh & Kiểm Tra Nước Đi cho Tướng, Sĩ, Tượng, Mã
 
 - **Mã tính năng / Nhánh**: `feat/XQA-44-MoveGen-Tuong-Si-Tuong-Ma`
-- **Gói áp dụng**: `@xiangqi-arena/xiangqi-core`
-- **Ngày lập**: 14/10/2026
-- **Trạng thái**: Đã duyệt (Approved)
-- **Tài liệu tham chiếu**: [docs/engine/rules-and-movegen-spec.md](../../engine/rules-and-movegen-spec.md)
+- **Gói áp dụng**: `@xiangqi-arena/xiangqi-core` & `apps/web`
+- **Ngày cập nhật**: 14/10/2026
+- **Trạng thái**: Đã thống nhất (Approved)
 
 ---
 
 ## 1. Mục tiêu & Phạm vi
 
-Triển khai các module sinh nước đi vật lý (pseudo-legal moves) cho 4 loại quân cờ cơ bản trong Cờ Tướng:
-1. **Tướng (King - `k`)**: Di chuyển 1 ô trực giao trong Cung tướng; hỗ trợ kiểm tra Lộ mặt tướng (Flying General - bay ăn Tướng đối phương khi không có vật cản).
-2. **Sĩ (Advisor - `a`)**: Di chuyển 1 ô chéo giữa 5 vị trí cố định trong Cung tướng.
-3. **Tượng (Elephant / Bishop - `b`)**: Di chuyển 2 ô chéo (hình chữ Điền), không được qua sông, kiểm tra cản mắt Tượng.
-4. **Mã (Horse / Knight - `n`)**: Di chuyển hình chữ L (8 hướng), kiểm tra cản chân Mã.
+1. **Core Engine (`@xiangqi-arena/xiangqi-core`)**:
+   - Hoàn thiện bộ sinh nước đi vật lý (pseudo-legal) cho 4 quân cờ:
+     - **Tướng (King - `k`)**: 1 ô trực giao trong Cung; hỗ trợ bay tướng ăn Tướng đối phương (Flying General) khi không có quân cản.
+     - **Sĩ (Advisor - `a`)**: 1 ô chéo giữa 5 vị trí trong Cung.
+     - **Tượng (Elephant - `b`)**: 2 ô chéo (chữ Điền), không qua sông, kiểm tra cản mắt Tượng.
+     - **Mã (Horse - `n`)**: Đi chữ L (8 hướng), kiểm tra cản chân Mã tại 4 hướng trực giao.
+   - Các quân chưa hỗ trợ trong ticket này: **Xe (`r`), Pháo (`c`), Tốt (`p`)** tạm thời sinh ra 0 nước đi (`[]`) và chờ ticket `XQA-45`.
+   - Bổ sung hàm kiểm tra tính hợp lệ của nước đi:
+     ```typescript
+     Position.prototype.isLegalMove(move: Move): boolean
+     ```
+     Nước đi được coi là hợp lệ nếu ô `from` có quân thuộc lượt đi (`sideToMove`), và ô `to` nằm trong danh sách nước đi sinh ra từ `generatePieceMoves(from)`.
+   - Lưu ý phạm vi: Chưa áp dụng kiểm tra chống tự sát / chiếu tướng (`isChecked`).
+
+2. **Web Client (`apps/web`)**:
+   - **Gợi ý nước đi (Move Hints)**:
+     - Component `Board.tsx` nhận thêm prop `validMoves?: number[]`.
+     - Khi chọn một quân cờ (Tướng, Sĩ, Tượng, Mã), bàn cờ hiển thị điểm đánh dấu gợi ý tại các ô đích hợp lệ:
+       - Ô trống: chấm tròn xanh bán trong suốt (`fill="rgba(34, 197, 94, 0.55)"`).
+       - Ô có quân địch (ăn quân): vòng tròn bao quanh quân địch (`stroke="rgba(239, 68, 68, 0.85)"`).
+   - **Chặn nước đi không hợp lệ**:
+     - `ArenaPage` (`apps/web/app/page.tsx`): Khi click vào ô đích hoặc quân địch, chỉ thực hiện `applyMove` nếu `position.isLegalMove({ from: selectedSquare, to: sq }) === true`.
+     - Quân Xe, Pháo, Tốt bị khóa (không sinh nước đi hợp lệ, không thể di chuyển cho đến ticket XQA-45).
 
 ---
 
 ## 2. Ràng buộc Kỹ thuật
 
-- **Pure TypeScript & Zero Dependencies**: 100% không dùng thư viện ngoài.
+- **Pure TypeScript & Zero Dependencies** trong `xiangqi-core`.
 - **Hệ toạ độ 1D (0..89)**: `col = sq % 9`, `row = Math.floor(sq / 9)`.
-- **Hiệu năng $O(1)$**: Sử dụng logic kiểm tra biên trực tiếp hoặc mảng offset tĩnh.
-- **Tương thích hoàn toàn với lớp `Position`**: Bổ sung method `generatePieceMoves(sq: Square): Move[]` và `hasFlyingGeneral(): boolean`.
-- **TDD (Test-Driven Development)**: Mỗi module đều đi kèm Jest test suite tương ứng trong `packages/xiangqi-core/tests/`.
+- **Tương thích ngược**: Giữ nguyên tính toàn vẹn của `applyMove` và `undoMove` cho việc kiểm thử và lưu lịch sử.
+- **TDD (Test-Driven Development)**: 100% chức năng mới có bài kiểm thử tương ứng ở cả `xiangqi-core` và `apps/web`.
+- **Hiệu năng**: Các phép toán kiểm tra nước đi và render gợi ý đều thực hiện tức thì ($O(1)$).
 
 ---
 
-## 3. Chi tiết Giải thuật Từng Quân
+## 3. Chi tiết API & Kiến trúc
 
-### 3.1. Tướng (King - `k`)
-- **Phạm vi Cung (Palace)**:
-  - Cột: $3 \le c \le 5$ (`d`, `e`, `f`).
-  - Đỏ: $7 \le r \le 9$; Đen: $0 \le r \le 2$.
-- **Bước đi trực giao**:
-  - Hướng: $(-1, 0), (1, 0), (0, -1), (0, 1)$.
-  - Ô đích phải nằm trong Cung, không chứa quân cùng màu.
-- **Lộ mặt tướng (Flying General)**:
-  - Nếu Tướng phe mình và Tướng phe đối phương cùng cột, quét dọc giữa 2 Tướng: nếu không có bất kỳ quân nào chắn giữa $\rightarrow$ nước đi Tướng ăn trực tiếp Tướng đối phương là hợp lệ.
+### 3.1. `Position.prototype.isLegalMove(move: Move): boolean`
+```typescript
+isLegalMove(move: Move): boolean {
+  const { from, to } = move;
+  if (!isValidSquare(from) || !isValidSquare(to) || from === to) {
+    return false;
+  }
+  const piece = this.board[from];
+  if (!piece || piece.color !== this.sideToMove) {
+    return false;
+  }
+  const legalMoves = this.generatePieceMoves(from);
+  return legalMoves.some((m) => m.to === to);
+}
+```
 
-### 3.2. Sĩ (Advisor - `a`)
-- **Vị trí hợp lệ trong Cung**:
-  - Đỏ (5 ô): `d9(84)`, `f9(86)`, `e8(76)`, `d7(66)`, `f7(68)`.
-  - Đen (5 ô): `d0(3)`, `f0(5)`, `e1(13)`, `d2(21)`, `f2(23)`.
-- **Bước đi chéo 1 ô**:
-  - Delta: $(\pm 1, \pm 1)$.
-  - Ô đích phải là 1 trong 5 ô Cung của phe mình và không chứa quân cùng màu.
+### 3.2. `Board.tsx` Prop & SVG Overlay
+```typescript
+export interface BoardProps {
+  board?: (Piece | null)[];
+  fen?: string;
+  position?: Position;
+  orientation?: 'r' | 'b';
+  selectedSquare?: number | null;
+  lastMove?: { from: number; to: number } | null;
+  validMoves?: number[]; // <-- Mảng danh sách ô đích hợp lệ
+  onSquareClick?: (square: number) => void;
+  className?: string;
+}
+```
 
-### 3.3. Tượng (Elephant - `b`)
-- **Bước đi chéo 2 ô**:
-  - Delta: $(\pm 2, \pm 2)$.
-- **Giới hạn sông (River)**:
-  - Đỏ: $r \ge 5$ (không được lên hàng $\le 4$).
-  - Đen: $r \le 4$ (không được xuống hàng $\ge 5$).
-- **Mắt Tượng (Elephant Eye)**:
-  - Toạ độ mắt: `eyeCol = fc + dc / 2`, `eyeRow = fr + dr / 2`.
-  - Nếu `board[coordToSquare(eyeCol, eyeRow)] !== null` $\rightarrow$ bị cản mắt, không đi được.
-- **Ô đích**: Ô đích không được chứa quân cùng màu.
+Trong SVG của `Board.tsx`:
+Thêm Layer `validMoves` hiển thị giữa Layer tương tác click và Layer quân cờ (hoặc ngay trên Layer click):
+- Duyệt qua `validMoves`:
+  - Lấy tọa độ tâm: `cx = coords.x + CELL_SIZE / 2`, `cy = coords.y + CELL_SIZE / 2`.
+  - Nếu `board[sq]` có quân đối phương: vẽ `circle` viền đỏ (`r = CELL_SIZE * 0.42`, `fill="none"`, `stroke="rgba(239, 68, 68, 0.85)"`, `strokeWidth={3}`).
+  - Nếu `board[sq] === null`: vẽ `circle` chấm xanh (`r = CELL_SIZE * 0.16`, `fill="rgba(34, 197, 94, 0.6)"`).
 
-### 3.4. Mã (Horse - `n`)
-- **Bước đi chữ L**:
-  - Đi dọc 2, ngang 1: $dr = \pm 2, dc = \pm 1$. Chân Mã: $(fc, fr + dr / 2)$.
-  - Đi ngang 2, dọc 1: $dr = \pm 1, dc = \pm 2$. Chân Mã: $(fc + dc / 2, fr)$.
-- **Cản chân Mã**:
-  - Nếu ô chân Mã khác `null` $\rightarrow$ bị cản chân, không đi được.
-- **Ô đích**: Nằm trong bàn cờ ($0 \le c < 9, 0 \le r < 10$) và không chứa quân cùng màu.
+### 3.3. `handleSquareClick` trong `ArenaPage`
+1. Khi chọn quân đồng minh:
+   - `setSelectedSquare(sq)`.
+   - Tính `const validMoves = position.generatePieceMoves(sq).map(m => m.to)`.
+   - `setValidMoves(validMoves)`.
+2. Khi bấm ô đích (ô trống hoặc quân địch):
+   - Gọi `position.isLegalMove({ from: selectedSquare, to: sq })`.
+   - Nếu `false`: bỏ qua (không đi cờ).
+   - Nếu `true`:
+     - Thực hiện `position.applyMove({ from: selectedSquare, to: sq })`.
+     - Cập nhật bàn cờ, xóa `selectedSquare`, xóa `validMoves`.
 
 ---
 
-## 4. Cấu trúc File triển khai
+## 4. Cấu trúc File
 
 ```text
 packages/xiangqi-core/
@@ -79,13 +109,18 @@ packages/xiangqi-core/
 │   │   ├── advisor.ts       # Advisor moves
 │   │   ├── elephant.ts      # Elephant moves + Eye blocking
 │   │   ├── horse.ts         # Horse moves + Leg blocking
-│   │   └── index.ts         # Re-export & generatePieceMoves dispatcher
-│   ├── position.ts          # Integrate generatePieceMoves & hasFlyingGeneral
-│   └── index.ts             # Export public API
+│   │   └── index.ts         # Dispatcher & re-exports
+│   ├── position.ts          # Position class with isLegalMove & generatePieceMoves
+│   └── index.ts             # Public exports
 └── tests/
-    ├── movegen-king.spec.ts
-    ├── movegen-advisor.spec.ts
-    ├── movegen-elephant.spec.ts
-    ├── movegen-horse.spec.ts
-    └── position-movegen.spec.ts
+    └── position-islegal.spec.ts # Tests for isLegalMove
+
+apps/web/
+├── components/
+│   └── Board.tsx            # Support validMoves visual hint dots/rings
+├── app/
+│   └── page.tsx             # Enforce isLegalMove and manage validMoves state
+└── tests/
+    ├── Board.spec.tsx       # Tests for validMoves rendering in Board
+    └── gameplay.spec.tsx    # Tests for valid move enforcement and locked pieces
 ```
