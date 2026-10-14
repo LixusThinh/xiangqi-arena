@@ -144,6 +144,21 @@ export class Position implements PositionState {
     );
   }
 
+  isLegalMove(move: Move): boolean {
+    const { from, to } = move;
+    if (!isValidSquare(from) || !isValidSquare(to) || from === to) {
+      return false;
+    }
+
+    const piece = this.board[from];
+    if (!piece || piece.color !== this.sideToMove) {
+      return false;
+    }
+
+    const legalMoves = this.generatePieceMoves(from);
+    return legalMoves.some((m) => m.to === to);
+  }
+
   generatePieceMoves(sq: Square): Move[] {
     return genPieceMoves(this.board, sq, this.sideToMove);
   }
