@@ -62,9 +62,9 @@ export default function ArenaPage() {
   const handleSquareClick = (sq: number) => {
     const clickedPiece = board[sq];
 
-    // 1. If no piece selected: selecting any square with a piece selects it
+    // 1. If no piece selected: selecting any square with a piece of the active side selects it
     if (selectedSquare === null) {
-      if (clickedPiece) {
+      if (clickedPiece && clickedPiece.color === sideToMove) {
         setSelectedSquare(sq);
       }
       return;
@@ -72,7 +72,7 @@ export default function ArenaPage() {
 
     const currentPiece = board[selectedSquare];
     if (!currentPiece) {
-      if (clickedPiece) {
+      if (clickedPiece && clickedPiece.color === sideToMove) {
         setSelectedSquare(sq);
       } else {
         setSelectedSquare(null);
@@ -139,7 +139,16 @@ export default function ArenaPage() {
       setBlackTimer(60);
     }
 
-    handleSendMessage('Đã quay lại nước đi.');
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `sys-${Date.now()}-${Math.random()}`,
+        sender: 'system',
+        senderName: 'Hệ thống',
+        text: 'Đã quay lại nước đi.',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+    ]);
   };
 
   const handleConfirmNewGame = () => {
@@ -155,7 +164,7 @@ export default function ArenaPage() {
     setMessages((prev) => [
       ...prev,
       {
-        id: `sys-${Date.now()}`,
+        id: `sys-${Date.now()}-${Math.random()}`,
         sender: 'system',
         senderName: 'Hệ thống',
         text: 'Ván cờ mới đã bắt đầu! Đỏ đi trước.',
