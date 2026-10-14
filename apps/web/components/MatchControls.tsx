@@ -9,6 +9,8 @@ export interface MatchControlsProps {
   onNewGame: () => void;
   onOfferDraw: () => void;
   onLeaveRoom: () => void;
+  onUndoMove?: () => void;
+  canUndo?: boolean;
   className?: string;
 }
 
@@ -18,6 +20,8 @@ export default function MatchControls({
   onNewGame,
   onOfferDraw,
   onLeaveRoom,
+  onUndoMove,
+  canUndo = false,
   className = '',
 }: MatchControlsProps) {
   return (
@@ -54,6 +58,18 @@ export default function MatchControls({
 
       {/* Nút thao tác trận đấu */}
       <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={!canUndo}
+          onClick={onUndoMove}
+          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors shadow-sm ${
+            canUndo
+              ? 'bg-slate-700 hover:bg-slate-600 text-sky-300 border border-sky-500/30'
+              : 'opacity-40 cursor-not-allowed bg-slate-800 text-slate-500 border border-slate-700'
+          }`}
+        >
+          ↩️ Quay lại
+        </button>
         <button
           type="button"
           onClick={onNewGame}
