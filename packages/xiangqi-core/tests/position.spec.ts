@@ -1,10 +1,9 @@
 import {
+  MoveUndo,
   Position,
   STARTING_FEN,
   algebraicToSquare,
   computeZobristHash,
-  parseFen,
-  toFen,
 } from '../src';
 
 describe('Position Class', () => {
@@ -15,6 +14,12 @@ describe('Position Class', () => {
     expect(pos.halfMoveClock).toBe(0);
     expect(pos.fullMoveNumber).toBe(1);
     expect(pos.toHashString()).toHaveLength(16);
+  });
+
+  it('initializes via Position.initial accurately', () => {
+    const pos = Position.initial();
+    expect(pos.toFen()).toBe(STARTING_FEN);
+    expect(pos.sideToMove).toBe('r');
   });
 
   it('applies a peaceful move and undos back to identical state and hash', () => {
@@ -84,7 +89,7 @@ describe('Position Class', () => {
     const initialFen = pos.toFen();
     const initialHash = pos.zobristHash;
 
-    const undos = [];
+    const undos: MoveUndo[] = [];
     // Move 1 (Red): Horse at b9 to c7
     undos.push(pos.applyMove({ from: 82, to: 65 }));
     expect(pos.sideToMove).toBe('b');
