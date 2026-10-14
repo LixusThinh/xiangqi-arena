@@ -130,4 +130,30 @@ describe('<Board />', () => {
     expect(piece).toHaveClass('[transform-box:fill-box]');
     expect(piece).toHaveClass('origin-center');
   });
+
+  it('renders move hints when validMoves prop is provided', () => {
+    // Square 63 is empty, square 67 is occupied by enemy piece in custom FEN
+    const customFen = 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C2n4/9/RNBAKAB1R r - - 4 10';
+    render(
+      <Board
+        fen={customFen}
+        selectedSquare={82}
+        validMoves={[63, 67]}
+      />
+    );
+
+    const hint63 = screen.getByTestId('hint-sq-63');
+    expect(hint63).toBeInTheDocument();
+    expect(hint63.getAttribute('data-hint-type')).toBe('peaceful');
+
+    const hint67 = screen.getByTestId('hint-sq-67');
+    expect(hint67).toBeInTheDocument();
+    expect(hint67.getAttribute('data-hint-type')).toBe('capture');
+  });
+
+  it('renders no move hints when validMoves is empty or not provided', () => {
+    render(<Board selectedSquare={82} validMoves={[]} />);
+    expect(screen.queryByTestId(/hint-sq-/)).not.toBeInTheDocument();
+  });
 });
+

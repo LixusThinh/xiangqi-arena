@@ -28,6 +28,9 @@ export interface BoardProps {
   /** Nước đi gần nhất để highlight { from, to } */
   lastMove?: { from: number; to: number } | null;
 
+  /** Danh sách các ô đi hợp lệ từ ô đang chọn để hiển thị gợi ý */
+  validMoves?: number[];
+
   /** Callback khi click vào bất kỳ ô nào */
   onSquareClick?: (square: number) => void;
 
@@ -42,6 +45,7 @@ export default function Board({
   orientation = 'r',
   selectedSquare,
   lastMove,
+  validMoves,
   onSquareClick,
   className = '',
 }: BoardProps) {
@@ -144,6 +148,47 @@ export default function Board({
             );
           })()
         )}
+
+        {/* Layer 2c: Gợi ý các ô đi hợp lệ (validMoves) */}
+        {validMoves && validMoves.length > 0 && validMoves.map((sq) => {
+          if (!isValidSquare(sq)) return null;
+          const coords = getSquareCoordinates(sq, orientation);
+          const targetPiece = boardArray[sq];
+          const isCapture = targetPiece !== null && targetPiece !== undefined;
+          const cx = coords.x + CELL_SIZE / 2;
+          const cy = coords.y + CELL_SIZE / 2;
+
+          if (isCapture) {
+            return (
+              <circle
+                key={`hint-${sq}`}
+                data-testid={`hint-sq-${sq}`}
+                data-hint-type="capture"
+                cx={cx}
+                cy={cy}
+                r={CELL_SIZE * 0.42}
+                fill="none"
+                stroke="rgba(239, 68, 68, 0.85)"
+                strokeWidth={3}
+                strokeDasharray="4 2"
+                className="pointer-events-none animate-pulse"
+              />
+            );
+          }
+
+          return (
+            <circle
+              key={`hint-${sq}`}
+              data-testid={`hint-sq-${sq}`}
+              data-hint-type="peaceful"
+              cx={cx}
+              cy={cy}
+              r={CELL_SIZE * 0.16}
+              fill="rgba(34, 197, 94, 0.65)"
+              className="pointer-events-none"
+            />
+          );
+        })}
 
         {/* Layer 3: 90 ô tương tác click */}
         {Array.from({ length: 90 }, (_, sq) => {
