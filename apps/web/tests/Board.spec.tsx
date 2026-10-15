@@ -130,4 +130,25 @@ describe('<Board />', () => {
     expect(piece).toHaveClass('[transform-box:fill-box]');
     expect(piece).toHaveClass('origin-center');
   });
+
+  it('renders a valid-move dot for each square in validMoves', () => {
+    render(<Board fen={STARTING_FEN} validMoves={[40, 49]} />);
+    expect(screen.getByTestId('valid-move-40')).toBeInTheDocument();
+    expect(screen.getByTestId('valid-move-49')).toBeInTheDocument();
+    expect(screen.queryAllByTestId(/^valid-move-/)).toHaveLength(2);
+  });
+
+  it('renders no valid-move dots by default', () => {
+    render(<Board fen={STARTING_FEN} />);
+    expect(screen.queryAllByTestId(/^valid-move-/)).toHaveLength(0);
+  });
+
+  it('draws valid-move dots above pieces so capture targets stay visible', () => {
+    const { container } = render(<Board fen={STARTING_FEN} validMoves={[0]} />);
+    const nodes = Array.from(container.querySelectorAll('[data-testid]'));
+    const dotIdx = nodes.findIndex((n) => n.getAttribute('data-testid') === 'valid-move-0');
+    const pieceIdx = nodes.findIndex((n) => n.getAttribute('data-testid') === 'piece-0');
+    expect(pieceIdx).toBeGreaterThanOrEqual(0);
+    expect(dotIdx).toBeGreaterThan(pieceIdx);
+  });
 });
