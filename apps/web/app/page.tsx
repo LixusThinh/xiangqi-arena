@@ -230,6 +230,14 @@ export default function ArenaPage() {
 
   const opponentSide: Side = playerSide === 'r' ? 'b' : 'r';
 
+  // Các ô đích hợp lệ của quân đang chọn.
+  // TODO(XQA-46): xiangqi-core chưa export move generator (chờ XQA-44/45).
+  // Khi có, thay bằng: legalMoves(position).filter(m => m.from === selectedSquare).map(m => m.to)
+  const validMovesForSelected = React.useMemo<number[]>(() => {
+    if (selectedSquare === null) return [];
+    return [];
+  }, [selectedSquare]);
+
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center">
       {/* Top Header */}
@@ -289,6 +297,7 @@ export default function ArenaPage() {
             orientation={playerSide}
             selectedSquare={selectedSquare}
             lastMove={lastMove}
+            validMoves={validMovesForSelected}
             onSquareClick={handleSquareClick}
           />
 

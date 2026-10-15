@@ -33,6 +33,9 @@ export interface BoardProps {
 
   /** CSS class tùy biến */
   className?: string;
+
+  /** Danh sách các ô là nước đi hợp lệ của quân đang chọn */
+  validMoves?: number[];
 }
 
 export default function Board({
@@ -42,6 +45,7 @@ export default function Board({
   orientation = 'r',
   selectedSquare,
   lastMove,
+  validMoves = [],
   onSquareClick,
   className = '',
 }: BoardProps) {
@@ -190,6 +194,22 @@ export default function Board({
             />
           );
         })}
+        {/* Layer 5: Highlight nước đi hợp lệ (vẽ trên quân để ô ăn quân vẫn thấy chấm) */}
+        {validMoves.map((sq) => {
+          const coords = getSquareCoordinates(sq, orientation);
+          return (
+            <circle
+              key={`valid-move-${sq}`}
+              data-testid={`valid-move-${sq}`}
+              cx={coords.x + CELL_SIZE / 2}
+              cy={coords.y + CELL_SIZE / 2}
+              r={CELL_SIZE / 5}
+              fill="rgba(34, 197, 94, 0.7)" // Màu xanh lục có độ trong suốt
+              className="pointer-events-none"
+            />
+          );
+        })}
+
       </svg>
     </div>
   );
