@@ -7,6 +7,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "jest",
+    "test:harness": "node scripts/ci-rules-harness.js",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\""
   },
   "devDependencies": {
