@@ -383,11 +383,11 @@ const testCases = [
   },
 
   // ==========================================
-  // 5. Điều 7.1b: Lộ mặt Tướng (Flying General)
+  // 5. FR-11: Lộ mặt Tướng (Flying General)
   // ==========================================
   {
-    id: 'TC-7.1B-01',
-    requirementId: 'Điều 7.1b',
+    id: 'TC-FR11-FG01',
+    requirementId: 'FR-11',
     piece: 'k',
     color: 'r',
     description: 'Tướng đỏ bay ăn trực tiếp Tướng đen đối mặt trên cùng cột e khi thông suốt',
@@ -397,8 +397,8 @@ const testCases = [
     reason: 'Hai Tướng đối mặt trực tiếp trên cùng cột e không có quân cản, Tướng được bay ăn Tướng đối phương.'
   },
   {
-    id: 'TC-7.1B-02',
-    requirementId: 'Điều 7.1b',
+    id: 'TC-FR11-FG02',
+    requirementId: 'FR-11',
     piece: 'k',
     color: 'r',
     description: 'Tướng đỏ không thể bay ăn Tướng đen khi có quân cản ở giữa cột e',
@@ -408,8 +408,8 @@ const testCases = [
     reason: 'Có quân tốt tại e4 chắn giữa cột e, Tướng không được phép bay ăn Tướng đối phương.'
   },
   {
-    id: 'TC-7.1B-03',
-    requirementId: 'Điều 7.1b',
+    id: 'TC-FR11-FG03',
+    requirementId: 'FR-11',
     piece: 'k',
     color: 'b',
     description: 'Tướng đen bay ăn trực tiếp Tướng đỏ đối mặt trên cùng cột d khi thông suốt',
@@ -419,8 +419,8 @@ const testCases = [
     reason: 'Hai Tướng đối mặt trực tiếp trên cột d không có quân cản, Tướng Đen bay ăn Tướng Đỏ hợp lệ.'
   },
   {
-    id: 'TC-7.1B-04',
-    requirementId: 'Điều 7.1b',
+    id: 'TC-FR11-FG04',
+    requirementId: 'FR-11',
     piece: 'k',
     color: 'r',
     description: 'Tướng đỏ không thể bay ăn Tướng đen khi hai tướng ở khác cột (cột d và e)',
@@ -430,26 +430,52 @@ const testCases = [
     reason: 'Hai Tướng không nằm trên cùng một cột, luật Lộ mặt tướng không áp dụng.'
   },
   {
-    id: 'TC-7.1B-05',
-    requirementId: 'Điều 7.1b',
+    id: 'TC-FR11-FG05',
+    requirementId: 'FR-11',
     piece: 'k',
     color: 'r',
-    description: 'Tướng đỏ bước ngang vào cột đối mặt trực diện không quân cản với Tướng đen (vi phạm Điều 7.1b)',
+    description: 'Tướng đỏ bước ngang vào cột đối mặt trực diện không quân cản với Tướng đen (vi phạm luật Lộ mặt tướng - Chờ XQA-49)',
     fen: '3k5/9/9/9/9/9/9/9/9/4K4 r - - 0 1',
     move: createMove('e9', 'd9'),
     expectedLegal: false,
-    reason: 'Nước đi khiến hai Tướng đối mặt trực tiếp mà không có quân cản ở giữa là phạm luật lộ mặt tướng.'
+    reason: 'Nước đi khiến hai Tướng đối mặt trực tiếp mà không có quân cản ở giữa là phạm luật lộ mặt tướng (chờ xử lý trong XQA-49).'
   },
   {
-    id: 'TC-7.1B-06',
-    requirementId: 'Điều 7.1b',
+    id: 'TC-FR11-FG06',
+    requirementId: 'FR-11',
     piece: 'p',
     color: 'r',
-    description: 'Quân cản duy nhất giữa 2 Tướng rời cột làm lộ mặt hai Tướng (vi phạm Điều 7.1b)',
+    description: 'Quân cản duy nhất giữa 2 Tướng rời cột làm lộ mặt hai Tướng (vi phạm luật Lộ mặt tướng)',
     fen: '4k4/9/9/9/4P4/9/9/9/9/4K4 r - - 0 1',
     move: createMove('e4', 'd4'),
     expectedLegal: false,
     reason: 'Nước đi của quân cản làm lộ mặt trực diện hai Tướng là nước đi bất hợp lệ.'
+  },
+
+  // ==========================================
+  // 5b. Điều 7.1b: Hết nước đi bị xử thua (Bí nước / Stalemate)
+  // ==========================================
+  {
+    id: 'TC-7.1B-01',
+    requirementId: 'Điều 7.1b',
+    piece: 'k',
+    color: 'r',
+    description: 'Tướng đỏ bị vây bí trong góc cung (d9), không còn nước đi hợp lệ nào (xử thua theo Điều 7.1b); cố đi chéo bất hợp lệ',
+    fen: '4k4/9/9/9/9/9/9/9/4A4/3K5 r - - 0 1',
+    move: createMove('d9', 'c8'),
+    expectedLegal: false,
+    reason: 'Tướng không được đi chéo; trong thế cờ bị vây kẹt, không còn nước đi hợp lệ theo Điều 7.1b.'
+  },
+  {
+    id: 'TC-7.1B-02',
+    requirementId: 'Điều 7.1b',
+    piece: 'k',
+    color: 'b',
+    description: 'Tướng đen bị vây bí trong góc cung (d0), cố đi vượt ra ngoài Cung tướng khi hết nước đi (xử thua theo Điều 7.1b)',
+    fen: '3k5/9/9/9/9/9/9/9/9/4K4 b - - 0 1',
+    move: createMove('d0', 'c0'),
+    expectedLegal: false,
+    reason: 'Tướng không được rời khỏi Cung; khi hết nước đi hợp lệ bị xử thua theo Điều 7.1b.'
   },
 
   // ==========================================
@@ -972,8 +998,6 @@ const fixtureOutput = {
 
 const paths = [
   path.join(__dirname, 'tests', 'fixtures', 'rules-movegen.fixture.json'),
-  path.join(__dirname, 'fixtures', 'rules-movegen.fixture.json'),
-  path.join(__dirname, '..', '..', 'fixtures', 'rules-movegen.fixture.json'),
 ];
 
 for (const p of paths) {

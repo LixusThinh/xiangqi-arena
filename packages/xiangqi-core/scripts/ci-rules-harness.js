@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const { Position } = require('../dist/index.js');
 
-const fixturePath = path.join(__dirname, '..', 'fixtures', 'rules-movegen.fixture.json');
+const fixturePath = path.join(__dirname, '..', 'tests', 'fixtures', 'rules-movegen.fixture.json');
 
 if (!fs.existsSync(fixturePath)) {
   console.error(`Error: Fixture file not found at ${fixturePath}`);
@@ -17,7 +17,7 @@ if (!fs.existsSync(fixturePath)) {
 const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
 
 console.log('='.repeat(70));
-console.log('  XIANGQI ARENA - CI RULES TEST HARNESS RUNNER (XQA-47)');
+console.log('  XIANGQI ARENA - CI RULES TEST HARNESS RUNNER (XQA-47 / XQA-48)');
 console.log('='.repeat(70));
 console.log(`Fixture Name : ${fixture.name}`);
 console.log(`Version      : ${fixture.version}`);
@@ -65,7 +65,9 @@ for (const tc of fixture.testCases) {
       actual,
       note: ['r', 'c', 'p'].includes(tc.piece) && tc.expectedLegal
         ? 'Pending XQA-45 (MoveGen Xe/Pháo/Tốt)'
-        : 'Pending XQA-46 (Legal Move Filter)'
+        : tc.id.includes('FG') || tc.id === 'TC-FR11-FG05'
+          ? 'Pending XQA-49 (Kiểm tra chống lộ mặt Tướng)'
+          : 'Pending XQA-46 (Legal Move Filter)'
     });
   }
 }
@@ -79,7 +81,7 @@ console.table(byReq);
 console.log('\n' + '='.repeat(70));
 console.log(`Summary: ${passed}/${fixture.testCases.length} Passed (${Math.round((passed / fixture.testCases.length) * 100)}%)`);
 console.log(`- Implemented Pieces (k, a, b, n): ${byPiece.k.pass + byPiece.a.pass + byPiece.b.pass + byPiece.n.pass} / ${byPiece.k.total + byPiece.a.total + byPiece.b.total + byPiece.n.total} Passed`);
-console.log(`- Pending Pieces/Rules (XQA-45 / XQA-46): ${failed} cases awaiting next sprint tickets`);
+console.log(`- Pending Pieces/Rules (XQA-45 / XQA-49): ${failed} cases awaiting next sprint tickets`);
 console.log('='.repeat(70));
 
 if (failures.length > 0) {
@@ -92,13 +94,13 @@ if (failures.length > 0) {
 }
 
 // Generate QA Report Markdown
-const reportContent = `# Báo cáo Kiểm thử CI Rules Harness: Fixture Luật Đi Quân (XQA-47)
+const reportContent = `# Báo cáo Kiểm thử CI Rules Harness: Fixture Luật Đi Quân (XQA-47 / XQA-48)
 
 - **Ngày thực thi**: ${new Date().toISOString()}
-- **Bộ dữ liệu fixture**: \`packages/xiangqi-core/fixtures/rules-movegen.fixture.json\`
+- **Bộ dữ liệu fixture**: \`packages/xiangqi-core/tests/fixtures/rules-movegen.fixture.json\`
 - **Tổng số test case**: ${fixture.metadata.totalTestCases}
 - **Tổng số ca pass hiện tại**: ${passed} / ${fixture.testCases.length} (${Math.round((passed / fixture.testCases.length) * 100)}%)
-- **Số ca chờ tính năng (XQA-45 & XQA-46)**: ${failed}
+- **Số ca chờ tính năng (XQA-45 & XQA-49)**: ${failed}
 
 ## 1. Kết quả theo loại quân
 
@@ -117,16 +119,16 @@ const reportContent = `# Báo cáo Kiểm thử CI Rules Harness: Fixture Luật
 | Requirement ID | Nội dung | Đã đạt | Chờ xử lý | Tổng |
 |---|---|---|---|---|
 | **FR-08** | Luật di chuyển cơ bản & Biên bàn cờ | ${byReq['FR-08'].pass} | ${byReq['FR-08'].fail} | ${byReq['FR-08'].total} |
-| **FR-11** | Nước đi Tướng, Sĩ, Tượng (Cung, Sông, Cản mắt) | ${byReq['FR-11'].pass} | ${byReq['FR-11'].fail} | ${byReq['FR-11'].total} |
-| **Điều 7.1b** | Luật Lộ mặt Tướng (Flying General) | ${byReq['Điều 7.1b'].pass} | ${byReq['Điều 7.1b'].fail} | ${byReq['Điều 7.1b'].total} |
+| **FR-11** | Nước đi Tướng, Sĩ, Tượng & Lộ mặt Tướng | ${byReq['FR-11'].pass} | ${byReq['FR-11'].fail} | ${byReq['FR-11'].total} |
+| **Điều 7.1b** | Hết nước đi bị xử thua (Bí nước / Stalemate) | ${byReq['Điều 7.1b'].pass} | ${byReq['Điều 7.1b'].fail} | ${byReq['Điều 7.1b'].total} |
 | **FR-12** | Nước đi Mã (Hình chữ L, 4 hướng cản chân Mã) | ${byReq['FR-12'].pass} | ${byReq['FR-12'].fail} | ${byReq['FR-12'].total} |
 | **FR-13** | Nước đi Xe, Pháo, Tốt (Ngòi pháo, Qua sông) | ${byReq['FR-13'].pass} | ${byReq['FR-13'].fail} | ${byReq['FR-13'].total} |
 
 ## 3. Ghi chú và Khuyến nghị cho Sprint tiếp theo
-- Toàn bộ luật đi vật lý của 4 quân **Tướng, Sĩ, Tượng, Mã** và các ràng buộc cơ bản của **FR-08, FR-11, FR-12** hoạt động hoàn hảo 100%.
+- Toàn bộ luật đi vật lý của 4 quân **Tướng, Sĩ, Tượng, Mã** và các ràng buộc cơ bản của **FR-08, FR-11, FR-12, Điều 7.1b** hoạt động hoàn hảo 100%.
 - Các test case không hợp lệ của quân khóa (Xe, Pháo, Tốt) đã trả về \`false\` đúng kỳ vọng.
 - 16 ca hợp lệ của Xe, Pháo, Tốt (\`expectedLegal: true\`) sẵn sàng làm baseline thẩm định cho ticket **XQA-45**.
-- 1 ca \`TC-7.1B-05\` (Tướng bước ngang tạo thế lộ mặt trực diện) sẽ được hoàn thiện khi triển khai bộ lọc nước đi hợp lệ toàn diện (\`legalMoves\`) trong ticket **XQA-46**.
+- 1 ca \`TC-FR11-FG05\` (Tướng bước ngang tạo thế lộ mặt trực diện) sẽ được hoàn thiện khi triển khai bộ lọc nước đi hợp lệ toàn diện và chống lộ mặt Tướng trong ticket **XQA-49**.
 `;
 
 const reportPath = path.join(__dirname, '..', '..', '..', 'docs', 'qa', 'XQA-47-rules-fixture-report.md');

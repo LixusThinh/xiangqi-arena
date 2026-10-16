@@ -13,3 +13,4 @@ coverage/
 .vs/
 .vscode/*
 !.vscode/extensions.json
+reports/
