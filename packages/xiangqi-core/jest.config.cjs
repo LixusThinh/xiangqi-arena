@@ -1,7 +1,8 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  testMatch: ['<rootDir>/tests/**/*.spec.ts'],
+  roots: ['<rootDir>/tests'],
+  testMatch: ['<rootDir>/tests/**/*.spec.ts', '**/*.spec.ts'],
   moduleFileExtensions: ['ts', 'js', 'json'],
   reporters: process.env.CI
     ? [
