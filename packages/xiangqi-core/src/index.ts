@@ -4,3 +4,4 @@ export * from './coordinates';
 export * from './fen';
 export * from './zobrist';
 export * from './position';
+export * from './movegen';

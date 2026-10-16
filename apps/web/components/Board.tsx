@@ -28,14 +28,15 @@ export interface BoardProps {
   /** Nước đi gần nhất để highlight { from, to } */
   lastMove?: { from: number; to: number } | null;
 
+  /** Danh sách các ô đi hợp lệ từ ô đang chọn để hiển thị gợi ý */
+  validMoves?: number[];
+
   /** Callback khi click vào bất kỳ ô nào */
   onSquareClick?: (square: number) => void;
 
   /** CSS class tùy biến */
   className?: string;
 
-  /** Danh sách các ô là nước đi hợp lệ của quân đang chọn */
-  validMoves?: number[];
 }
 
 export default function Board({
@@ -149,6 +150,8 @@ export default function Board({
           })()
         )}
 
+
+
         {/* Layer 3: 90 ô tương tác click */}
         {Array.from({ length: 90 }, (_, sq) => {
           const { x, y } = getSquareCoordinates(sq, orientation);
@@ -194,19 +197,46 @@ export default function Board({
             />
           );
         })}
-        {/* Layer 5: Highlight nước đi hợp lệ (vẽ trên quân để ô ăn quân vẫn thấy chấm) */}
-        {validMoves.map((sq) => {
+        {/* Layer 5: Highlight nước đi hợp lệ & Gợi ý (vẽ trên quân để ô ăn quân vẫn thấy) */}
+        {validMoves && validMoves.length > 0 && validMoves.map((sq) => {
+          if (!isValidSquare(sq)) return null;
           const coords = getSquareCoordinates(sq, orientation);
+          const targetPiece = boardArray[sq];
+          const isCapture = targetPiece !== null && targetPiece !== undefined;
+          const cx = coords.x + CELL_SIZE / 2;
+          const cy = coords.y + CELL_SIZE / 2;
+
+          if (isCapture) {
+            return (
+              <g key={`valid-move-group-${sq}`} data-testid={`valid-move-${sq}`}>
+                <circle
+                  data-testid={`hint-sq-${sq}`}
+                  data-hint-type="capture"
+                  cx={cx}
+                  cy={cy}
+                  r={CELL_SIZE * 0.42}
+                  fill="none"
+                  stroke="rgba(239, 68, 68, 0.85)"
+                  strokeWidth={3}
+                  strokeDasharray="4 2"
+                  className="pointer-events-none animate-pulse"
+                />
+              </g>
+            );
+          }
+
           return (
-            <circle
-              key={`valid-move-${sq}`}
-              data-testid={`valid-move-${sq}`}
-              cx={coords.x + CELL_SIZE / 2}
-              cy={coords.y + CELL_SIZE / 2}
-              r={CELL_SIZE / 5}
-              fill="rgba(34, 197, 94, 0.7)" // Màu xanh lục có độ trong suốt
-              className="pointer-events-none"
-            />
+            <g key={`valid-move-group-${sq}`} data-testid={`valid-move-${sq}`}>
+              <circle
+                data-testid={`hint-sq-${sq}`}
+                data-hint-type="peaceful"
+                cx={cx}
+                cy={cy}
+                r={CELL_SIZE / 5}
+                fill="rgba(34, 197, 94, 0.7)"
+                className="pointer-events-none"
+              />
+            </g>
           );
         })}
 

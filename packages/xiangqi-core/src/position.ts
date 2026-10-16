@@ -1,13 +1,17 @@
 import { STARTING_FEN } from './constants';
 import { isValidSquare } from './coordinates';
 import { parseFen, toFen } from './fen';
-import { Color, Move, MoveUndo, Piece, PositionState } from './types';
+import { Color, Move, MoveUndo, Piece, PositionState, Square } from './types';
 import {
   computeZobristHash,
   getPieceZobristKey,
   getSideZobristKey,
   toHashString,
 } from './zobrist';
+import {
+  generatePieceMoves as genPieceMoves,
+  hasFlyingGeneral as checkFlyingGeneral,
+} from './movegen';
 
 export class Position implements PositionState {
   board: (Piece | null)[];
@@ -138,5 +142,28 @@ export class Position implements PositionState {
       },
       this.zobristHash,
     );
+  }
+
+  isLegalMove(move: Move): boolean {
+    const { from, to } = move;
+    if (!isValidSquare(from) || !isValidSquare(to) || from === to) {
+      return false;
+    }
+
+    const piece = this.board[from];
+    if (!piece || piece.color !== this.sideToMove) {
+      return false;
+    }
+
+    const legalMoves = this.generatePieceMoves(from);
+    return legalMoves.some((m) => m.to === to);
+  }
+
+  generatePieceMoves(sq: Square): Move[] {
+    return genPieceMoves(this.board, sq, this.sideToMove);
+  }
+
+  hasFlyingGeneral(): boolean {
+    return checkFlyingGeneral(this.board);
   }
 }

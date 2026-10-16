@@ -48,31 +48,36 @@ describe('Xiangqi Arena Game Room Page', () => {
 
   it('moves piece to empty square, updates lastMove, and switches turn', () => {
     render(<ArenaPage />);
-    // Select Red Cannon at sq 64 (b2 in starting fen)
-    const redCannon = screen.getByTestId('piece-64');
-    fireEvent.click(redCannon);
+    // Select Red Horse at sq 82 (b0 in starting fen)
+    const redHorse = screen.getByTestId('piece-82');
+    fireEvent.click(redHorse);
 
-    // Click empty destination sq 55 (b3)
-    const emptyCell = screen.getByTestId('cell-55');
+    // Click empty destination sq 63 (a2)
+    const emptyCell = screen.getByTestId('cell-63');
     fireEvent.click(emptyCell);
 
-    // Piece has moved to 55
-    expect(screen.getByTestId('piece-55')).toBeInTheDocument();
-    expect(screen.queryByTestId('piece-64')).not.toBeInTheDocument();
+    // Piece has moved to 63
+    expect(screen.getByTestId('piece-63')).toBeInTheDocument();
+    expect(screen.queryByTestId('piece-82')).not.toBeInTheDocument();
   });
 
   it('captures opponent piece when clicking opponent piece with piece selected', () => {
-    render(<ArenaPage />);
-    // Select Red Cannon at 64
-    const redCannon = screen.getByTestId('piece-64');
-    fireEvent.click(redCannon);
+    // Custom FEN with a Black Horse at sq 63 (rank 7, file a) within reach of Red Horse at sq 82
+    const customFen = 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/nC5C1/9/RNBAKABNR r - - 0 1';
+    render(<ArenaPage searchParams={{ fen: customFen }} />);
 
-    // Free movement test: click Black Rook at sq 0
-    const blackRook = screen.getByTestId('piece-0');
-    fireEvent.click(blackRook);
+    // Select Red Horse at 82
+    const redHorse = screen.getByTestId('piece-82');
+    fireEvent.click(redHorse);
 
-    // Cannon is now at sq 0, old piece at 0 was captured
-    expect(screen.getByTestId('piece-0')).toHaveAttribute('data-piece', 'rc');
+    // Click Black Horse at sq 63
+    const blackHorse = screen.getByTestId('piece-63');
+    expect(blackHorse).toHaveAttribute('data-piece', 'bn');
+    fireEvent.click(blackHorse);
+
+    // Red Horse is now at sq 63, old piece at 63 was captured
+    expect(screen.getByTestId('piece-63')).toHaveAttribute('data-piece', 'rn');
+    expect(screen.queryByTestId('piece-82')).not.toBeInTheDocument();
   });
 
   it('toggles board perspective when side is selected', () => {
@@ -145,42 +150,43 @@ describe('Xiangqi Arena Game Room Page', () => {
     const undoButton = screen.getByRole('button', { name: /Quay lại/i });
     expect(undoButton).toBeDisabled();
 
-    // Red Cannon moves: 64 -> 55
-    fireEvent.click(screen.getByTestId('piece-64'));
-    fireEvent.click(screen.getByTestId('cell-55'));
+    // Red Horse moves: 82 -> 63
+    fireEvent.click(screen.getByTestId('piece-82'));
+    fireEvent.click(screen.getByTestId('cell-63'));
 
-    expect(screen.getByTestId('piece-55')).toBeInTheDocument();
-    expect(screen.queryByTestId('piece-64')).not.toBeInTheDocument();
+    expect(screen.getByTestId('piece-63')).toBeInTheDocument();
+    expect(screen.queryByTestId('piece-82')).not.toBeInTheDocument();
     expect(undoButton).toBeEnabled();
 
     // Click Undo
     fireEvent.click(undoButton);
 
     // Verify move is rolled back
-    expect(screen.getByTestId('piece-64')).toBeInTheDocument();
-    expect(screen.queryByTestId('piece-55')).not.toBeInTheDocument();
+    expect(screen.getByTestId('piece-82')).toBeInTheDocument();
+    expect(screen.queryByTestId('piece-63')).not.toBeInTheDocument();
     expect(undoButton).toBeDisabled();
     expect(screen.getByText('Đã quay lại nước đi.')).toBeInTheDocument();
   });
 
   it('restores captured piece upon undoing a capture move', () => {
-    render(<ArenaPage />);
+    const customFen = 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/nC5C1/9/RNBAKABNR r - - 0 1';
+    render(<ArenaPage searchParams={{ fen: customFen }} />);
     const undoButton = screen.getByRole('button', { name: /Quay lại/i });
 
-    // Red Cannon at 64 captures Black Rook at 0
-    fireEvent.click(screen.getByTestId('piece-64'));
-    fireEvent.click(screen.getByTestId('piece-0'));
+    // Red Horse at 82 captures Black Horse at 63
+    fireEvent.click(screen.getByTestId('piece-82'));
+    fireEvent.click(screen.getByTestId('piece-63'));
 
-    expect(screen.getByTestId('piece-0')).toHaveAttribute('data-piece', 'rc');
-    expect(screen.queryByTestId('piece-64')).not.toBeInTheDocument();
+    expect(screen.getByTestId('piece-63')).toHaveAttribute('data-piece', 'rn');
+    expect(screen.queryByTestId('piece-82')).not.toBeInTheDocument();
     expect(undoButton).toBeEnabled();
 
     // Click Undo
     fireEvent.click(undoButton);
 
-    // Red Cannon is back at 64, Black Rook is back at 0
-    expect(screen.getByTestId('piece-64')).toHaveAttribute('data-piece', 'rc');
-    expect(screen.getByTestId('piece-0')).toHaveAttribute('data-piece', 'br');
+    // Red Horse is back at 82, Black Horse is back at 63
+    expect(screen.getByTestId('piece-82')).toHaveAttribute('data-piece', 'rn');
+    expect(screen.getByTestId('piece-63')).toHaveAttribute('data-piece', 'bn');
     expect(undoButton).toBeDisabled();
   });
 
@@ -188,9 +194,9 @@ describe('Xiangqi Arena Game Room Page', () => {
     render(<ArenaPage />);
     const undoButton = screen.getByRole('button', { name: /Quay lại/i });
 
-    // Make a move
-    fireEvent.click(screen.getByTestId('piece-64'));
-    fireEvent.click(screen.getByTestId('cell-55'));
+    // Make a move: Red Horse 82 -> 63
+    fireEvent.click(screen.getByTestId('piece-82'));
+    fireEvent.click(screen.getByTestId('cell-63'));
     expect(undoButton).toBeEnabled();
 
     // Start New Game
@@ -199,9 +205,8 @@ describe('Xiangqi Arena Game Room Page', () => {
 
     // History is cleared and undo button disabled
     expect(undoButton).toBeDisabled();
-    expect(screen.getByTestId('piece-64')).toBeInTheDocument();
-    expect(screen.queryByTestId('cell-55')).toBeInTheDocument();
-    expect(screen.queryByTestId('piece-55')).not.toBeInTheDocument();
+    expect(screen.getByTestId('piece-82')).toBeInTheDocument();
+    expect(screen.queryByTestId('piece-63')).not.toBeInTheDocument();
   });
 
   it('handles consecutive undos reverting multiple turns back to initial state', () => {
@@ -212,29 +217,77 @@ describe('Xiangqi Arena Game Room Page', () => {
     fireEvent.click(screen.getByTestId('piece-0'));
     expect(screen.queryByTestId('selected-mask')).not.toBeInTheDocument();
 
-    // 1. Red moves Cannon: 64 -> 55
-    fireEvent.click(screen.getByTestId('piece-64'));
-    fireEvent.click(screen.getByTestId('cell-55'));
-    expect(screen.getByTestId('piece-55')).toBeInTheDocument();
+    // 1. Red moves Horse: 82 -> 63
+    fireEvent.click(screen.getByTestId('piece-82'));
+    fireEvent.click(screen.getByTestId('cell-63'));
+    expect(screen.getByTestId('piece-63')).toBeInTheDocument();
 
-    // 2. Black moves Cannon: 19 -> 28
-    fireEvent.click(screen.getByTestId('piece-19'));
-    fireEvent.click(screen.getByTestId('cell-28'));
-    expect(screen.getByTestId('piece-28')).toBeInTheDocument();
+    // 2. Black moves Horse: 1 -> 18
+    fireEvent.click(screen.getByTestId('piece-1'));
+    fireEvent.click(screen.getByTestId('cell-18'));
+    expect(screen.getByTestId('piece-18')).toBeInTheDocument();
 
     // Undo 1: Reverts Black's move
     fireEvent.click(undoButton);
-    expect(screen.getByTestId('piece-19')).toBeInTheDocument();
-    expect(screen.queryByTestId('piece-28')).not.toBeInTheDocument();
+    expect(screen.getByTestId('piece-1')).toBeInTheDocument();
+    expect(screen.queryByTestId('piece-18')).not.toBeInTheDocument();
     expect(undoButton).toBeEnabled();
 
     // Undo 2: Reverts Red's move, back to starting board with no lastMove
     fireEvent.click(undoButton);
-    expect(screen.getByTestId('piece-64')).toBeInTheDocument();
-    expect(screen.queryByTestId('piece-55')).not.toBeInTheDocument();
+    expect(screen.getByTestId('piece-82')).toBeInTheDocument();
+    expect(screen.queryByTestId('piece-63')).not.toBeInTheDocument();
     expect(undoButton).toBeDisabled();
     expect(screen.queryByTestId('last-move-indicator-to')).not.toBeInTheDocument();
   });
+
+  it('displays move hints when selecting friendly Horse and blocks illegal moves', () => {
+    render(<ArenaPage />);
+
+    // Click Red Horse at b0 (sq 82)
+    const redHorse = screen.getByTestId('piece-82');
+    fireEvent.click(redHorse);
+
+    // Expect valid move hints for sq 63 and sq 65
+    expect(screen.getByTestId('hint-sq-63')).toBeInTheDocument();
+    expect(screen.getByTestId('hint-sq-65')).toBeInTheDocument();
+
+    // Click an illegal empty square (e.g. sq 73 directly in front of Horse)
+    const illegalCell = screen.getByTestId('cell-73');
+    fireEvent.click(illegalCell);
+
+    // Horse should NOT move, turn should remain Red ('r')
+    expect(screen.getByTestId('piece-82')).toBeInTheDocument();
+    expect(screen.queryByTestId('piece-73')).not.toBeInTheDocument();
+    expect(screen.getByText('Đỏ (Đi trước)')).toBeInTheDocument();
+
+    // Click legal destination sq 63
+    const legalCell = screen.getByTestId('cell-63');
+    fireEvent.click(legalCell);
+
+    // Horse should now be at sq 63, sq 82 is empty, turn toggles to Black ('b'), hints cleared
+    expect(screen.getByTestId('piece-63')).toBeInTheDocument();
+    expect(screen.queryByTestId('piece-82')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('hint-sq-63')).not.toBeInTheDocument();
+    expect(screen.getByText('Đen')).toBeInTheDocument();
+  });
+
+  it('keeps locked pieces (Chariot, Cannon, Soldier) immovable', () => {
+    render(<ArenaPage />);
+
+    // Click Red Soldier at sq 56
+    const soldier = screen.getByTestId('piece-56');
+    fireEvent.click(soldier);
+
+    // No hints rendered
+    expect(screen.queryByTestId(/hint-sq-/)).not.toBeInTheDocument();
+
+    // Click forward sq 47
+    fireEvent.click(screen.getByTestId('cell-47'));
+
+    // Soldier should NOT move
+    expect(screen.getByTestId('piece-56')).toBeInTheDocument();
+    expect(screen.queryByTestId('piece-47')).not.toBeInTheDocument();
+    expect(screen.getByText('Đỏ (Đi trước)')).toBeInTheDocument();
+  });
 });
-
-

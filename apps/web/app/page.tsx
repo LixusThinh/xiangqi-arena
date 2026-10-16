@@ -13,13 +13,26 @@ interface UndoRecord {
   prevLastMove: { from: number; to: number } | null;
 }
 
-export default function ArenaPage() {
-  const [position, setPosition] = useState<Position>(() => Position.initial());
-  const [board, setBoard] = useState<(Piece | null)[]>(() => Position.initial().board);
+export interface ArenaPageProps {
+  params?: Record<string, string | string[]>;
+  searchParams?: Record<string, string | string[] | undefined> & { fen?: string };
+}
+
+export default function ArenaPage({ searchParams }: ArenaPageProps) {
+  const initialFen = typeof searchParams?.fen === 'string' ? searchParams.fen : undefined;
+  const [position, setPosition] = useState<Position>(() =>
+    initialFen ? Position.fromFen(initialFen) : Position.initial()
+  );
+  const [board, setBoard] = useState<(Piece | null)[]>(() =>
+    initialFen ? Position.fromFen(initialFen).board : Position.initial().board
+  );
   const [undoHistory, setUndoHistory] = useState<UndoRecord[]>([]);
   const [playerSide, setPlayerSide] = useState<Side>('r');
-  const [sideToMove, setSideToMove] = useState<Side>('r');
+  const [sideToMove, setSideToMove] = useState<Side>(() =>
+    initialFen ? Position.fromFen(initialFen).sideToMove : 'r'
+  );
   const [selectedSquare, setSelectedSquare] = useState<number | null>(null);
+  const [validMoves, setValidMoves] = useState<number[]>([]);
   const [lastMove, setLastMove] = useState<{ from: number; to: number } | null>(null);
 
   const [redTimer, setRedTimer] = useState<number>(60);
@@ -58,6 +71,15 @@ export default function ArenaPage() {
     return () => clearInterval(timer);
   }, [sideToMove, redTimer, blackTimer]);
 
+  const updateValidMovesForPiece = (sq: number | null) => {
+    if (sq === null) {
+      setValidMoves([]);
+      return;
+    }
+    const moves = position.generatePieceMoves(sq);
+    setValidMoves(moves.map((m) => m.to));
+  };
+
   // Click-to-move logic
   const handleSquareClick = (sq: number) => {
     const clickedPiece = board[sq];
@@ -66,6 +88,7 @@ export default function ArenaPage() {
     if (selectedSquare === null) {
       if (clickedPiece && clickedPiece.color === sideToMove) {
         setSelectedSquare(sq);
+        updateValidMovesForPiece(sq);
       }
       return;
     }
@@ -74,8 +97,10 @@ export default function ArenaPage() {
     if (!currentPiece) {
       if (clickedPiece && clickedPiece.color === sideToMove) {
         setSelectedSquare(sq);
+        updateValidMovesForPiece(sq);
       } else {
         setSelectedSquare(null);
+        setValidMoves([]);
       }
       return;
     }
@@ -83,22 +108,30 @@ export default function ArenaPage() {
     // 2. Re-clicking the selected piece: deselects it
     if (sq === selectedSquare) {
       setSelectedSquare(null);
+      setValidMoves([]);
       return;
     }
 
     // 3. Clicking another friendly piece: switches selection without moving
     if (clickedPiece && clickedPiece.color === currentPiece.color) {
       setSelectedSquare(sq);
+      updateValidMovesForPiece(sq);
       return;
     }
 
-    // 4. Clicking empty square or opponent piece: moves/captures, updates lastMove, toggles turn
+    // 4. Clicking destination square: validate legal move
     const move = { from: selectedSquare, to: sq };
+    if (!position.isLegalMove(move)) {
+      // Invalid move according to piece movement rules: ignore
+      return;
+    }
+
     const undoInfo = position.applyMove(move);
     setUndoHistory((prev) => [...prev, { undo: undoInfo, prevLastMove: lastMove }]);
     setBoard([...position.board]);
     setLastMove(move);
     setSelectedSquare(null);
+    setValidMoves([]);
 
     const nextSide = position.sideToMove;
     setSideToMove(nextSide);
@@ -132,6 +165,7 @@ export default function ArenaPage() {
     setSideToMove(position.sideToMove);
     setLastMove(lastRecord.prevLastMove);
     setSelectedSquare(null);
+    setValidMoves([]);
 
     if (position.sideToMove === 'r') {
       setRedTimer(60);
@@ -157,6 +191,7 @@ export default function ArenaPage() {
     setBoard([...newPos.board]);
     setSideToMove('r');
     setSelectedSquare(null);
+    setValidMoves([]);
     setLastMove(null);
     setRedTimer(60);
     setBlackTimer(60);
@@ -230,13 +265,6 @@ export default function ArenaPage() {
 
   const opponentSide: Side = playerSide === 'r' ? 'b' : 'r';
 
-  // Các ô đích hợp lệ của quân đang chọn.
-  // TODO(XQA-46): xiangqi-core chưa export move generator (chờ XQA-44/45).
-  // Khi có, thay bằng: legalMoves(position).filter(m => m.from === selectedSquare).map(m => m.to)
-  const validMovesForSelected = React.useMemo<number[]>(() => {
-    if (selectedSquare === null) return [];
-    return [];
-  }, [selectedSquare]);
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center">
@@ -256,12 +284,18 @@ export default function ArenaPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="flex h-2.5 w-2.5 relative">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-          </span>
-          <span className="text-xs font-semibold text-emerald-400">Đang trực tuyến</span>
+        <div className="flex items-center gap-3">
+          <div className="px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs font-medium text-slate-300 flex items-center gap-2 shadow-inner">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            Lượt: <span className="font-bold text-amber-300">{sideToMove === 'r' ? 'Đỏ (Đi trước)' : 'Đen'}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="flex h-2.5 w-2.5 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+            </span>
+            <span className="text-xs font-semibold text-emerald-400">Đang trực tuyến</span>
+          </div>
         </div>
       </header>
 
@@ -297,7 +331,7 @@ export default function ArenaPage() {
             orientation={playerSide}
             selectedSquare={selectedSquare}
             lastMove={lastMove}
-            validMoves={validMovesForSelected}
+            validMoves={validMoves}
             onSquareClick={handleSquareClick}
           />
 
