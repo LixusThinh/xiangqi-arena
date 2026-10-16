@@ -17,8 +17,26 @@ Stack (D-02): Next.js · NestJS · PostgreSQL · Socket.IO · TypeScript · pnpm
 
 ```bash
 corepack enable          # bật pnpm đi kèm Node
-pnpm install
+pnpm install             # tự build luôn packages/xiangqi-core (postinstall)
 ```
+
+> **Vì sao phải build engine?** `apps/web` và `apps/server` import `@xiangqi-arena/xiangqi-core` từ thư mục `dist/` (bản build, không commit lên git). `pnpm install` đã tự build sẵn. Nếu pull code engine mới mà **không** chạy lại `pnpm install`, `dist/` vẫn là bản cũ và web/server sẽ báo lỗi kiểu `has no exported member ...`. Khi đó chạy:
+>
+> ```bash
+> pnpm build:core
+> ```
+
+### Mỗi lần bắt đầu làm task
+
+```bash
+git status                       # phải sạch; đang sửa dở thì: git stash
+git checkout develop
+git pull
+pnpm install                     # cập nhật dependency + build lại engine
+git checkout -b feature/XQA-<số>-<mô-tả-ngắn>
+```
+
+Không sửa code trực tiếp trên `develop`. Pull bị lỗi thì **đừng xoá repo clone lại**, chụp lỗi gửi nhóm; xem thêm [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Khởi chạy backend cùng PostgreSQL (cần Docker Desktop đang chạy):
 

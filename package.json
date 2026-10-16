@@ -11,7 +11,9 @@
     "db:studio": "corepack pnpm --filter @xiangqi-arena/server prisma:studio",
     "build": "corepack pnpm -r --if-present build",
     "test": "corepack pnpm -r --if-present test",
-    "lint": "corepack pnpm -r --if-present lint"
+    "lint": "corepack pnpm -r --if-present lint",
+    "build:core": "corepack pnpm --filter @xiangqi-arena/xiangqi-core build",
+    "postinstall": "corepack pnpm build:core"
   },
   "engines": { "node": ">=20" }
 }
