@@ -265,6 +265,7 @@ export default function ArenaPage({ searchParams }: ArenaPageProps) {
 
   const opponentSide: Side = playerSide === 'r' ? 'b' : 'r';
 
+
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center">
       {/* Top Header */}
