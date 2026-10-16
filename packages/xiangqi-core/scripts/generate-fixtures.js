@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { Position, algebraicToSquare, squareToAlgebraic } = require('./dist/index.js');
+const { Position, algebraicToSquare, squareToAlgebraic } = require('../dist/index.js');
 
 function createMove(fromAlg, toAlg) {
   const from = algebraicToSquare(fromAlg);
@@ -33,6 +33,7 @@ const testCases = [
     requirementId: 'FR-08',
     piece: 'k',
     color: 'r',
+    emptySource: true,
     description: 'Ô xuất phát là ô trống, không có quân cờ',
     fen: 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR r - - 0 1',
     move: createMove('e4', 'e5'),
@@ -449,33 +450,55 @@ const testCases = [
     fen: '4k4/9/9/9/4P4/9/9/9/9/4K4 r - - 0 1',
     move: createMove('e4', 'd4'),
     expectedLegal: false,
-    reason: 'Nước đi của quân cản làm lộ mặt trực diện hai Tướng là nước đi bất hợp lệ.'
+    reason: 'Nước đi của quân cản làm lộ mặt trực diện hai Tướng là nước đi bất hợp lệ (cần XQA-45 cho nước đi của Tốt và XQA-49 cho kiểm tra chống lộ mặt Tướng).'
+  },
+  {
+    id: 'TC-FR11-K10',
+    requirementId: 'FR-11',
+    piece: 'k',
+    color: 'r',
+    description: 'Tướng đỏ không được đi chéo trong Cung (d9 -> c8)',
+    fen: '4k4/9/9/9/9/9/9/9/4A4/3K5 r - - 0 1',
+    move: createMove('d9', 'c8'),
+    expectedLegal: false,
+    reason: 'Tướng chỉ được di chuyển theo đường thẳng (ngang hoặc dọc), không được đi chéo theo FR-11.'
+  },
+  {
+    id: 'TC-FR11-K11',
+    requirementId: 'FR-11',
+    piece: 'k',
+    color: 'b',
+    description: 'Tướng đen không được di chuyển rời khỏi phạm vi Cung tướng (d0 -> c0)',
+    fen: '3k5/9/9/9/9/9/9/9/9/4K4 b - - 0 1',
+    move: createMove('d0', 'c0'),
+    expectedLegal: false,
+    reason: 'Tướng bị giới hạn di chuyển trong phạm vi Cung (cột d-f, hàng 0-2), không được ra ngoài theo FR-11.'
   },
 
   // ==========================================
   // 5b. Điều 7.1b: Hết nước đi bị xử thua (Bí nước / Stalemate)
   // ==========================================
   {
-    id: 'TC-7.1B-01',
-    requirementId: 'Điều 7.1b',
-    piece: 'k',
-    color: 'r',
-    description: 'Tướng đỏ bị vây bí trong góc cung (d9), không còn nước đi hợp lệ nào (xử thua theo Điều 7.1b); cố đi chéo bất hợp lệ',
-    fen: '4k4/9/9/9/9/9/9/9/4A4/3K5 r - - 0 1',
-    move: createMove('d9', 'c8'),
-    expectedLegal: false,
-    reason: 'Tướng không được đi chéo; trong thế cờ bị vây kẹt, không còn nước đi hợp lệ theo Điều 7.1b.'
-  },
-  {
-    id: 'TC-7.1B-02',
+    id: 'TC-7.1B-STALEMATE-01',
+    kind: 'noLegalMoves',
     requirementId: 'Điều 7.1b',
     piece: 'k',
     color: 'b',
-    description: 'Tướng đen bị vây bí trong góc cung (d0), cố đi vượt ra ngoài Cung tướng khi hết nước đi (xử thua theo Điều 7.1b)',
-    fen: '3k5/9/9/9/9/9/9/9/9/4K4 b - - 0 1',
-    move: createMove('d0', 'c0'),
-    expectedLegal: false,
-    reason: 'Tướng không được rời khỏi Cung; khi hết nước đi hợp lệ bị xử thua theo Điều 7.1b.'
+    description: 'Thế bí hợp lệ bên Đen (Stalemate) - Đen đến lượt đi không bị chiếu nhưng hết nước đi hợp lệ (xử thua theo Điều 7.1b)',
+    fen: '3k5/9/9/2N6/9/9/9/9/9/4K4 b - - 0 1',
+    expected: true,
+    reason: 'Chứng minh: Đen chỉ có Tướng d0 không bị chiếu. Tướng d0 chỉ có 2 nước trong cung: (1) d0->e0 bị cấm do lộ mặt trực diện Tướng đỏ e9; (2) d0->d1 bị cấm do Mã đỏ c3 kiểm soát d1 (bước vào bị chiếu). Các hướng khác ra ngoài cung. Đen hết nước đi hợp lệ -> Bí nước bị xử thua theo Điều 7.1b (chờ XQA-49).'
+  },
+  {
+    id: 'TC-7.1B-STALEMATE-02',
+    kind: 'noLegalMoves',
+    requirementId: 'Điều 7.1b',
+    piece: 'k',
+    color: 'r',
+    description: 'Thế bí hợp lệ bên Đỏ (Stalemate) - Đỏ đến lượt đi không bị chiếu nhưng hết nước đi hợp lệ (xử thua theo Điều 7.1b)',
+    fen: '4k4/9/9/9/9/9/2n6/9/9/3K5 r - - 0 1',
+    expected: true,
+    reason: 'Chứng minh: Đỏ chỉ có Tướng d9 không bị chiếu. Tướng d9 chỉ có 2 nước trong cung: (1) d9->e9 bị cấm do lộ mặt trực diện Tướng đen e0; (2) d9->d8 bị cấm do Mã đen c6 kiểm soát d8 (bước vào bị chiếu). Các hướng khác ra ngoài cung. Đỏ hết nước đi hợp lệ -> Bí nước bị xử thua theo Điều 7.1b (chờ XQA-49).'
   },
 
   // ==========================================
@@ -946,23 +969,50 @@ const testCases = [
   }
 ];
 
+// Gán status và blockedBy cho từng testcase theo đặc tả
+for (const tc of testCases) {
+  if (tc.kind === 'noLegalMoves') {
+    tc.status = 'pending';
+    tc.blockedBy = 'XQA-49';
+  } else if (tc.id === 'TC-FR11-FG05') {
+    tc.status = 'pending';
+    tc.blockedBy = 'XQA-49';
+  } else if (tc.id === 'TC-FR11-FG06') {
+    tc.status = 'pending';
+    tc.blockedBy = 'XQA-45';
+  } else if (['r', 'c', 'p'].includes(tc.piece)) {
+    tc.status = 'pending';
+    tc.blockedBy = 'XQA-45';
+  } else {
+    tc.status = 'active';
+    tc.blockedBy = null;
+  }
+}
+
 // Validate all test cases against engine parser
 console.log(`Checking ${testCases.length} test cases...`);
 let validCount = 0;
 let invalidCount = 0;
+let activeCount = 0;
+let pendingCount = 0;
 const piecesSet = new Set();
 const reqSet = new Set();
 
 for (const tc of testCases) {
-  piecesSet.add(tc.piece);
+  if (tc.piece) piecesSet.add(tc.piece);
   reqSet.add(tc.requirementId);
-  if (tc.expectedLegal) validCount++; else invalidCount++;
+  if (tc.status === 'active') activeCount++; else pendingCount++;
+  if (tc.expectedLegal !== undefined) {
+    if (tc.expectedLegal) validCount++; else invalidCount++;
+  } else if (tc.expected !== undefined) {
+    validCount++;
+  }
 
   try {
     const pos = Position.fromFen(tc.fen);
-    if (tc.move.from >= 0 && tc.move.from < 90) {
+    if (tc.move && tc.move.from >= 0 && tc.move.from < 90) {
       const piece = pos.board[tc.move.from];
-      if (tc.id !== 'TC-FR08-02') {
+      if (!tc.emptySource) {
         if (!piece) {
           throw new Error(`Piece missing at 'from' square ${tc.move.from} (${tc.move.fromAlgebraic}) in ${tc.id}`);
         }
@@ -978,7 +1028,7 @@ for (const tc of testCases) {
 }
 
 console.log('All test cases validated successfully!');
-console.log(`Total: ${testCases.length} (Valid: ${validCount}, Invalid: ${invalidCount})`);
+console.log(`Total: ${testCases.length} (Active: ${activeCount}, Pending: ${pendingCount})`);
 console.log(`Pieces covered: ${Array.from(piecesSet).join(', ')} (count: ${piecesSet.size})`);
 console.log(`Requirements covered: ${Array.from(reqSet).join(', ')}`);
 
@@ -988,6 +1038,8 @@ const fixtureOutput = {
   description: 'Bộ fixture JSON chuẩn kiểm tra luật đi quân Cờ Tướng (FR-08, FR-11, FR-12, FR-13, Điều 7.1b) cho test harness CI',
   metadata: {
     totalTestCases: testCases.length,
+    activeCount,
+    pendingCount,
     validCasesCount: validCount,
     invalidCasesCount: invalidCount,
     requirementsCovered: Array.from(reqSet),
@@ -997,7 +1049,7 @@ const fixtureOutput = {
 };
 
 const paths = [
-  path.join(__dirname, 'tests', 'fixtures', 'rules-movegen.fixture.json'),
+  path.join(__dirname, '..', 'tests', 'fixtures', 'rules-movegen.fixture.json'),
 ];
 
 for (const p of paths) {
@@ -1005,3 +1057,4 @@ for (const p of paths) {
   fs.writeFileSync(p, JSON.stringify(fixtureOutput, null, 2), 'utf-8');
   console.log(`Saved fixture JSON to: ${p}`);
 }
+

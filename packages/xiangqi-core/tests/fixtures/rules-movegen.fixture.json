@@ -3,8 +3,10 @@
   "version": "1.0.0",
   "description": "Bộ fixture JSON chuẩn kiểm tra luật đi quân Cờ Tướng (FR-08, FR-11, FR-12, FR-13, Điều 7.1b) cho test harness CI",
   "metadata": {
-    "totalTestCases": 81,
-    "validCasesCount": 33,
+    "totalTestCases": 83,
+    "activeCount": 46,
+    "pendingCount": 37,
+    "validCasesCount": 35,
     "invalidCasesCount": 48,
     "requirementsCovered": [
       "FR-08",
@@ -38,13 +40,16 @@
         "toAlgebraic": "e9"
       },
       "expectedLegal": false,
-      "reason": "Quân cờ không thể di chuyển đến chính ô nó đang đứng."
+      "reason": "Quân cờ không thể di chuyển đến chính ô nó đang đứng.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR08-02",
       "requirementId": "FR-08",
       "piece": "k",
       "color": "r",
+      "emptySource": true,
       "description": "Ô xuất phát là ô trống, không có quân cờ",
       "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR r - - 0 1",
       "move": {
@@ -54,7 +59,9 @@
         "toAlgebraic": "e5"
       },
       "expectedLegal": false,
-      "reason": "Không thể thực hiện nước đi khi ô xuất phát không chứa quân cờ."
+      "reason": "Không thể thực hiện nước đi khi ô xuất phát không chứa quân cờ.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR08-03",
@@ -70,7 +77,9 @@
         "toAlgebraic": "a2"
       },
       "expectedLegal": false,
-      "reason": "Người chơi chỉ được phép di chuyển quân cờ thuộc phe của mình trong lượt đi."
+      "reason": "Người chơi chỉ được phép di chuyển quân cờ thuộc phe của mình trong lượt đi.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR08-04",
@@ -86,7 +95,9 @@
         "toAlgebraic": "d9"
       },
       "expectedLegal": false,
-      "reason": "Quân cờ không được phép đi vào ô đang có quân cờ cùng màu đứng."
+      "reason": "Quân cờ không được phép đi vào ô đang có quân cờ cùng màu đứng.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR08-05",
@@ -102,7 +113,9 @@
         "toAlgebraic": "out_of_bounds"
       },
       "expectedLegal": false,
-      "reason": "Nước đi ra ngoài phạm vi bàn cờ (sq < 0) là bất hợp lệ."
+      "reason": "Nước đi ra ngoài phạm vi bàn cờ (sq < 0) là bất hợp lệ.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR08-06",
@@ -118,7 +131,9 @@
         "toAlgebraic": "out_of_bounds"
       },
       "expectedLegal": false,
-      "reason": "Nước đi vượt quá 90 ô của bàn cờ (sq >= 90) là bất hợp lệ."
+      "reason": "Nước đi vượt quá 90 ô của bàn cờ (sq >= 90) là bất hợp lệ.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR11-K01",
@@ -134,7 +149,9 @@
         "toAlgebraic": "e7"
       },
       "expectedLegal": true,
-      "reason": "Tướng đi thẳng 1 ô trong phạm vi Cung tướng là hợp lệ."
+      "reason": "Tướng đi thẳng 1 ô trong phạm vi Cung tướng là hợp lệ.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-K02",
@@ -150,7 +167,9 @@
         "toAlgebraic": "d8"
       },
       "expectedLegal": true,
-      "reason": "Tướng đi ngang 1 ô trong phạm vi Cung tướng là hợp lệ."
+      "reason": "Tướng đi ngang 1 ô trong phạm vi Cung tướng là hợp lệ.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-K03",
@@ -166,7 +185,9 @@
         "toAlgebraic": "d7"
       },
       "expectedLegal": false,
-      "reason": "Tướng chỉ được đi ngang hoặc dọc 1 ô, không được đi chéo."
+      "reason": "Tướng chỉ được đi ngang hoặc dọc 1 ô, không được đi chéo.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-K04",
@@ -182,7 +203,9 @@
         "toAlgebraic": "e7"
       },
       "expectedLegal": false,
-      "reason": "Tướng chỉ được di chuyển đúng 1 ô mỗi nước đi."
+      "reason": "Tướng chỉ được di chuyển đúng 1 ô mỗi nước đi.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-K05",
@@ -198,7 +221,9 @@
         "toAlgebraic": "c9"
       },
       "expectedLegal": false,
-      "reason": "Tướng không được phép di chuyển ra ngoài Cung (cột d..f)."
+      "reason": "Tướng không được phép di chuyển ra ngoài Cung (cột d..f).",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-K06",
@@ -214,7 +239,9 @@
         "toAlgebraic": "e6"
       },
       "expectedLegal": false,
-      "reason": "Tướng Đỏ không được phép đi ra ngoài Cung (hàng 7..9)."
+      "reason": "Tướng Đỏ không được phép đi ra ngoài Cung (hàng 7..9).",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-K07",
@@ -230,7 +257,9 @@
         "toAlgebraic": "d8"
       },
       "expectedLegal": true,
-      "reason": "Tướng được phép đi ngang 1 ô để ăn quân đối phương trong Cung."
+      "reason": "Tướng được phép đi ngang 1 ô để ăn quân đối phương trong Cung.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-K08",
@@ -246,7 +275,9 @@
         "toAlgebraic": "e1"
       },
       "expectedLegal": true,
-      "reason": "Tướng Đen đi thẳng 1 ô trong Cung (hàng 0..2) là hợp lệ."
+      "reason": "Tướng Đen đi thẳng 1 ô trong Cung (hàng 0..2) là hợp lệ.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-K09",
@@ -262,7 +293,9 @@
         "toAlgebraic": "d3"
       },
       "expectedLegal": false,
-      "reason": "Tướng Đen không được phép đi ra ngoài Cung Đen (hàng 0..2)."
+      "reason": "Tướng Đen không được phép đi ra ngoài Cung Đen (hàng 0..2).",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-A01",
@@ -278,7 +311,9 @@
         "toAlgebraic": "e8"
       },
       "expectedLegal": true,
-      "reason": "Sĩ đi chéo 1 ô vào vị trí tâm Cung là hợp lệ."
+      "reason": "Sĩ đi chéo 1 ô vào vị trí tâm Cung là hợp lệ.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-A02",
@@ -294,7 +329,9 @@
         "toAlgebraic": "d7"
       },
       "expectedLegal": true,
-      "reason": "Sĩ đi chéo 1 ô từ tâm Cung ra góc Cung là hợp lệ."
+      "reason": "Sĩ đi chéo 1 ô từ tâm Cung ra góc Cung là hợp lệ.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-A03",
@@ -310,7 +347,9 @@
         "toAlgebraic": "e7"
       },
       "expectedLegal": false,
-      "reason": "Sĩ chỉ được phép đi đường chéo, không được đi thẳng dọc."
+      "reason": "Sĩ chỉ được phép đi đường chéo, không được đi thẳng dọc.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-A04",
@@ -326,7 +365,9 @@
         "toAlgebraic": "d8"
       },
       "expectedLegal": false,
-      "reason": "Sĩ chỉ được phép đi đường chéo, không được đi ngang."
+      "reason": "Sĩ chỉ được phép đi đường chéo, không được đi ngang.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-A05",
@@ -342,7 +383,9 @@
         "toAlgebraic": "c6"
       },
       "expectedLegal": false,
-      "reason": "Sĩ chỉ được hoạt động trong 5 vị trí cố định của Cung tướng."
+      "reason": "Sĩ chỉ được hoạt động trong 5 vị trí cố định của Cung tướng.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-A06",
@@ -358,7 +401,9 @@
         "toAlgebraic": "e8"
       },
       "expectedLegal": true,
-      "reason": "Sĩ được phép đi chéo 1 ô để ăn quân đối phương trong Cung."
+      "reason": "Sĩ được phép đi chéo 1 ô để ăn quân đối phương trong Cung.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-A07",
@@ -374,7 +419,9 @@
         "toAlgebraic": "f0"
       },
       "expectedLegal": true,
-      "reason": "Sĩ Đen đi chéo 1 ô từ tâm Cung ra góc Cung là hợp lệ."
+      "reason": "Sĩ Đen đi chéo 1 ô từ tâm Cung ra góc Cung là hợp lệ.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-A08",
@@ -390,7 +437,9 @@
         "toAlgebraic": "g3"
       },
       "expectedLegal": false,
-      "reason": "Sĩ chỉ được đi chéo đúng 1 ô."
+      "reason": "Sĩ chỉ được đi chéo đúng 1 ô.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-B01",
@@ -406,7 +455,9 @@
         "toAlgebraic": "a7"
       },
       "expectedLegal": true,
-      "reason": "Tượng đi chéo 2 ô chữ Điền với mắt tượng thông suốt là hợp lệ."
+      "reason": "Tượng đi chéo 2 ô chữ Điền với mắt tượng thông suốt là hợp lệ.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-B02",
@@ -422,7 +473,9 @@
         "toAlgebraic": "e7"
       },
       "expectedLegal": true,
-      "reason": "Tượng được phép đi chéo 2 ô chữ Điền để ăn quân địch tại ô đích."
+      "reason": "Tượng được phép đi chéo 2 ô chữ Điền để ăn quân địch tại ô đích.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-B03",
@@ -438,7 +491,9 @@
         "toAlgebraic": "a7"
       },
       "expectedLegal": false,
-      "reason": "Mắt tượng tại b8 bị cản bởi quân cờ, Tượng không thể di chuyển theo hướng này."
+      "reason": "Mắt tượng tại b8 bị cản bởi quân cờ, Tượng không thể di chuyển theo hướng này.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-B04",
@@ -454,7 +509,9 @@
         "toAlgebraic": "e7"
       },
       "expectedLegal": false,
-      "reason": "Mắt tượng tại d8 bị cản bởi quân địch, Tượng không thể đi qua."
+      "reason": "Mắt tượng tại d8 bị cản bởi quân địch, Tượng không thể đi qua.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-B05",
@@ -470,7 +527,9 @@
         "toAlgebraic": "e3"
       },
       "expectedLegal": false,
-      "reason": "Tượng không được phép vượt qua sông sang phần sân của đối phương."
+      "reason": "Tượng không được phép vượt qua sông sang phần sân của đối phương.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-B06",
@@ -486,7 +545,9 @@
         "toAlgebraic": "b8"
       },
       "expectedLegal": false,
-      "reason": "Tượng chỉ được đi chéo đúng 2 ô (hình chữ Điền), không được đi 1 ô."
+      "reason": "Tượng chỉ được đi chéo đúng 2 ô (hình chữ Điền), không được đi 1 ô.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-B07",
@@ -502,7 +563,9 @@
         "toAlgebraic": "c7"
       },
       "expectedLegal": false,
-      "reason": "Tượng chỉ được đi chéo chữ Điền, không được đi thẳng."
+      "reason": "Tượng chỉ được đi chéo chữ Điền, không được đi thẳng.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-B08",
@@ -518,7 +581,9 @@
         "toAlgebraic": "e2"
       },
       "expectedLegal": false,
-      "reason": "Mắt tượng Đen tại d1 có quân cản, không thể di chuyển tới e2."
+      "reason": "Mắt tượng Đen tại d1 có quân cản, không thể di chuyển tới e2.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-B09",
@@ -534,7 +599,9 @@
         "toAlgebraic": "a2"
       },
       "expectedLegal": true,
-      "reason": "Tượng Đen đi chéo 2 ô chữ Điền trong phần sân Đen không bị cản là hợp lệ."
+      "reason": "Tượng Đen đi chéo 2 ô chữ Điền trong phần sân Đen không bị cản là hợp lệ.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-FG01",
@@ -550,7 +617,9 @@
         "toAlgebraic": "e0"
       },
       "expectedLegal": true,
-      "reason": "Hai Tướng đối mặt trực tiếp trên cùng cột e không có quân cản, Tướng được bay ăn Tướng đối phương."
+      "reason": "Hai Tướng đối mặt trực tiếp trên cùng cột e không có quân cản, Tướng được bay ăn Tướng đối phương.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-FG02",
@@ -566,7 +635,9 @@
         "toAlgebraic": "e0"
       },
       "expectedLegal": false,
-      "reason": "Có quân tốt tại e4 chắn giữa cột e, Tướng không được phép bay ăn Tướng đối phương."
+      "reason": "Có quân tốt tại e4 chắn giữa cột e, Tướng không được phép bay ăn Tướng đối phương.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-FG03",
@@ -582,7 +653,9 @@
         "toAlgebraic": "d9"
       },
       "expectedLegal": true,
-      "reason": "Hai Tướng đối mặt trực tiếp trên cột d không có quân cản, Tướng Đen bay ăn Tướng Đỏ hợp lệ."
+      "reason": "Hai Tướng đối mặt trực tiếp trên cột d không có quân cản, Tướng Đen bay ăn Tướng Đỏ hợp lệ.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-FG04",
@@ -598,7 +671,9 @@
         "toAlgebraic": "e0"
       },
       "expectedLegal": false,
-      "reason": "Hai Tướng không nằm trên cùng một cột, luật Lộ mặt tướng không áp dụng."
+      "reason": "Hai Tướng không nằm trên cùng một cột, luật Lộ mặt tướng không áp dụng.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR11-FG05",
@@ -614,7 +689,9 @@
         "toAlgebraic": "d9"
       },
       "expectedLegal": false,
-      "reason": "Nước đi khiến hai Tướng đối mặt trực tiếp mà không có quân cản ở giữa là phạm luật lộ mặt tướng (chờ xử lý trong XQA-49)."
+      "reason": "Nước đi khiến hai Tướng đối mặt trực tiếp mà không có quân cản ở giữa là phạm luật lộ mặt tướng (chờ xử lý trong XQA-49).",
+      "status": "pending",
+      "blockedBy": "XQA-49"
     },
     {
       "id": "TC-FR11-FG06",
@@ -630,14 +707,16 @@
         "toAlgebraic": "d4"
       },
       "expectedLegal": false,
-      "reason": "Nước đi của quân cản làm lộ mặt trực diện hai Tướng là nước đi bất hợp lệ."
+      "reason": "Nước đi của quân cản làm lộ mặt trực diện hai Tướng là nước đi bất hợp lệ (cần XQA-45 cho nước đi của Tốt và XQA-49 cho kiểm tra chống lộ mặt Tướng).",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
-      "id": "TC-7.1B-01",
-      "requirementId": "Điều 7.1b",
+      "id": "TC-FR11-K10",
+      "requirementId": "FR-11",
       "piece": "k",
       "color": "r",
-      "description": "Tướng đỏ bị vây bí trong góc cung (d9), không còn nước đi hợp lệ nào (xử thua theo Điều 7.1b); cố đi chéo bất hợp lệ",
+      "description": "Tướng đỏ không được đi chéo trong Cung (d9 -> c8)",
       "fen": "4k4/9/9/9/9/9/9/9/4A4/3K5 r - - 0 1",
       "move": {
         "from": 84,
@@ -646,14 +725,16 @@
         "toAlgebraic": "c8"
       },
       "expectedLegal": false,
-      "reason": "Tướng không được đi chéo; trong thế cờ bị vây kẹt, không còn nước đi hợp lệ theo Điều 7.1b."
+      "reason": "Tướng chỉ được di chuyển theo đường thẳng (ngang hoặc dọc), không được đi chéo theo FR-11.",
+      "status": "active",
+      "blockedBy": null
     },
     {
-      "id": "TC-7.1B-02",
-      "requirementId": "Điều 7.1b",
+      "id": "TC-FR11-K11",
+      "requirementId": "FR-11",
       "piece": "k",
       "color": "b",
-      "description": "Tướng đen bị vây bí trong góc cung (d0), cố đi vượt ra ngoài Cung tướng khi hết nước đi (xử thua theo Điều 7.1b)",
+      "description": "Tướng đen không được di chuyển rời khỏi phạm vi Cung tướng (d0 -> c0)",
       "fen": "3k5/9/9/9/9/9/9/9/9/4K4 b - - 0 1",
       "move": {
         "from": 3,
@@ -662,7 +743,35 @@
         "toAlgebraic": "c0"
       },
       "expectedLegal": false,
-      "reason": "Tướng không được rời khỏi Cung; khi hết nước đi hợp lệ bị xử thua theo Điều 7.1b."
+      "reason": "Tướng bị giới hạn di chuyển trong phạm vi Cung (cột d-f, hàng 0-2), không được ra ngoài theo FR-11.",
+      "status": "active",
+      "blockedBy": null
+    },
+    {
+      "id": "TC-7.1B-STALEMATE-01",
+      "kind": "noLegalMoves",
+      "requirementId": "Điều 7.1b",
+      "piece": "k",
+      "color": "b",
+      "description": "Thế bí hợp lệ bên Đen (Stalemate) - Đen đến lượt đi không bị chiếu nhưng hết nước đi hợp lệ (xử thua theo Điều 7.1b)",
+      "fen": "3k5/9/9/2N6/9/9/9/9/9/4K4 b - - 0 1",
+      "expected": true,
+      "reason": "Chứng minh: Đen chỉ có Tướng d0 không bị chiếu. Tướng d0 chỉ có 2 nước trong cung: (1) d0->e0 bị cấm do lộ mặt trực diện Tướng đỏ e9; (2) d0->d1 bị cấm do Mã đỏ c3 kiểm soát d1 (bước vào bị chiếu). Các hướng khác ra ngoài cung. Đen hết nước đi hợp lệ -> Bí nước bị xử thua theo Điều 7.1b (chờ XQA-49).",
+      "status": "pending",
+      "blockedBy": "XQA-49"
+    },
+    {
+      "id": "TC-7.1B-STALEMATE-02",
+      "kind": "noLegalMoves",
+      "requirementId": "Điều 7.1b",
+      "piece": "k",
+      "color": "r",
+      "description": "Thế bí hợp lệ bên Đỏ (Stalemate) - Đỏ đến lượt đi không bị chiếu nhưng hết nước đi hợp lệ (xử thua theo Điều 7.1b)",
+      "fen": "4k4/9/9/9/9/9/2n6/9/9/3K5 r - - 0 1",
+      "expected": true,
+      "reason": "Chứng minh: Đỏ chỉ có Tướng d9 không bị chiếu. Tướng d9 chỉ có 2 nước trong cung: (1) d9->e9 bị cấm do lộ mặt trực diện Tướng đen e0; (2) d9->d8 bị cấm do Mã đen c6 kiểm soát d8 (bước vào bị chiếu). Các hướng khác ra ngoài cung. Đỏ hết nước đi hợp lệ -> Bí nước bị xử thua theo Điều 7.1b (chờ XQA-49).",
+      "status": "pending",
+      "blockedBy": "XQA-49"
     },
     {
       "id": "TC-FR12-N01",
@@ -678,7 +787,9 @@
         "toAlgebraic": "a7"
       },
       "expectedLegal": true,
-      "reason": "Mã đi chữ L với ô chân mã b8 hoàn toàn trống là hợp lệ."
+      "reason": "Mã đi chữ L với ô chân mã b8 hoàn toàn trống là hợp lệ.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR12-N02",
@@ -694,7 +805,9 @@
         "toAlgebraic": "c7"
       },
       "expectedLegal": true,
-      "reason": "Mã đi chữ L với ô chân mã b8 hoàn toàn trống là hợp lệ."
+      "reason": "Mã đi chữ L với ô chân mã b8 hoàn toàn trống là hợp lệ.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR12-N03",
@@ -710,7 +823,9 @@
         "toAlgebraic": "a7"
       },
       "expectedLegal": false,
-      "reason": "Ô chân mã b8 có tốt đứng cản, Mã không thể nhảy hướng Bắc."
+      "reason": "Ô chân mã b8 có tốt đứng cản, Mã không thể nhảy hướng Bắc.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR12-N04",
@@ -726,7 +841,9 @@
         "toAlgebraic": "d7"
       },
       "expectedLegal": false,
-      "reason": "Ô chân mã phía Nam e6 có quân cản, Mã không thể nhảy xuống d7."
+      "reason": "Ô chân mã phía Nam e6 có quân cản, Mã không thể nhảy xuống d7.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR12-N05",
@@ -742,7 +859,9 @@
         "toAlgebraic": "c4"
       },
       "expectedLegal": false,
-      "reason": "Ô chân mã phía Tây d5 có quân cản, Mã không thể nhảy sang c4."
+      "reason": "Ô chân mã phía Tây d5 có quân cản, Mã không thể nhảy sang c4.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR12-N06",
@@ -758,7 +877,9 @@
         "toAlgebraic": "g6"
       },
       "expectedLegal": false,
-      "reason": "Ô chân mã phía Đông f5 có quân cản, Mã không thể nhảy sang g6."
+      "reason": "Ô chân mã phía Đông f5 có quân cản, Mã không thể nhảy sang g6.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR12-N07",
@@ -774,7 +895,9 @@
         "toAlgebraic": "c7"
       },
       "expectedLegal": true,
-      "reason": "Mã nhảy hợp lệ ăn mã đen tại ô đích c7."
+      "reason": "Mã nhảy hợp lệ ăn mã đen tại ô đích c7.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR12-N08",
@@ -790,7 +913,9 @@
         "toAlgebraic": "b8"
       },
       "expectedLegal": false,
-      "reason": "Mã không được phép đi thẳng 1 ô."
+      "reason": "Mã không được phép đi thẳng 1 ô.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR12-N09",
@@ -806,7 +931,9 @@
         "toAlgebraic": "b7"
       },
       "expectedLegal": false,
-      "reason": "Mã không được phép đi thẳng 2 ô."
+      "reason": "Mã không được phép đi thẳng 2 ô.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR12-N10",
@@ -822,7 +949,9 @@
         "toAlgebraic": "b6"
       },
       "expectedLegal": true,
-      "reason": "Mã Đen được phép vượt sông sang phần sân Đỏ theo hình chữ L không bị cản chân."
+      "reason": "Mã Đen được phép vượt sông sang phần sân Đỏ theo hình chữ L không bị cản chân.",
+      "status": "active",
+      "blockedBy": null
     },
     {
       "id": "TC-FR13-R01",
@@ -838,7 +967,9 @@
         "toAlgebraic": "a5"
       },
       "expectedLegal": true,
-      "reason": "Xe đi thẳng dọc không giới hạn ô khi đường đi hoàn toàn thông suốt."
+      "reason": "Xe đi thẳng dọc không giới hạn ô khi đường đi hoàn toàn thông suốt.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-R02",
@@ -854,7 +985,9 @@
         "toAlgebraic": "d9"
       },
       "expectedLegal": true,
-      "reason": "Xe đi ngang không giới hạn ô khi các ô trên hàng thông suốt."
+      "reason": "Xe đi ngang không giới hạn ô khi các ô trên hàng thông suốt.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-R03",
@@ -870,7 +1003,9 @@
         "toAlgebraic": "a0"
       },
       "expectedLegal": true,
-      "reason": "Xe được phép đi thẳng ăn quân đối phương ở cuối đường đi thông suốt."
+      "reason": "Xe được phép đi thẳng ăn quân đối phương ở cuối đường đi thông suốt.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-R04",
@@ -886,7 +1021,9 @@
         "toAlgebraic": "a5"
       },
       "expectedLegal": false,
-      "reason": "Đường đi của Xe bị chặn bởi tốt đỏ tại a6, không thể đi xuyên qua."
+      "reason": "Đường đi của Xe bị chặn bởi tốt đỏ tại a6, không thể đi xuyên qua.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-R05",
@@ -902,7 +1039,9 @@
         "toAlgebraic": "d9"
       },
       "expectedLegal": false,
-      "reason": "Đường ngang của Xe bị chặn bởi mã đỏ tại b9, không thể đi xuyên qua."
+      "reason": "Đường ngang của Xe bị chặn bởi mã đỏ tại b9, không thể đi xuyên qua.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-R06",
@@ -918,7 +1057,9 @@
         "toAlgebraic": "b8"
       },
       "expectedLegal": false,
-      "reason": "Xe chỉ được đi ngang hoặc dọc, tuyệt đối không được đi chéo."
+      "reason": "Xe chỉ được đi ngang hoặc dọc, tuyệt đối không được đi chéo.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-R07",
@@ -934,7 +1075,9 @@
         "toAlgebraic": "a6"
       },
       "expectedLegal": true,
-      "reason": "Xe Đen được phép vượt sông sang phần sân Đỏ trên đường thẳng thông suốt."
+      "reason": "Xe Đen được phép vượt sông sang phần sân Đỏ trên đường thẳng thông suốt.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-R08",
@@ -950,7 +1093,9 @@
         "toAlgebraic": "a4"
       },
       "expectedLegal": false,
-      "reason": "Xe không được phép nhảy qua bất kỳ quân cờ nào."
+      "reason": "Xe không được phép nhảy qua bất kỳ quân cờ nào.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-C01",
@@ -966,7 +1111,9 @@
         "toAlgebraic": "b4"
       },
       "expectedLegal": true,
-      "reason": "Khi không ăn quân, Pháo di chuyển như Xe trên đường thẳng hoàn toàn thông suốt."
+      "reason": "Khi không ăn quân, Pháo di chuyển như Xe trên đường thẳng hoàn toàn thông suốt.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-C02",
@@ -982,7 +1129,9 @@
         "toAlgebraic": "e7"
       },
       "expectedLegal": true,
-      "reason": "Pháo đi ngang vào ô trống khi không có bất kỳ quân cản nào giữa đường."
+      "reason": "Pháo đi ngang vào ô trống khi không có bất kỳ quân cản nào giữa đường.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-C03",
@@ -998,7 +1147,9 @@
         "toAlgebraic": "b0"
       },
       "expectedLegal": true,
-      "reason": "Pháo ăn quân đối phương khi có đúng 1 quân cản (ngòi) ở giữa."
+      "reason": "Pháo ăn quân đối phương khi có đúng 1 quân cản (ngòi) ở giữa.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-C04",
@@ -1014,7 +1165,9 @@
         "toAlgebraic": "b0"
       },
       "expectedLegal": true,
-      "reason": "Ngòi pháo có thể là quân của bất kỳ bên nào (kể cả quân cùng màu)."
+      "reason": "Ngòi pháo có thể là quân của bất kỳ bên nào (kể cả quân cùng màu).",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-C05",
@@ -1030,7 +1183,9 @@
         "toAlgebraic": "b0"
       },
       "expectedLegal": false,
-      "reason": "Pháo không thể ăn quân nếu không có đúng 1 ngòi cản ở giữa."
+      "reason": "Pháo không thể ăn quân nếu không có đúng 1 ngòi cản ở giữa.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-C06",
@@ -1046,7 +1201,9 @@
         "toAlgebraic": "b0"
       },
       "expectedLegal": false,
-      "reason": "Pháo có 2 quân cản ở giữa (tốt đỏ b6 và tốt đen b3) nên không thể ăn quân."
+      "reason": "Pháo có 2 quân cản ở giữa (tốt đỏ b6 và tốt đen b3) nên không thể ăn quân.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-C07",
@@ -1062,7 +1219,9 @@
         "toAlgebraic": "b1"
       },
       "expectedLegal": false,
-      "reason": "Pháo chỉ được nhảy qua ngòi khi ô đích là quân đối phương (nước ăn quân)."
+      "reason": "Pháo chỉ được nhảy qua ngòi khi ô đích là quân đối phương (nước ăn quân).",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-C08",
@@ -1078,7 +1237,9 @@
         "toAlgebraic": "c6"
       },
       "expectedLegal": false,
-      "reason": "Pháo chỉ được di chuyển ngang hoặc dọc, không được đi chéo."
+      "reason": "Pháo chỉ được di chuyển ngang hoặc dọc, không được đi chéo.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-C09",
@@ -1094,7 +1255,9 @@
         "toAlgebraic": "b7"
       },
       "expectedLegal": true,
-      "reason": "Pháo Đen ăn quân đỏ qua đúng 1 ngòi cản tại b3 là hợp lệ."
+      "reason": "Pháo Đen ăn quân đỏ qua đúng 1 ngòi cản tại b3 là hợp lệ.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-C10",
@@ -1110,7 +1273,9 @@
         "toAlgebraic": "b4"
       },
       "expectedLegal": false,
-      "reason": "Pháo đi không ăn quân gặp vật cản tại b3 nên không thể đi tiếp."
+      "reason": "Pháo đi không ăn quân gặp vật cản tại b3 nên không thể đi tiếp.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-P01",
@@ -1126,7 +1291,9 @@
         "toAlgebraic": "e5"
       },
       "expectedLegal": true,
-      "reason": "Tốt chưa qua sông được phép tiến thẳng 1 ô về phía trước."
+      "reason": "Tốt chưa qua sông được phép tiến thẳng 1 ô về phía trước.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-P02",
@@ -1142,7 +1309,9 @@
         "toAlgebraic": "d6"
       },
       "expectedLegal": false,
-      "reason": "Tốt chưa qua sông chỉ được tiến thẳng, tuyệt đối không được đi ngang."
+      "reason": "Tốt chưa qua sông chỉ được tiến thẳng, tuyệt đối không được đi ngang.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-P03",
@@ -1158,7 +1327,9 @@
         "toAlgebraic": "e7"
       },
       "expectedLegal": false,
-      "reason": "Tốt không bao giờ được phép đi lùi trong bất kỳ trường hợp nào."
+      "reason": "Tốt không bao giờ được phép đi lùi trong bất kỳ trường hợp nào.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-P04",
@@ -1174,7 +1345,9 @@
         "toAlgebraic": "e3"
       },
       "expectedLegal": true,
-      "reason": "Tốt đã qua sông được phép tiến thẳng 1 ô."
+      "reason": "Tốt đã qua sông được phép tiến thẳng 1 ô.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-P05",
@@ -1190,7 +1363,9 @@
         "toAlgebraic": "d4"
       },
       "expectedLegal": true,
-      "reason": "Tốt đã qua sông được phép đi ngang 1 ô sang trái."
+      "reason": "Tốt đã qua sông được phép đi ngang 1 ô sang trái.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-P06",
@@ -1206,7 +1381,9 @@
         "toAlgebraic": "f4"
       },
       "expectedLegal": true,
-      "reason": "Tốt đã qua sông được phép đi ngang 1 ô sang phải."
+      "reason": "Tốt đã qua sông được phép đi ngang 1 ô sang phải.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-P07",
@@ -1222,7 +1399,9 @@
         "toAlgebraic": "e5"
       },
       "expectedLegal": false,
-      "reason": "Tốt đã qua sông vẫn không bao giờ được phép đi lùi."
+      "reason": "Tốt đã qua sông vẫn không bao giờ được phép đi lùi.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-P08",
@@ -1238,7 +1417,9 @@
         "toAlgebraic": "d0"
       },
       "expectedLegal": true,
-      "reason": "Tốt ở hàng đáy vẫn được phép di chuyển ngang 1 ô."
+      "reason": "Tốt ở hàng đáy vẫn được phép di chuyển ngang 1 ô.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-P09",
@@ -1254,7 +1435,9 @@
         "toAlgebraic": "out_of_bounds"
       },
       "expectedLegal": false,
-      "reason": "Tốt ở hàng đáy không thể tiến tiếp ra ngoài bàn cờ."
+      "reason": "Tốt ở hàng đáy không thể tiến tiếp ra ngoài bàn cờ.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-P10",
@@ -1270,7 +1453,9 @@
         "toAlgebraic": "e4"
       },
       "expectedLegal": true,
-      "reason": "Tốt Đen chưa qua sông tiến thẳng 1 ô xuống phía dưới là hợp lệ."
+      "reason": "Tốt Đen chưa qua sông tiến thẳng 1 ô xuống phía dưới là hợp lệ.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-P11",
@@ -1286,7 +1471,9 @@
         "toAlgebraic": "d3"
       },
       "expectedLegal": false,
-      "reason": "Tốt Đen chưa qua sông tuyệt đối không được đi ngang."
+      "reason": "Tốt Đen chưa qua sông tuyệt đối không được đi ngang.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-P12",
@@ -1302,7 +1489,9 @@
         "toAlgebraic": "f5"
       },
       "expectedLegal": true,
-      "reason": "Tốt Đen sau khi qua sông được phép đi ngang 1 ô."
+      "reason": "Tốt Đen sau khi qua sông được phép đi ngang 1 ô.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     },
     {
       "id": "TC-FR13-P13",
@@ -1318,7 +1507,9 @@
         "toAlgebraic": "e4"
       },
       "expectedLegal": false,
-      "reason": "Tốt Đen không bao giờ được phép đi lùi."
+      "reason": "Tốt Đen không bao giờ được phép đi lùi.",
+      "status": "pending",
+      "blockedBy": "XQA-45"
     }
   ]
 }

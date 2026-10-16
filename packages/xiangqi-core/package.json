@@ -6,6 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "fixtures:generate": "node scripts/generate-fixtures.js",
     "test": "jest",
     "test:harness": "node scripts/ci-rules-harness.js",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\""

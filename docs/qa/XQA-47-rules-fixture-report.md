@@ -1,35 +1,60 @@
-# Báo cáo Kiểm thử CI Rules Harness: Fixture Luật Đi Quân (XQA-47 / XQA-48)
+# Tài liệu Đặc tả & Kiến trúc Test Fixture Luật Đi Quân (XQA-47 / XQA-48)
 
-- **Ngày thực thi**: 2026-10-16T18:21:01.102Z
-- **Bộ dữ liệu fixture**: `packages/xiangqi-core/tests/fixtures/rules-movegen.fixture.json`
-- **Tổng số test case**: 81
-- **Tổng số ca pass hiện tại**: 64 / 81 (79%)
-- **Số ca chờ tính năng (XQA-45 & XQA-49)**: 17
+Tài liệu kiểm định và quy cách bộ dữ liệu fixture kiểm thử luật đi quân Cờ Tướng trong dự án Xiangqi Arena.
 
-## 1. Kết quả theo loại quân
+## 1. Mục tiêu và Phạm vi
+- **Ticket XQA-47**: Xây dựng bộ test case luật đi quân chuẩn hóa dạng JSON (`rules-movegen.fixture.json`).
+- **Ticket XQA-48**: Xây dựng Test Runner và tích hợp CI Harness chạy tự động, báo cáo pass/fail chi tiết từng test case trên pipeline CI.
+- **Yêu cầu độ phủ (Acceptance Criteria)**:
+  - Tối thiểu ≥50 test cases, bao phủ toàn bộ 7 loại quân cờ: Tướng (`k`), Sĩ (`a`), Tượng (`b`), Mã (`n`), Xe (`r`), Pháo (`c`), Tốt (`p`).
+  - Bao gồm cả ca hợp lệ (`expectedLegal: true`) và ca bất hợp lệ (`expectedLegal: false`).
+  - Mỗi test case được gắn Requirement ID rõ ràng (`FR-08`, `FR-11`, `FR-12`, `FR-13`, `Điều 7.1b`).
+  - Gắn trạng thái thực thi (`status: "active" | "pending"`) và mã ticket phụ thuộc (`blockedBy`).
 
-| Quân cờ | Tên quân | Đã đạt | Cần hoàn thiện | Tổng | Tỷ lệ |
-|---|---|---|---|---|---|
-| `k` | Tướng (King) | 18 | 1 | 19 | 95% |
-| `a` | Sĩ (Advisor) | 8 | 0 | 8 | 100% |
-| `b` | Tượng (Elephant) | 9 | 0 | 9 | 100% |
-| `n` | Mã (Horse) | 11 | 0 | 11 | 100% |
-| `r` | Xe (Chariot) | 6 | 4 | 10 | (Chờ XQA-45) |
-| `c` | Pháo (Cannon) | 5 | 5 | 10 | (Chờ XQA-45) |
-| `p` | Tốt (Pawn) | 7 | 7 | 14 | (Chờ XQA-45) |
+## 2. Quy cách Cấu trúc Test Case (Schema)
 
-## 2. Kết quả theo Requirement ID
+```json
+{
+  "id": "TC-FR12-N01",
+  "requirementId": "FR-12",
+  "piece": "n",
+  "color": "r",
+  "description": "Mô tả hành vi nước đi cần kiểm thử",
+  "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR r - - 0 1",
+  "move": {
+    "from": 82,
+    "to": 66,
+    "fromAlgebraic": "b9",
+    "toAlgebraic": "a7"
+  },
+  "expectedLegal": true,
+  "status": "active",
+  "blockedBy": null,
+  "reason": "Giải thích chi tiết căn cứ theo luật cờ"
+}
+```
 
-| Requirement ID | Nội dung | Đã đạt | Chờ xử lý | Tổng |
-|---|---|---|---|---|
-| **FR-08** | Luật di chuyển cơ bản & Biên bàn cờ | 6 | 0 | 6 |
-| **FR-11** | Nước đi Tướng, Sĩ, Tượng & Lộ mặt Tướng | 31 | 1 | 32 |
-| **Điều 7.1b** | Hết nước đi bị xử thua (Bí nước / Stalemate) | 2 | 0 | 2 |
-| **FR-12** | Nước đi Mã (Hình chữ L, 4 hướng cản chân Mã) | 10 | 0 | 10 |
-| **FR-13** | Nước đi Xe, Pháo, Tốt (Ngòi pháo, Qua sông) | 15 | 16 | 31 |
+Đối với các ca kiểm thử thế cờ toàn cục (ví dụ thế bí theo Điều 7.1b):
+```json
+{
+  "id": "TC-7.1B-STALEMATE-01",
+  "kind": "noLegalMoves",
+  "requirementId": "Điều 7.1b",
+  "color": "b",
+  "description": "Thế bí hợp lệ bên Đen (Stalemate)",
+  "fen": "3k5/9/9/2N6/9/9/9/9/9/4K4 b - - 0 1",
+  "expected": true,
+  "status": "pending",
+  "blockedBy": "XQA-49",
+  "reason": "Chứng minh không có nước đi hợp lệ..."
+}
+```
 
-## 3. Ghi chú và Khuyến nghị cho Sprint tiếp theo
-- Toàn bộ luật đi vật lý của 4 quân **Tướng, Sĩ, Tượng, Mã** và các ràng buộc cơ bản của **FR-08, FR-11, FR-12, Điều 7.1b** hoạt động hoàn hảo 100%.
-- Các test case không hợp lệ của quân khóa (Xe, Pháo, Tốt) đã trả về `false` đúng kỳ vọng.
-- 16 ca hợp lệ của Xe, Pháo, Tốt (`expectedLegal: true`) sẵn sàng làm baseline thẩm định cho ticket **XQA-45**.
-- 1 ca `TC-FR11-FG05` (Tướng bước ngang tạo thế lộ mặt trực diện) sẽ được hoàn thiện khi triển khai bộ lọc nước đi hợp lệ toàn diện và chống lộ mặt Tướng trong ticket **XQA-49**.
+## 3. Quản lý trạng thái Ca kiểm thử (`status` & `blockedBy`)
+- **`active`**: Áp dụng cho các quân cờ và quy tắc đã được implement MoveGen trong engine (Tướng, Sĩ, Tượng, Mã). Nếu ca active thất bại, test harness sẽ exit với mã lỗi `1`.
+- **`pending`**:
+  - `blockedBy: "XQA-45"`: Áp dụng cho tất cả các ca của Xe, Pháo, Tốt (chờ hoàn thành MoveGen cho 3 quân này).
+  - `blockedBy: "XQA-49"`: Áp dụng cho các ca kiểm tra chống lộ mặt Tướng và thế cờ bí nước toàn cục.
+
+## 4. Báo cáo Thực thi CI
+Khi pipeline CI thực thi lệnh `pnpm --filter @xiangqi-arena/xiangqi-core test:harness`, kết quả chạy động sẽ được ghi nhận tự động vào artifact `packages/xiangqi-core/reports/rules-harness-report.md` và hiển thị trên GitHub Step Summary cũng như GitHub Checks.
