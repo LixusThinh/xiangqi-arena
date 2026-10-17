@@ -53,13 +53,13 @@ describe('Position.isLegalMove', () => {
     expect(pos.isLegalMove({ from: 85, to: 75 })).toBe(false);
   });
 
-  it('returns false for locked pieces: Chariot (Xe), Cannon (Pháo), Soldier (Tốt)', () => {
+  it('accepts basic moves of Chariot (Xe), Cannon (Pháo), Soldier (Tốt) since XQA-45', () => {
     const pos = Position.initial();
-    // Red Chariot at a0 (sq 81)
-    expect(pos.isLegalMove({ from: 81, to: 72 })).toBe(false);
-    // Red Cannon at b2 (sq 64)
-    expect(pos.isLegalMove({ from: 64, to: 67 })).toBe(false);
-    // Red Soldier at c3 (sq 56)
-    expect(pos.isLegalMove({ from: 56, to: 47 })).toBe(false);
+    // Red Chariot a9 (sq 81) -> a8 (sq 72)
+    expect(pos.isLegalMove({ from: 81, to: 72 })).toBe(true);
+    // Red Cannon b7 (sq 64) -> e7 (sq 67)
+    expect(pos.isLegalMove({ from: 64, to: 67 })).toBe(true);
+    // Red Soldier c6 (sq 56) -> c5 (sq 47)
+    expect(pos.isLegalMove({ from: 56, to: 47 })).toBe(true);
   });
 });
