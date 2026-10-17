@@ -61,4 +61,16 @@ describe('Position MoveGen Integration & Flying General Detection', () => {
     const pos = Position.fromFen(fen);
     expect(pos.hasFlyingGeneral()).toBe(false);
   });
+
+  it('sinh đủ 44 nước cho bên đi trước ở thế khai cuộc (đủ 7 loại quân, XQA-45)', () => {
+    // 44 là số nước khai cuộc chuẩn của Cờ Tướng (perft độ sâu 1)
+    for (const side of ['r', 'b'] as const) {
+      const pos = Position.fromFen(Position.initial().toFen().replace(' r ', ` ${side} `));
+      let total = 0;
+      for (let sq = 0; sq < 90; sq++) {
+        total += pos.generatePieceMoves(sq).length;
+      }
+      expect(total).toBe(44);
+    }
+  });
 });

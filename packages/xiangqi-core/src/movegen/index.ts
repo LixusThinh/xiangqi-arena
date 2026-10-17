@@ -4,11 +4,17 @@ import { generateAdvisorMoves } from './advisor';
 import { generateElephantMoves } from './elephant';
 import { generateHorseMoves } from './horse';
 import { generateKingMoves } from './king';
+import { generateChariotMoves } from './chariot';
+import { generateCannonMoves } from './cannon';
+import { generatePawnMoves } from './pawn';
 
 export * from './king';
 export * from './advisor';
 export * from './elephant';
 export * from './horse';
+export * from './chariot';
+export * from './cannon';
+export * from './pawn';
 
 /**
  * Dispatcher sinh danh sách nước đi vật lý (pseudo-legal) cho quân cờ tại ô chỉ định.
@@ -33,8 +39,13 @@ export function generatePieceMoves(
       return generateElephantMoves(board, from, sideToMove);
     case 'n':
       return generateHorseMoves(board, from, sideToMove);
+    case 'r':
+      return generateChariotMoves(board, from, sideToMove);
+    case 'c':
+      return generateCannonMoves(board, from, sideToMove);
+    case 'p':
+      return generatePawnMoves(board, from, sideToMove);
     default:
-      // Các quân Xe (r), Pháo (c), Tốt (p) sẽ được hiện thực trong XQA-45
       return [];
   }
 }

@@ -12,6 +12,8 @@ import {
   generatePieceMoves as genPieceMoves,
   hasFlyingGeneral as checkFlyingGeneral,
 } from './movegen';
+import { isInCheck, opponentOf } from './rules/check';
+import { GameStatus } from './rules/game-status';
 
 export class Position implements PositionState {
   board: (Piece | null)[];
@@ -144,6 +146,10 @@ export class Position implements PositionState {
     );
   }
 
+  /**
+   * Nước đi có hợp lệ theo luật không: đúng cách đi của quân (pseudo-legal) VÀ sau khi đi
+   * Tướng phe mình không bị chiếu, không lộ mặt tướng (Điều 4.3a, 6.2).
+   */
   isLegalMove(move: Move): boolean {
     const { from, to } = move;
     if (!isValidSquare(from) || !isValidSquare(to) || from === to) {
@@ -155,15 +161,77 @@ export class Position implements PositionState {
       return false;
     }
 
-    const legalMoves = this.generatePieceMoves(from);
-    return legalMoves.some((m) => m.to === to);
+    return this.generatePieceMoves(from).some((m) => m.to === to);
   }
 
+  /**
+   * Nước đi HỢP LỆ của quân tại ô `sq` (đã lọc nước tự chiếu / lộ mặt tướng).
+   * Đây là danh sách FE dùng để highlight. Từ XQA-49 hàm này không còn trả nước pseudo-legal.
+   */
   generatePieceMoves(sq: Square): Move[] {
+    return this.filterLegal(this.generatePseudoLegalPieceMoves(sq));
+  }
+
+  /** Nước đi vật lý của quân tại `sq`, CHƯA xét chiếu (dùng nội bộ, test, AI). */
+  generatePseudoLegalPieceMoves(sq: Square): Move[] {
     return genPieceMoves(this.board, sq, this.sideToMove);
+  }
+
+  /** Toàn bộ nước đi vật lý của bên tới lượt, CHƯA xét chiếu. */
+  generatePseudoLegalMoves(): Move[] {
+    const moves: Move[] = [];
+    for (let sq = 0; sq < this.board.length; sq++) {
+      const p = this.board[sq];
+      if (p && p.color === this.sideToMove) {
+        moves.push(...genPieceMoves(this.board, sq, this.sideToMove));
+      }
+    }
+    return moves;
+  }
+
+  /** Toàn bộ nước đi hợp lệ của bên tới lượt. Không bao giờ chứa nước tự chiếu / lộ mặt tướng. */
+  generateLegalMoves(): Move[] {
+    return this.filterLegal(this.generatePseudoLegalMoves());
+  }
+
+  /** Tướng phe `color` (mặc định: bên tới lượt) có đang bị chiếu không. */
+  isCheck(color: Color = this.sideToMove): boolean {
+    return isInCheck(this.board, color);
+  }
+
+  /**
+   * Trạng thái ván sau nước vừa đi (hợp đồng XQA-216).
+   * Hết nước hợp lệ → bên tới lượt thua: 'checkmate' nếu đang bị chiếu, 'no_moves' nếu không (Điều 7.1b).
+   */
+  getGameStatus(): GameStatus {
+    const turn = this.sideToMove;
+    const inCheck = this.isCheck(turn);
+    const hasMove = this.generateLegalMoves().length > 0;
+    return {
+      turn,
+      inCheck,
+      result: hasMove
+        ? null
+        : { winner: opponentOf(turn), reason: inCheck ? 'checkmate' : 'no_moves' },
+    };
   }
 
   hasFlyingGeneral(): boolean {
     return checkFlyingGeneral(this.board);
+  }
+
+  private filterLegal(moves: Move[]): Move[] {
+    const mover = this.sideToMove;
+    const legal: Move[] = [];
+    for (const move of moves) {
+      const undo = this.applyMove(move);
+      // Sau khi đi: Tướng phe vừa đi không được bị chiếu. isInCheck đã tính cả trường hợp
+      // hai Tướng đối mặt không có quân che (Tướng đối phương "bắt" được theo cột).
+      if (!isInCheck(this.board, mover)) {
+        legal.push(move);
+      }
+      this.undoMove(undo);
+    }
+    return legal;
   }
 }
