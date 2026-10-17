@@ -272,22 +272,21 @@ describe('Xiangqi Arena Game Room Page', () => {
     expect(screen.getByText('Đen')).toBeInTheDocument();
   });
 
-  it('keeps locked pieces (Chariot, Cannon, Soldier) immovable', () => {
+  it('moves Soldier (Tốt) forward with a single hint since XQA-45', () => {
     render(<ArenaPage />);
 
-    // Click Red Soldier at sq 56
-    const soldier = screen.getByTestId('piece-56');
-    fireEvent.click(soldier);
-
-    // No hints rendered
-    expect(screen.queryByTestId(/hint-sq-/)).not.toBeInTheDocument();
+    // Click Red Soldier at sq 56 (c6): chưa qua sông nên chỉ có 1 gợi ý tiến c5 (sq 47)
+    fireEvent.click(screen.getByTestId('piece-56'));
+    expect(screen.getByTestId('hint-sq-47')).toBeInTheDocument();
+    expect(screen.queryByTestId('hint-sq-55')).not.toBeInTheDocument(); // không đi ngang
+    expect(screen.queryByTestId('hint-sq-57')).not.toBeInTheDocument();
 
     // Click forward sq 47
     fireEvent.click(screen.getByTestId('cell-47'));
 
-    // Soldier should NOT move
-    expect(screen.getByTestId('piece-56')).toBeInTheDocument();
-    expect(screen.queryByTestId('piece-47')).not.toBeInTheDocument();
-    expect(screen.getByText('Đỏ (Đi trước)')).toBeInTheDocument();
+    // Soldier moved, turn toggles to Black
+    expect(screen.getByTestId('piece-47')).toBeInTheDocument();
+    expect(screen.queryByTestId('piece-56')).not.toBeInTheDocument();
+    expect(screen.getByText('Đen')).toBeInTheDocument();
   });
 });
