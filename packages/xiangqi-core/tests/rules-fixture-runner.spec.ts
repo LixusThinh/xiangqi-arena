@@ -107,7 +107,6 @@ describe('XQA-47: Chinese Chess Rules & MoveGen Fixtures', () => {
     });
 
     it('ensures every pending test case has a non-null blockedBy ticket identifier', () => {
-      expect(pendingCases.length).toBeGreaterThan(0);
       for (const tc of pendingCases) {
         expect(tc.blockedBy).not.toBeNull();
         expect(['XQA-45', 'XQA-49']).toContain(tc.blockedBy);
@@ -149,17 +148,25 @@ describe('XQA-47: Chinese Chess Rules & MoveGen Fixtures', () => {
       '$id [$requirementId] $description',
       (tc) => {
         const pos = Position.fromFen(tc.fen);
-        expect(pos.isLegalMove(tc.move!)).toBe(tc.expectedLegal);
+        if (tc.kind === 'noLegalMoves') {
+          // Điều 7.1b: bên tới lượt hết nước hợp lệ (XQA-49)
+          expect(pos.generateLegalMoves().length === 0).toBe(tc.expected);
+        } else {
+          expect(pos.isLegalMove(tc.move!)).toBe(tc.expectedLegal);
+        }
       },
     );
   });
 
-  describe('Pending Rule Test Cases (Skipped on CI until feature tickets merge)', () => {
-    it.skip.each(pendingCases)(
-      '[PENDING $blockedBy] $id [$requirementId] $description',
-      () => {
-        // Skipped
-      },
-    );
-  });
+  // Jest báo lỗi khi .each nhận mảng rỗng, nên chỉ khai báo khi còn ca pending
+  if (pendingCases.length > 0) {
+    describe('Pending Rule Test Cases (Skipped on CI until feature tickets merge)', () => {
+      it.skip.each(pendingCases)(
+        '[PENDING $blockedBy] $id [$requirementId] $description',
+        () => {
+          // Skipped
+        },
+      );
+    });
+  }
 });

@@ -54,8 +54,13 @@ for (const tc of fixture.testCases) {
   let isExpected = false;
 
   if (tc.kind === 'noLegalMoves') {
-    // Với ca thế bí toàn cục (Điều 7.1b), engine hiện tại chưa có bộ lọc legalMoves toàn diện
-    actual = false;
+    // Ca hết nước (Điều 7.1b): bên tới lượt không còn nước hợp lệ nào (XQA-49)
+    try {
+      const pos = Position.fromFen(tc.fen);
+      actual = pos.generateLegalMoves().length === 0;
+    } catch (err) {
+      actual = false;
+    }
     isExpected = actual === tc.expected;
   } else {
     try {

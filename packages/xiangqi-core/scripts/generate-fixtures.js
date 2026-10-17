@@ -624,7 +624,7 @@ const testCases = [
     piece: 'r',
     color: 'r',
     description: 'Xe đỏ đi thẳng dọc thông suốt trên cột a (a9 -> a5)',
-    fen: 'rnbakabnr/9/1c5c1/1p1p1p1p1/9/9/1P1P1P1P1/1C5C1/9/RNBAKABNR r - - 0 1',
+    fen: 'rnbakabnr/9/1c5c1/2p1p1p1p/9/9/2P1P1P1P/1C5C1/9/RNBAKABNR r - - 0 1',
     move: createMove('a9', 'a5'),
     expectedLegal: true,
     reason: 'Xe đi thẳng dọc không giới hạn ô khi đường đi hoàn toàn thông suốt.'
@@ -646,7 +646,7 @@ const testCases = [
     piece: 'r',
     color: 'r',
     description: 'Xe đỏ ăn quân địch ở cuối đường đi dọc thông suốt (a9 -> a0)',
-    fen: 'r1bakabnr/9/1c5c1/1p1p1p1p1/9/9/1P1P1P1P1/1C5C1/9/RNBAKABNR r - - 0 1',
+    fen: 'r1bakabnr/9/1c5c1/2p1p1p1p/9/9/2P1P1P1P/1C5C1/9/RNBAKABNR r - - 0 1',
     move: createMove('a9', 'a0'),
     expectedLegal: true,
     reason: 'Xe được phép đi thẳng ăn quân đối phương ở cuối đường đi thông suốt.'
@@ -690,7 +690,7 @@ const testCases = [
     piece: 'r',
     color: 'b',
     description: 'Xe đen đi dọc thông suốt qua sông sang phần sân Đỏ (a0 -> a6)',
-    fen: 'r1bakabnr/9/1c5c1/1p1p1p1p1/9/9/1P1P1P1P1/1C5C1/9/RNBAKABNR b - - 0 1',
+    fen: 'r1bakabnr/9/1c5c1/2p1p1p1p/9/9/2P1P1P1P/1C5C1/9/RNBAKABNR b - - 0 1',
     move: createMove('a0', 'a6'),
     expectedLegal: true,
     reason: 'Xe Đen được phép vượt sông sang phần sân Đỏ trên đường thẳng thông suốt.'
@@ -874,7 +874,7 @@ const testCases = [
     piece: 'p',
     color: 'r',
     description: 'Tốt đỏ đã qua sông đi ngang sang trái 1 ô (e4 -> d4)',
-    fen: 'rnbakabnr/9/1c5c1/p1p3p1p/4P4/9/P1P3P1P/1C5C1/9/RNBAKABNR r - - 0 1',
+    fen: 'rnbakabnr/9/1c5c1/p1p1p1p1p/4P4/9/P1P3P1P/1C5C1/9/RNBAKABNR r - - 0 1',
     move: createMove('e4', 'd4'),
     expectedLegal: true,
     reason: 'Tốt đã qua sông được phép đi ngang 1 ô sang trái.'
@@ -885,7 +885,7 @@ const testCases = [
     piece: 'p',
     color: 'r',
     description: 'Tốt đỏ đã qua sông đi ngang sang phải 1 ô (e4 -> f4)',
-    fen: 'rnbakabnr/9/1c5c1/p1p3p1p/4P4/9/P1P3P1P/1C5C1/9/RNBAKABNR r - - 0 1',
+    fen: 'rnbakabnr/9/1c5c1/p1p1p1p1p/4P4/9/P1P3P1P/1C5C1/9/RNBAKABNR r - - 0 1',
     move: createMove('e4', 'f4'),
     expectedLegal: true,
     reason: 'Tốt đã qua sông được phép đi ngang 1 ô sang phải.'
@@ -969,24 +969,12 @@ const testCases = [
   }
 ];
 
-// Gán status và blockedBy cho từng testcase theo đặc tả
+// Gán status và blockedBy cho từng testcase theo đặc tả.
+// XQA-45 (MoveGen Xe, Pháo, Tốt – PR #12) và XQA-49 (chiếu, lộ mặt tướng, hết nước – PR #13)
+// đã hiện thực, nên mọi ca đều active. Ca mới chờ ticket khác: đặt status 'pending' + blockedBy.
 for (const tc of testCases) {
-  if (tc.kind === 'noLegalMoves') {
-    tc.status = 'pending';
-    tc.blockedBy = 'XQA-49';
-  } else if (tc.id === 'TC-FR11-FG05') {
-    tc.status = 'pending';
-    tc.blockedBy = 'XQA-49';
-  } else if (tc.id === 'TC-FR11-FG06') {
-    tc.status = 'pending';
-    tc.blockedBy = 'XQA-45';
-  } else if (['r', 'c', 'p'].includes(tc.piece)) {
-    tc.status = 'pending';
-    tc.blockedBy = 'XQA-45';
-  } else {
-    tc.status = 'active';
-    tc.blockedBy = null;
-  }
+  tc.status = 'active';
+  tc.blockedBy = null;
 }
 
 // Validate all test cases against engine parser
