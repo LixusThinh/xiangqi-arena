@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Position, Side, Piece, MoveUndo } from '@xiangqi-arena/xiangqi-core';
 import Board from '@/components/Board';
 import PlayerCard from '@/components/PlayerCard';
@@ -285,6 +286,12 @@ export default function ArenaPage({ searchParams }: ArenaPageProps) {
         </div>
 
         <div className="flex items-center gap-3">
+          <Link
+            href="/login"
+            className="mr-1 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-amber-400 hover:text-amber-300"
+          >
+            Đăng nhập
+          </Link>
           <div className="px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs font-medium text-slate-300 flex items-center gap-2 shadow-inner">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             Lượt: <span className="font-bold text-amber-300">{sideToMove === 'r' ? 'Đỏ (Đi trước)' : 'Đen'}</span>

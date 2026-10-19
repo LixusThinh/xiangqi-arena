@@ -2,6 +2,15 @@
 
 Ứng dụng web Next.js 14 (App Router) cho Xiangqi Arena — Phòng thi đấu Cờ Tướng trực tuyến 3 cột hoàn chỉnh với bàn cờ SVG tương tác Click-to-Move, đồng hồ đếm ngược lượt đi 60s, webcam preview cục bộ, khung chat thời gian thực và hệ thống modal thông báo.
 
+## Auth mock (XQA-213)
+
+- Mở `/login` hoặc `/register`; trang Home có nút dẫn tới đăng nhập.
+- Đăng nhập thử bằng `player1` / `arena1234`. Mock trả `401 AUTH_INVALID_CREDENTIALS` khi thông tin không khớp và `409 AUTH_IDENTIFIER_TAKEN` khi đăng ký trùng username/email.
+- Form kiểm tra dữ liệu ở client theo [Auth REST contract](../../docs/api/auth.md), gồm password 8–72 ký tự và giới hạn 72 byte UTF-8.
+- Lời gọi đăng nhập/đăng ký nằm trong `lib/auth-api.ts`. Thay mock bằng HTTP client thật tại file này khi làm XQA-214; các form không gọi backend trực tiếp.
+- Đây là mock trong bộ nhớ để phát triển UI: tài khoản đăng ký mới mất khi tải lại trang. Route guard, lưu/refresh token và đăng xuất chưa nằm trong phạm vi này.
+- Test auth: `corepack pnpm --filter @xiangqi-arena/web test -- --runTestsByPath tests/auth-api.spec.ts tests/AuthForm.spec.tsx`
+
 ---
 
 ## 1. Tổng quan & Kiến trúc Giao diện (Arena Room Architecture)
