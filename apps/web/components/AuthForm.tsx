@@ -3,12 +3,27 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
-import { AuthApiError, authApi } from '@/lib/auth-api';
 import {
+  AuthApiError,
+  AuthSession,
+  authApi,
+  clearSession,
+  saveSession,
+} from '@/lib/auth-api';
+import {
+  AuthField,
   AuthFieldErrors,
   validateLogin,
   validateRegister,
 } from '@/lib/auth-validation';
+
+const AUTH_FIELDS: readonly AuthField[] = [
+  'identifier',
+  'username',
+  'email',
+  'displayName',
+  'password',
+];
 
 interface AuthFormProps {
   mode: 'login' | 'register';
@@ -43,42 +58,47 @@ export default function AuthForm({ mode }: AuthFormProps) {
     event.preventDefault();
     setApiError('');
 
-    if (isRegister) {
-      const input = { username, email, password, displayName };
-      const errors = validateRegister(input);
-      setFieldErrors(errors);
-      if (Object.keys(errors).length > 0) return;
-
-      setIsSubmitting(true);
-      try {
-        await authApi.register(input);
-        router.push('/');
-      } catch (error) {
-        setApiError(
-          error instanceof AuthApiError
-            ? error.message
-            : 'Không thể hoàn tất đăng ký. Vui lòng thử lại.',
-        );
-      } finally {
-        setIsSubmitting(false);
-      }
-      return;
-    }
-
-    const input = { identifier, password };
-    const errors = validateLogin(input);
-    setFieldErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    let session: AuthSession;
 
     setIsSubmitting(true);
     try {
-      await authApi.login(input);
+      if (isRegister) {
+        const input = { username, email, password, displayName };
+        const errors = validateRegister(input);
+        setFieldErrors(errors);
+        if (Object.keys(errors).length > 0) return;
+        session = await authApi.register(input);
+      } else {
+        const input = { identifier, password };
+        const errors = validateLogin(input);
+        setFieldErrors(errors);
+        if (Object.keys(errors).length > 0) return;
+        session = await authApi.login(input);
+      }
+
+      try {
+        const user = await authApi.me(session.accessToken);
+        saveSession(session.accessToken, session.expiresIn, user);
+      } catch (error) {
+        clearSession();
+        throw error;
+      }
       router.push('/');
     } catch (error) {
+      if (error instanceof AuthApiError && error.fields.length > 0) {
+        // Backend trả 400 kèm details[] → đánh dấu đúng ô bị lỗi.
+        const serverErrors: AuthFieldErrors = {};
+        for (const field of error.fields) {
+          if ((AUTH_FIELDS as readonly string[]).includes(field)) {
+            serverErrors[field as AuthField] = 'Giá trị chưa hợp lệ.';
+          }
+        }
+        setFieldErrors(serverErrors);
+      }
       setApiError(
-        error instanceof AuthApiError
+        error instanceof Error
           ? error.message
-          : 'Không thể hoàn tất đăng nhập. Vui lòng thử lại.',
+          : 'Không thể hoàn tất yêu cầu. Vui lòng thử lại.',
       );
     } finally {
       setIsSubmitting(false);
@@ -236,7 +256,6 @@ export default function AuthForm({ mode }: AuthFormProps) {
                 name="password"
                 type="password"
                 autoComplete={isRegister ? 'new-password' : 'current-password'}
-                minLength={8}
                 maxLength={72}
                 value={password}
                 onChange={(event) => {
@@ -250,12 +269,6 @@ export default function AuthForm({ mode }: AuthFormProps) {
               />
               {fieldError('password')}
             </div>
-
-            {!isRegister && (
-              <p className="text-xs text-slate-500">
-                Tài khoản mock: <span className="text-slate-300">player1 / arena1234</span>
-              </p>
-            )}
 
             <button
               type="submit"
@@ -278,9 +291,6 @@ export default function AuthForm({ mode }: AuthFormProps) {
             >
               {isRegister ? 'Đăng nhập' : 'Đăng ký'}
             </Link>
-          </p>
-          <p className="mt-5 text-center text-xs text-slate-500">
-            Bản thử nghiệm giao diện — xác thực hiện dùng mock.
           </p>
         </section>
       </div>

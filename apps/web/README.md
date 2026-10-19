@@ -2,6 +2,18 @@
 
 Ứng dụng web Next.js 14 (App Router) cho Xiangqi Arena — Phòng thi đấu Cờ Tướng trực tuyến 3 cột hoàn chỉnh với bàn cờ SVG tương tác Click-to-Move, đồng hồ đếm ngược lượt đi 60s, webcam preview cục bộ, khung chat thời gian thực và hệ thống modal thông báo.
 
+## Xác thực với backend
+
+Đăng nhập tại `/login` (bằng tên đăng nhập hoặc email), đăng ký tại `/register`. Hai form gọi trực tiếp Auth API của server (contract: `docs/api/auth.md`); tài khoản được lưu trong PostgreSQL. Lỗi được hiển thị bằng tiếng Việt theo mã lỗi của API (`AUTH_IDENTIFIER_TAKEN` 409, `AUTH_INVALID_CREDENTIALS` 401, `VALIDATION_ERROR` 400, mất kết nối). Sau đăng ký hoặc đăng nhập, web gọi `GET /auth/me` để xác nhận token, lưu phiên vào `localStorage` (token, user, thời điểm hết hạn) rồi chuyển về trang chủ. Token sống 15 phút và chưa có refresh token (XQA-66, Sprint 2): hết hạn thì trang chủ tự đăng xuất. Mọi thao tác đọc/ghi phiên đi qua `getStoredSession` / `saveSession` / `clearSession` trong `lib/auth-api.ts`.
+
+Tạo `apps/web/.env.local` từ `.env.example` và đặt `NEXT_PUBLIC_API_BASE_URL` thành base URL của backend (mặc định local trong ví dụ là `http://localhost:3000`). Biến `NEXT_PUBLIC_` được đóng vào bundle khi build; cần đặt đúng URL trước khi chạy build cho từng môi trường. API cần cho phép CORS từ origin của web.
+
+Chạy backend và database theo hướng dẫn trong [server README](../server/README.md). Sau đó chạy web ở cổng riêng, ví dụ `corepack pnpm --filter @xiangqi-arena/web dev -- --port 3001`, rồi mở `http://localhost:3001`. Đăng ký tài khoản mới để xác nhận backend tạo bản ghi; có thể đối chiếu bằng `corepack pnpm db:studio`.
+
+Kiểm thử luồng auth: `corepack pnpm --filter @xiangqi-arena/web test -- --runTestsByPath tests/auth-api.spec.ts tests/AuthForm.spec.tsx`.
+
+---
+
 ## Auth mock (XQA-213)
 
 - Mở `/login` hoặc `/register`; trang Home có nút dẫn tới đăng nhập.
@@ -463,8 +475,9 @@ Chạy các lệnh sau từ thư mục gốc của repo (`xiangqi-arena`):
 # Cài đặt toàn bộ dependencies trong monorepo
 pnpm install
 
-# Khởi chạy Next.js development server (mặc định tại http://localhost:3000)
-pnpm --filter @xiangqi-arena/web dev
+# Khởi chạy Next.js tại http://localhost:3001 (backend đã dùng cổng 3000;
+# backend chỉ cho phép CORS từ WEB_ORIGINS, mặc định http://localhost:3001)
+pnpm --filter @xiangqi-arena/web dev -- --port 3001
 
 # Chạy toàn bộ kiểm thử đơn vị & tích hợp Jest của web
 pnpm --filter @xiangqi-arena/web test

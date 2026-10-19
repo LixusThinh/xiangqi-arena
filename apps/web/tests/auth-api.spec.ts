@@ -1,71 +1,128 @@
-import { authApi } from '../lib/auth-api';
+import { authApi, AuthApiError } from '../lib/auth-api';
 
-describe('authApi mock', () => {
-  it('returns a contract-shaped session for a valid login', async () => {
-    await expect(
-      authApi.login({ identifier: 'PLAYER1', password: 'arena1234' }),
-    ).resolves.toMatchObject({
-      accessToken: 'mock-access-token-1',
-      tokenType: 'Bearer',
-      expiresIn: 900,
-      user: {
-        id: '1',
-        username: 'player1',
-        email: 'player1@xiangqi.local',
-        role: 'PLAYER',
-      },
-    });
+const session = {
+  accessToken: 'real-access-token',
+  tokenType: 'Bearer' as const,
+  expiresIn: 900 as const,
+  user: {
+    id: '42',
+    username: 'new_player',
+    email: 'new@example.com',
+    displayName: 'New Player',
+    role: 'PLAYER' as const,
+    rating: 1200,
+    createdAt: '2026-10-12T10:00:00.000Z',
+  },
+};
+const originalApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+function mockResponse(body: unknown, status = 200): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: jest.fn().mockResolvedValue(body),
+  } as unknown as Response;
+}
+
+describe('authApi', () => {
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:3000/';
+    global.fetch = jest.fn();
   });
 
-  it('returns the contract 401 error for invalid credentials', async () => {
+  afterEach(() => {
+    if (originalApiBaseUrl === undefined) {
+      delete process.env.NEXT_PUBLIC_API_BASE_URL;
+    } else {
+      process.env.NEXT_PUBLIC_API_BASE_URL = originalApiBaseUrl;
+    }
+  });
+
+  it('posts registration to the configured backend URL', async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    fetchMock.mockResolvedValue(mockResponse(session, 201));
+
     await expect(
-      authApi.login({ identifier: 'missing-player', password: 'wrongpass' }),
+      authApi.register({
+        username: 'new_player',
+        email: 'new@example.com',
+        password: 'password123',
+        displayName: 'New Player',
+      }),
+    ).resolves.toEqual(session);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/auth/register',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          username: 'new_player',
+          email: 'new@example.com',
+          password: 'password123',
+          displayName: 'New Player',
+        }),
+      }),
+    );
+  });
+
+  it('preserves the backend 409 duplicate-identifier response', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue(
+      mockResponse(
+        {
+          statusCode: 409,
+          code: 'AUTH_IDENTIFIER_TAKEN',
+          message: 'Username or email is already registered',
+        },
+        409,
+      ),
+    );
+
+    await expect(
+      authApi.register({
+        username: 'new_player',
+        email: 'new@example.com',
+        password: 'password123',
+        displayName: 'New Player',
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      code: 'AUTH_IDENTIFIER_TAKEN',
+      message: 'Tên đăng nhập hoặc email này đã được sử dụng.',
+    } satisfies Partial<AuthApiError>);
+  });
+
+  it('preserves the backend 401 credentials error', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue(
+      mockResponse(
+        {
+          statusCode: 401,
+          code: 'AUTH_INVALID_CREDENTIALS',
+          message: 'Username/email or password is incorrect',
+        },
+        401,
+      ),
+    );
+
+    await expect(
+      authApi.login({ identifier: 'new_player', password: 'wrongpass' }),
     ).rejects.toMatchObject({
       statusCode: 401,
       code: 'AUTH_INVALID_CREDENTIALS',
     });
   });
 
-  it('returns the contract 409 error for a duplicate username or email', async () => {
-    await expect(
-      authApi.register({
-        username: 'PLAYER1',
-        email: 'new-player@example.com',
-        password: 'password123',
-        displayName: 'New Player',
-      }),
-    ).rejects.toMatchObject({
-      statusCode: 409,
-      code: 'AUTH_IDENTIFIER_TAKEN',
-    });
+  it('sends the bearer token to /me', async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    fetchMock.mockResolvedValue(mockResponse(session.user));
 
-    await expect(
-      authApi.register({
-        username: 'new_player',
-        email: 'PLAYER1@xiangqi.local',
-        password: 'password123',
-        displayName: 'New Player',
-      }),
-    ).rejects.toMatchObject({
-      statusCode: 409,
-      code: 'AUTH_IDENTIFIER_TAKEN',
-    });
-  });
-
-  it('registers a new mock user and allows that user to log in', async () => {
-    const input = {
-      username: `new_player_${Date.now()}`,
-      email: `new_player_${Date.now()}@example.com`,
-      password: 'password123',
-      displayName: 'New Player',
-    };
-    const session = await authApi.register(input);
-    const loginSession = await authApi.login({
-      identifier: input.username,
-      password: input.password,
-    });
-
-    expect(session.user.username).toBe(input.username);
-    expect(loginSession.user.id).toBe(session.user.id);
+    await expect(authApi.me(session.accessToken)).resolves.toEqual(session.user);
+    const [, options] = fetchMock.mock.calls[0];
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/auth/me',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(new Headers(options?.headers).get('Authorization')).toBe(
+      `Bearer ${session.accessToken}`,
+    );
   });
 });

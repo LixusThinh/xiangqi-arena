@@ -39,7 +39,11 @@ export function validateRegister(input: RegisterInput): AuthFieldErrors {
   const email = input.email.trim();
   const displayName = input.displayName.trim();
 
-  if (username.length < 3 || username.length > 30 || !/^[A-Za-z0-9_]+$/.test(username)) {
+  if (
+    username.length < 3 ||
+    username.length > 30 ||
+    !/^[A-Za-z0-9_]+$/.test(username)
+  ) {
     errors.username =
       'Tên đăng nhập phải có 3–30 ký tự, chỉ gồm chữ cái tiếng Anh, số hoặc dấu _.';
   }

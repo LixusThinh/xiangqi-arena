@@ -9,6 +9,7 @@ import MatchControls from '@/components/MatchControls';
 import ChatBox, { ChatMessage } from '@/components/ChatBox';
 import Modal, { ModalProps } from '@/components/Modal';
 import GameStatusPanel, { GameResult } from '@/components/GameStatusPanel';
+import { clearSession, getStoredSession, type AuthUser } from '@/lib/auth-api';
 
 interface UndoRecord {
   undo: MoveUndo;
@@ -64,6 +65,31 @@ export default function ArenaPage({ searchParams }: ArenaPageProps) {
     initialFen ? Position.fromFen(initialFen).sideToMove : 'r'
   );
   const [mockScenario, setMockScenario] = useState<MockScenarioId>('live');
+  const [currentUser, setCurrentUser] = useState<
+    Pick<AuthUser, 'displayName' | 'username'> | null
+  >(null);
+  const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(null);
+
+  // XQA-214: đọc phiên đăng nhập đã lưu (token 15 phút, chưa có refresh token - XQA-66).
+  useEffect(() => {
+    const session = getStoredSession();
+    if (!session) return;
+    setCurrentUser({
+      displayName: session.user.displayName,
+      username: session.user.username,
+    });
+    setSessionExpiresAt(session.expiresAt);
+  }, []);
+
+  useEffect(() => {
+    if (sessionExpiresAt === null) return;
+    const timer = window.setTimeout(() => {
+      clearSession();
+      setCurrentUser(null);
+      setSessionExpiresAt(null);
+    }, Math.max(0, sessionExpiresAt - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [sessionExpiresAt]);
   const [selectedSquare, setSelectedSquare] = useState<number | null>(null);
   const [validMoves, setValidMoves] = useState<number[]>([]);
   const [lastMove, setLastMove] = useState<{ from: number; to: number } | null>(null);
@@ -324,12 +350,29 @@ export default function ArenaPage({ searchParams }: ArenaPageProps) {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link
-            href="/login"
-            className="mr-1 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-amber-400 hover:text-amber-300"
-          >
-            Đăng nhập
-          </Link>
+          {currentUser ? (
+            <>
+              <span className="text-xs text-slate-300">{currentUser.displayName}</span>
+              <button
+                type="button"
+                className="mr-1 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-amber-400 hover:text-amber-300"
+                onClick={() => {
+                  clearSession();
+                  setCurrentUser(null);
+                  setSessionExpiresAt(null);
+                }}
+              >
+                Đăng xuất
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              className="mr-1 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-amber-400 hover:text-amber-300"
+            >
+              Đăng nhập
+            </Link>
+          )}
           <div className="px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs font-medium text-slate-300 flex items-center gap-2 shadow-inner">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             Lượt: <span className="font-bold text-amber-300">{sideToMove === 'r' ? 'Đỏ (Đi trước)' : 'Đen'}</span>
