@@ -23,11 +23,11 @@ Phòng thi đấu Arena Room (`apps/web/app/page.tsx`) được thiết kế the
 +------------------------------+-------------------------------+--------------------------------+
 | LEFT COLUMN (lg:col-span-3)  | CENTER COLUMN (lg:col-span-6) | RIGHT COLUMN (lg:col-span-3)   |
 |                              |                               |                                |
-| [ Đối thủ - PlayerCard ]     | [ Bàn cờ - Board (SVG) ]      | [ ChatBox ]                    |
-| - Webcam / Avatar            | - Click-to-Move tương tác     | - Danh sách tin nhắn           |
+| [ Đối thủ - PlayerCard ]     | [ GameStatusPanel ]           | [ ChatBox ]                    |
+| - Webcam / Avatar            | - Lượt / cảnh báo CHIẾU       | - Danh sách tin nhắn           |
 | - Timer 60s đối thủ          | - Highlight ô chọn (mask.png) | - Tin nhắn hệ thống / đối thủ  |
-| - Badge lượt & Elo           | - Highlight nước đi (mask2)   | - Quick chips gửi nhanh        |
-|                              |                               | - Ô nhập & gửi Enter           |
+| - Badge lượt & Elo           | [ Bàn cờ - Board (SVG) ]      | - Quick chips gửi nhanh        |
+|                              | - Highlight nước đi (mask2)   | - Ô nhập & gửi Enter           |
 | [ Bạn - PlayerCard ]         | [ MatchControls ]             |                                |
 | - Webcam cục bộ (getUserMedia| - Chọn phe (Đỏ / Đen)         |                                |
 | - Timer 60s người chơi       | - Ván mới / Xin hòa / Thoát   |                                |
@@ -42,6 +42,7 @@ Phòng thi đấu Arena Room (`apps/web/app/page.tsx`) được thiết kế the
   - `PlayerCard` (Đối thủ): Hiển thị thẻ thông tin đối thủ (Tên, Danh hiệu, Elo, Phe), đồng hồ đếm lùi 60 giây và khung avatar/stream đối thủ.
   - `PlayerCard` (Người chơi): Hiển thị thông tin người chơi cục bộ, đồng hồ đếm lùi 60 giây và khung xem trước webcam cá nhân kèm nút Bật/Tắt camera.
 - **Cột Giữa (Center Column - `lg:col-span-6`)**:
+  - `<GameStatusPanel />`: Hiển thị lượt và cảnh báo chiếu từ props được truyền vào; khi có kết quả, hiện hộp thoại người thắng, lý do và nút "Ván mới". Chọn bốn tình huống dữ liệu giả bên dưới panel để xem các trạng thái XQA-216; panel không tự xác định lượt hoặc kiểm tra chiếu.
   - `<Board />`: Bàn cờ SVG tỷ lệ chuẩn 741×821 với hệ thống layer hiển thị ảnh nền gỗ, hiệu ứng highlight nước đi gần nhất (`mask2.png`), viền ô đang chọn (`mask.png`), 90 vùng click tương tác và 32 quân cờ icon độ phân giải cao.
   - `<MatchControls />`: Thanh điều khiển trận đấu nằm ngay dưới bàn cờ: bộ nút chuyển đổi phe cầm quân (Đỏ/Đen) cùng các hành động trận đấu (Ván mới, Cầu hòa, Thoát phòng).
 - **Cột Phải (Right Column - `lg:col-span-3`)**:
@@ -57,7 +58,27 @@ Phòng thi đấu Arena Room (`apps/web/app/page.tsx`) được thiết kế the
 
 ## 2. Danh mục & API các Components
 
-### 2.1. `<Board />` (`apps/web/components/Board.tsx`)
+### 2.1. `<GameStatusPanel />` (`apps/web/components/GameStatusPanel.tsx`)
+
+Component trình bày trạng thái được truyền vào, không tự tính lượt hoặc kiểm tra chiếu.
+
+```typescript
+export interface GameStatusPanelProps {
+  sideToMove: Side | null;
+  isCheck: boolean;
+  result: GameResult | null;
+  onNewGame: () => void;
+}
+
+export interface GameResult {
+  winner: Side;
+  reason: 'checkmate' | 'no-legal-moves';
+}
+```
+
+Arena page cung cấp bốn tình huống mock: Đỏ đi, Đen bị chiếu, Đỏ thắng do chiếu bí và Đen thắng do Đỏ hết nước đi. Dialog kết thúc hiển thị người thắng, lý do và gọi `onNewGame` khi bắt đầu lại.
+
+### 2.2. `<Board />` (`apps/web/components/Board.tsx`)
 
 Render đồ họa bàn cờ SVG chất lượng cao, tiếp nhận tương tác chuột để kích hoạt cơ chế Click-to-Move.
 
@@ -105,7 +126,7 @@ import Board from '@/components/Board';
 
 ---
 
-### 2.2. `<PlayerCard />` (`apps/web/components/PlayerCard.tsx`)
+### 2.3. `<PlayerCard />` (`apps/web/components/PlayerCard.tsx`)
 
 Hiển thị thông tin người chơi, đồng hồ đếm ngược 60s kèm cảnh báo trực quan và tích hợp trình xem trước webcam cục bộ qua WebRTC API.
 
@@ -143,7 +164,7 @@ export interface PlayerCardProps {
 
 ---
 
-### 2.3. `<MatchControls />` (`apps/web/components/MatchControls.tsx`)
+### 2.4. `<MatchControls />` (`apps/web/components/MatchControls.tsx`)
 
 Thanh công cụ trận đấu cung cấp bộ chọn phe và các nút thao tác trận đấu.
 
@@ -172,7 +193,7 @@ export interface MatchControlsProps {
 
 ---
 
-### 2.4. `<ChatBox />` (`apps/web/components/ChatBox.tsx`)
+### 2.5. `<ChatBox />` (`apps/web/components/ChatBox.tsx`)
 
 Khung hội thoại thời gian thực trong phòng đấu với danh sách tin nhắn, thanh câu chat nhanh và tự động cuộn xuống tin nhắn mới nhất.
 
@@ -208,7 +229,7 @@ export interface ChatBoxProps {
 
 ---
 
-### 2.5. `<Modal />` (`apps/web/components/Modal.tsx`)
+### 2.6. `<Modal />` (`apps/web/components/Modal.tsx`)
 
 Hộp thoại modal nổi bật với hiệu ứng làm mờ nền (`backdrop-blur-sm`), dùng cho các thông báo xác nhận hoặc thông điệp từ hệ thống.
 

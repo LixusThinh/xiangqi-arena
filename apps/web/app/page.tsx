@@ -8,11 +8,42 @@ import PlayerCard from '@/components/PlayerCard';
 import MatchControls from '@/components/MatchControls';
 import ChatBox, { ChatMessage } from '@/components/ChatBox';
 import Modal, { ModalProps } from '@/components/Modal';
+import GameStatusPanel, { GameResult } from '@/components/GameStatusPanel';
 
 interface UndoRecord {
   undo: MoveUndo;
   prevLastMove: { from: number; to: number } | null;
 }
+
+type MockScenarioId =
+  | 'live'
+  | 'red-turn'
+  | 'black-in-check'
+  | 'red-wins-checkmate'
+  | 'black-wins-red-no-moves';
+
+interface PanelGameState {
+  sideToMove: Side | null;
+  isCheck: boolean;
+  result: GameResult | null;
+}
+
+// Dữ liệu giả cho XQA-50 (4 trạng thái theo AC). 'live' = lấy lượt từ bàn cờ thật;
+// XQA-51 sẽ thay phần này bằng trạng thái do engine (XQA-49) trả về.
+const MOCK_GAME_STATES: Record<Exclude<MockScenarioId, 'live'>, PanelGameState> = {
+  'red-turn': { sideToMove: 'r', isCheck: false, result: null },
+  'black-in-check': { sideToMove: 'b', isCheck: true, result: null },
+  'red-wins-checkmate': {
+    sideToMove: null,
+    isCheck: false,
+    result: { winner: 'r', reason: 'checkmate' },
+  },
+  'black-wins-red-no-moves': {
+    sideToMove: null,
+    isCheck: false,
+    result: { winner: 'b', reason: 'no-legal-moves' },
+  },
+};
 
 export interface ArenaPageProps {
   params?: Record<string, string | string[]>;
@@ -32,6 +63,7 @@ export default function ArenaPage({ searchParams }: ArenaPageProps) {
   const [sideToMove, setSideToMove] = useState<Side>(() =>
     initialFen ? Position.fromFen(initialFen).sideToMove : 'r'
   );
+  const [mockScenario, setMockScenario] = useState<MockScenarioId>('live');
   const [selectedSquare, setSelectedSquare] = useState<number | null>(null);
   const [validMoves, setValidMoves] = useState<number[]>([]);
   const [lastMove, setLastMove] = useState<{ from: number; to: number } | null>(null);
@@ -191,6 +223,7 @@ export default function ArenaPage({ searchParams }: ArenaPageProps) {
     setPosition(newPos);
     setBoard([...newPos.board]);
     setSideToMove('r');
+    setMockScenario('live');
     setSelectedSquare(null);
     setValidMoves([]);
     setLastMove(null);
@@ -265,7 +298,12 @@ export default function ArenaPage({ searchParams }: ArenaPageProps) {
   };
 
   const opponentSide: Side = playerSide === 'r' ? 'b' : 'r';
-
+  // Panel chỉ nhận dữ liệu từ ngoài (XQA-50 AC3). 'live' lấy lượt từ bàn cờ thật;
+  // chiếu / kết thúc ván chờ engine XQA-49, tới XQA-51 sẽ thay bằng trạng thái engine.
+  const panelState: PanelGameState =
+    mockScenario === 'live'
+      ? { sideToMove, isCheck: false, result: null }
+      : MOCK_GAME_STATES[mockScenario];
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center">
@@ -333,6 +371,30 @@ export default function ArenaPage({ searchParams }: ArenaPageProps) {
 
         {/* Center Column: Board and Match Controls */}
         <section className="lg:col-span-6 flex flex-col items-center gap-4 order-1 lg:order-2">
+          <GameStatusPanel
+            sideToMove={panelState.sideToMove}
+            isCheck={panelState.isCheck}
+            result={panelState.result}
+            onNewGame={handleConfirmNewGame}
+          />
+          <label className="flex w-full max-w-[560px] flex-col gap-1 text-[11px] font-medium text-slate-400">
+            Tình huống dữ liệu giả
+            <select
+              aria-label="Tình huống dữ liệu giả"
+              value={mockScenario}
+              onChange={(event) => {
+                setModalConfig((prev) => ({ ...prev, isOpen: false }));
+                setMockScenario(event.target.value as MockScenarioId);
+              }}
+              className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200 focus:border-amber-400 focus:outline-none"
+            >
+              <option value="live">Theo bàn cờ thật</option>
+              <option value="red-turn">Đỏ tới lượt, không bị chiếu</option>
+              <option value="black-in-check">Đen tới lượt, đang bị chiếu</option>
+              <option value="red-wins-checkmate">Đỏ thắng do chiếu bí</option>
+              <option value="black-wins-red-no-moves">Đen thắng do Đỏ hết nước đi</option>
+            </select>
+          </label>
           <Board
             board={board}
             orientation={playerSide}
