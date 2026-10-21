@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { Server } from 'node:http';
 import { Test } from '@nestjs/testing';
 import { hash } from 'bcryptjs';
+import * as request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
 import { PrismaService } from '../../src/prisma/prisma.service';
@@ -57,4 +58,40 @@ export async function seedUser(
     },
   });
   return { id: user.id as bigint, username, email, password };
+}
+
+/** Hai RuleProfile giống seed.ts (Room cần ruleProfileId hợp lệ). */
+export async function seedRuleProfiles(prisma: InMemoryPrisma): Promise<void> {
+  await prisma.ruleProfile.create({
+    data: {
+      code: 'VN_STANDARD',
+      baseTimeSec: 600,
+      incrementSec: 0,
+      naturalMoveLimit: 120,
+      repetitionThreshold: 3,
+      reconnectGraceSec: 60,
+      isRanked: false,
+    },
+  });
+  await prisma.ruleProfile.create({
+    data: {
+      code: 'ONLINE_RAPID',
+      baseTimeSec: 300,
+      incrementSec: 2,
+      naturalMoveLimit: 120,
+      repetitionThreshold: 3,
+      reconnectGraceSec: 60,
+      isRanked: true,
+    },
+  });
+}
+
+/** Đăng nhập qua API thật, trả access token để gọi các endpoint cần xác thực. */
+export async function loginAs(
+  server: Server,
+  identifier: string,
+  password = 'Player-dev-2026!',
+): Promise<string> {
+  const res = await request(server).post('/auth/login').send({ identifier, password }).expect(200);
+  return (res.body as { accessToken: string }).accessToken;
 }

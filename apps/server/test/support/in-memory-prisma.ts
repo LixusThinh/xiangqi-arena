@@ -58,6 +58,7 @@ export class InMemoryPrisma {
   readonly room: ModelDelegate;
   readonly roomMember: ModelDelegate;
   readonly ruleProfile: ModelDelegate;
+  readonly match: ModelDelegate;
 
   constructor() {
     const now = (): Date => new Date();
@@ -100,6 +101,25 @@ export class InMemoryPrisma {
           host: { table: 'user', kind: 'one', localKey: 'hostId', foreignKey: 'id' },
           ruleProfile: { table: 'ruleProfile', kind: 'one', localKey: 'ruleProfileId', foreignKey: 'id' },
           members: { table: 'roomMember', kind: 'many', localKey: 'id', foreignKey: 'roomId' },
+          matches: { table: 'match', kind: 'many', localKey: 'id', foreignKey: 'roomId' },
+        },
+      },
+      match: {
+        unique: [],
+        defaults: () => ({
+          status: 'WAITING',
+          result: null,
+          endReason: null,
+          currentFen: null,
+          currentPly: 0,
+          redTimeLeftMs: 0n,
+          blackTimeLeftMs: 0n,
+          turnStartedAt: null,
+          startedAt: null,
+          endedAt: null,
+        }),
+        relations: {
+          room: { table: 'room', kind: 'one', localKey: 'roomId', foreignKey: 'id' },
         },
       },
       roomMember: {
@@ -121,11 +141,27 @@ export class InMemoryPrisma {
     this.roomMember = new ModelDelegate(this, 'roomMember');
     // ruleProfile.id là Int (SERIAL) chứ không phải BigInt
     this.ruleProfile = new ModelDelegate(this, 'ruleProfile', 'number');
+    this.match = new ModelDelegate(this, 'match');
   }
 
-  /** Giao dịch tuần tự: đủ cho test vì Node chạy một luồng và test không chạy song song trong một app. */
+  /**
+   * Giao dịch: chạy tuần tự, lỗi thì khôi phục toàn bộ dữ liệu về lúc bắt đầu (giống ROLLBACK).
+   * Không mô phỏng khóa dòng giữa 2 giao dịch song song.
+   */
   async $transaction<T>(fn: (tx: InMemoryPrisma) => Promise<T>): Promise<T> {
-    return fn(this);
+    const snapshot = new Map(
+      [...this.tables].map(([name, rows]) => [name, rows.map((row) => ({ ...row }))]),
+    );
+    const sequences = new Map(this.sequences);
+    try {
+      return await fn(this);
+    } catch (error) {
+      for (const [name, rows] of snapshot) {
+        this.tables.get(name)?.splice(0, Infinity, ...rows);
+      }
+      for (const [name, value] of sequences) this.sequences.set(name, value);
+      throw error;
+    }
   }
 
   async $connect(): Promise<void> {}
@@ -240,8 +276,10 @@ export class InMemoryPrisma {
     const nestedSelect = args?.select as Select | undefined;
     const nestedInclude = args?.include as Select | undefined;
     // Cho phép viết select lồng kiểu { user: { select: {...} } } hoặc { user: { id: true } }
-    const fieldSelect =
-      nestedSelect ?? (args && !('select' in args) && !('include' in args) && !('where' in args) && !('orderBy' in args) ? args : undefined);
+    const isQueryArgs =
+      args !== undefined &&
+      ['select', 'include', 'where', 'orderBy', 'take'].some((key) => key in args);
+    const fieldSelect = nestedSelect ?? (args && !isQueryArgs ? args : undefined);
     const related = this.rows(relation.table).filter((r) =>
       sameValue(r[relation.foreignKey], row[relation.localKey]),
     );
@@ -250,6 +288,7 @@ export class InMemoryPrisma {
     }
     let list = related.filter((r) => this.matches(relation.table, r, args?.where as Where | undefined));
     list = sortRows(list, args?.orderBy);
+    if (typeof args?.take === 'number') list = list.slice(0, args.take);
     return list.map((r) => this.project(relation.table, r, fieldSelect, nestedInclude));
   }
 }
