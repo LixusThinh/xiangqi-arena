@@ -2,7 +2,8 @@ import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { AccountStatus, UserRole } from '@prisma/client';
 import { compare, hash } from 'bcryptjs';
-import { AuthService } from './auth.service';
+import { ConfigService } from '@nestjs/config';
+import { AuthService, hashRefreshToken } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 describe('AuthService', () => {
@@ -23,6 +24,11 @@ describe('AuthService', () => {
       update: jest.Mock;
       findUnique: jest.Mock;
     };
+    authSession: {
+      create: jest.Mock;
+      findUnique: jest.Mock;
+      updateMany: jest.Mock;
+    };
   };
   let jwtService: { signAsync: jest.Mock };
   let service: AuthService;
@@ -34,6 +40,11 @@ describe('AuthService', () => {
         create: jest.fn(),
         update: jest.fn(),
         findUnique: jest.fn(),
+      },
+      authSession: {
+        create: jest.fn().mockResolvedValue({ id: 11n }),
+        findUnique: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
     };
     jwtService = { signAsync: jest.fn().mockResolvedValue('access-token') };
@@ -113,5 +124,46 @@ describe('AuthService', () => {
       user: { id: '7', username: 'player' },
     });
     expect(result.user).not.toHaveProperty('passwordHash');
+    // XQA-66: access token mang sid của phiên vừa tạo; DB lưu hash chứ không lưu refresh token gốc
+    expect(jwtService.signAsync).toHaveBeenCalledWith({ sub: '7', sid: '11' });
+    const sessionData = prisma.authSession.create.mock.calls[0][0].data;
+    expect(sessionData.refreshTokenHash).toBe(hashRefreshToken(result.refreshToken));
+  });
+
+  it('rejects a refresh when another request rotated the same token first', async () => {
+    prisma.authSession.findUnique.mockResolvedValue({
+      id: 11n,
+      expiresAt: new Date(Date.now() + 60_000),
+      revokedAt: null,
+      user,
+    });
+    prisma.authSession.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(service.refresh({ refreshToken: 'A'.repeat(43) })).rejects.toMatchObject({
+      response: { code: 'AUTH_REFRESH_INVALID' },
+    });
+    expect(jwtService.signAsync).not.toHaveBeenCalled();
+  });
+
+  it('does not extend the absolute session lifetime on refresh', async () => {
+    const expiresAt = new Date(Date.now() + 3600_000);
+    prisma.authSession.findUnique.mockResolvedValue({ id: 11n, expiresAt, revokedAt: null, user });
+
+    const result = await service.refresh({ refreshToken: 'A'.repeat(43) });
+
+    expect(result.refreshExpiresIn).toBeLessThanOrEqual(3600);
+    expect(prisma.authSession.updateMany.mock.calls[0][0].data).not.toHaveProperty('expiresAt');
+  });
+
+  it('rejects a REFRESH_TOKEN_TTL_SEC that is not an integer >= 60', () => {
+    const config = { get: () => '10' } as unknown as ConfigService;
+    expect(
+      () =>
+        new AuthService(
+          prisma as unknown as PrismaService,
+          jwtService as unknown as JwtService,
+          config,
+        ),
+    ).toThrow('REFRESH_TOKEN_TTL_SEC');
   });
 });
