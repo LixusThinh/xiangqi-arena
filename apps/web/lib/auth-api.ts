@@ -12,6 +12,10 @@ export interface AuthSession {
   accessToken: string;
   tokenType: 'Bearer';
   expiresIn: number;
+  /** Contract Auth v0.2 (XQA-66): token đổi lấy access token mới, chỉ dùng được 1 lần. */
+  refreshToken: string;
+  /** Số giây còn lại của phiên (hạn tuyệt đối, refresh không kéo dài). */
+  refreshExpiresIn: number;
   user: AuthUser;
 }
 
@@ -30,6 +34,11 @@ export interface LoginInput {
 export const ACCESS_TOKEN_KEY = 'xiangqi-arena.accessToken';
 export const CURRENT_USER_KEY = 'xiangqi-arena.user';
 export const EXPIRES_AT_KEY = 'xiangqi-arena.expiresAt';
+export const REFRESH_TOKEN_KEY = 'xiangqi-arena.refreshToken';
+export const REFRESH_EXPIRES_AT_KEY = 'xiangqi-arena.refreshExpiresAt';
+
+/** Sự kiện phát ra trong cùng tab khi phiên được lưu/xóa (tab khác nhận qua sự kiện `storage`). */
+export const SESSION_CHANGED_EVENT = 'xiangqi-arena:session-changed';
 
 /** Thông báo tiếng Việt theo mã lỗi trong contract docs/api/auth.md. */
 const ERROR_MESSAGES: Record<string, string> = {
@@ -40,6 +49,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   AUTH_TOKEN_MISSING: 'Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.',
   AUTH_TOKEN_INVALID: 'Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.',
   AUTH_TOKEN_EXPIRED: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+  AUTH_SESSION_REVOKED: 'Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.',
+  AUTH_REFRESH_INVALID: 'Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.',
+  AUTH_REFRESH_EXPIRED: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
 };
 
 export class AuthApiError extends Error {
@@ -63,7 +75,12 @@ function getApiBaseUrl(): string {
   return baseUrl.replace(/\/+$/, '');
 }
 
-async function request<T>(
+/**
+ * Gọi API backend, trả JSON hoặc ném AuthApiError theo format lỗi chung của contract.
+ * Dùng chung cho mọi client API (auth, room...). Request cần đăng nhập nên đi qua
+ * `authorizedRequest` trong lib/session.ts để tự refresh token.
+ */
+export async function apiRequest<T>(
   path: string,
   init: RequestInit,
   accessToken?: string,
@@ -89,6 +106,11 @@ async function request<T>(
       0,
       'NETWORK_ERROR',
     );
+  }
+
+  // 204 No Content (ví dụ logout) không có body
+  if (response.status === 204) {
+    return undefined as T;
   }
 
   let body: unknown;
@@ -134,6 +156,8 @@ async function request<T>(
   return body as T;
 }
 
+const request = apiRequest;
+
 export const authApi = {
   register(input: RegisterInput): Promise<AuthSession> {
     return request<AuthSession>('/auth/register', {
@@ -152,26 +176,63 @@ export const authApi = {
   me(accessToken: string): Promise<AuthUser> {
     return request<AuthUser>('/auth/me', { method: 'GET' }, accessToken);
   },
+
+  refresh(refreshToken: string): Promise<AuthSession> {
+    return request<AuthSession>('/auth/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
+    });
+  },
+
+  logout(refreshToken: string): Promise<void> {
+    return request<void>('/auth/logout', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
+    });
+  },
 };
 
-/* ---------- Lưu phiên đăng nhập (một chỗ duy nhất, page/AuthForm dùng chung) ---------- */
+/* ---------- Lưu phiên đăng nhập (một chỗ duy nhất, page/AuthForm/session dùng chung) ---------- */
 
 export interface StoredSession {
   accessToken: string;
   user: AuthUser;
+  /** Mốc (ms) access token hết hạn. Hết hạn KHÔNG có nghĩa là mất phiên: còn refresh được. */
   expiresAt: number;
+  refreshToken: string;
+  /** Mốc (ms) phiên hết hạn tuyệt đối; quá mốc này phải đăng nhập lại. */
+  refreshExpiresAt: number;
 }
 
-export function saveSession(accessToken: string, expiresIn: number, user: AuthUser): void {
-  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+export type SessionTokens = Pick<
+  AuthSession,
+  'accessToken' | 'expiresIn' | 'refreshToken' | 'refreshExpiresIn'
+>;
+
+function notifySessionChanged(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(SESSION_CHANGED_EVENT));
+  }
+}
+
+export function saveSession(tokens: SessionTokens, user: AuthUser): void {
+  const now = Date.now();
+  localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
   localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
-  localStorage.setItem(EXPIRES_AT_KEY, String(Date.now() + expiresIn * 1000));
+  localStorage.setItem(EXPIRES_AT_KEY, String(now + tokens.expiresIn * 1000));
+  localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+  localStorage.setItem(REFRESH_EXPIRES_AT_KEY, String(now + tokens.refreshExpiresIn * 1000));
+  notifySessionChanged();
 }
 
 export function clearSession(): void {
+  const hadSession = localStorage.getItem(REFRESH_TOKEN_KEY) !== null;
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(CURRENT_USER_KEY);
   localStorage.removeItem(EXPIRES_AT_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_EXPIRES_AT_KEY);
+  if (hadSession) notifySessionChanged();
 }
 
 function isAuthUser(value: unknown): value is AuthUser {
@@ -185,12 +246,25 @@ function isAuthUser(value: unknown): value is AuthUser {
   );
 }
 
-/** Trả phiên còn hạn, hoặc null (đồng thời xóa phiên hỏng/hết hạn). */
+/**
+ * Trả phiên còn dùng được (refresh token chưa hết hạn), hoặc null và xóa phiên hỏng/hết hạn.
+ * Access token có thể đã hết hạn: lib/session.ts sẽ tự refresh khi gọi API.
+ * Phiên lưu từ trước XQA-67 (không có refresh token) bị coi là hết hạn.
+ */
 export function getStoredSession(): StoredSession | null {
   const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
   const rawUser = localStorage.getItem(CURRENT_USER_KEY);
+  const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
   const expiresAt = Number(localStorage.getItem(EXPIRES_AT_KEY));
-  if (!accessToken || !rawUser || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+  const refreshExpiresAt = Number(localStorage.getItem(REFRESH_EXPIRES_AT_KEY));
+  if (
+    !accessToken ||
+    !rawUser ||
+    !refreshToken ||
+    !Number.isFinite(expiresAt) ||
+    !Number.isFinite(refreshExpiresAt) ||
+    refreshExpiresAt <= Date.now()
+  ) {
     clearSession();
     return null;
   }
@@ -200,7 +274,7 @@ export function getStoredSession(): StoredSession | null {
       clearSession();
       return null;
     }
-    return { accessToken, user, expiresAt };
+    return { accessToken, user, expiresAt, refreshToken, refreshExpiresAt };
   } catch {
     clearSession();
     return null;

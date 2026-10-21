@@ -5,6 +5,8 @@ import {
   CURRENT_USER_KEY,
   EXPIRES_AT_KEY,
   getStoredSession,
+  REFRESH_EXPIRES_AT_KEY,
+  REFRESH_TOKEN_KEY,
 } from '../lib/auth-api';
 
 const mockPush = jest.fn();
@@ -26,6 +28,8 @@ const session = {
   accessToken: 'real-access-token',
   tokenType: 'Bearer',
   expiresIn: 900,
+  refreshToken: 'r'.repeat(43),
+  refreshExpiresIn: 604800,
   user,
 };
 const originalApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -160,6 +164,11 @@ describe('AuthForm', () => {
       user,
     );
     expect(Number(localStorage.getItem(EXPIRES_AT_KEY))).toBeGreaterThan(Date.now());
+    // XQA-67: lưu cả refresh token để tự gia hạn phiên
+    expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBe(session.refreshToken);
+    expect(Number(localStorage.getItem(REFRESH_EXPIRES_AT_KEY))).toBeGreaterThan(
+      Date.now() + 604000 * 1000,
+    );
     const [, meRequest] = fetchMock.mock.calls[1];
     expect(fetchMock.mock.calls[1][0]).toBe(
       'http://localhost:3000/auth/me',
@@ -167,6 +176,44 @@ describe('AuthForm', () => {
     expect(new Headers(meRequest?.headers).get('Authorization')).toBe(
       `Bearer ${session.accessToken}`,
     );
+  });
+
+  it('XQA-67: returns to the page in ?next= after login (route guard redirect)', async () => {
+    window.history.replaceState(null, '', '/login?next=%2Froom%2FK7MPQ2XA');
+    const fetchMock = global.fetch as jest.Mock;
+    fetchMock
+      .mockResolvedValueOnce(mockResponse(session))
+      .mockResolvedValueOnce(mockResponse(user));
+    render(<AuthForm mode="login" />);
+    fireEvent.change(screen.getByLabelText('Tên đăng nhập hoặc email'), {
+      target: { value: 'player1' },
+    });
+    fireEvent.change(screen.getByLabelText('Mật khẩu'), {
+      target: { value: 'correctpass' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Đăng nhập' }));
+
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/room/K7MPQ2XA'));
+    window.history.replaceState(null, '', '/');
+  });
+
+  it('XQA-67: ignores an external ?next= (open redirect)', async () => {
+    window.history.replaceState(null, '', '/login?next=%2F%2Fevil.example.com');
+    const fetchMock = global.fetch as jest.Mock;
+    fetchMock
+      .mockResolvedValueOnce(mockResponse(session))
+      .mockResolvedValueOnce(mockResponse(user));
+    render(<AuthForm mode="login" />);
+    fireEvent.change(screen.getByLabelText('Tên đăng nhập hoặc email'), {
+      target: { value: 'player1' },
+    });
+    fireEvent.change(screen.getByLabelText('Mật khẩu'), {
+      target: { value: 'correctpass' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Đăng nhập' }));
+
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/'));
+    window.history.replaceState(null, '', '/');
   });
 
   it('does not keep a token when /me rejects it', async () => {
@@ -246,20 +293,42 @@ describe('AuthForm', () => {
 describe('getStoredSession', () => {
   beforeEach(() => localStorage.clear());
 
-  it('returns null and clears storage when the session has expired', () => {
+  function store(accessExpiresInMs: number, refreshExpiresInMs: number) {
     localStorage.setItem(ACCESS_TOKEN_KEY, 'token');
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
-    localStorage.setItem(EXPIRES_AT_KEY, String(Date.now() - 1));
+    localStorage.setItem(EXPIRES_AT_KEY, String(Date.now() + accessExpiresInMs));
+    localStorage.setItem(REFRESH_TOKEN_KEY, 'r'.repeat(43));
+    localStorage.setItem(REFRESH_EXPIRES_AT_KEY, String(Date.now() + refreshExpiresInMs));
+  }
+
+  it('returns null and clears storage when the whole session (refresh) has expired', () => {
+    store(-1, -1);
 
     expect(getStoredSession()).toBeNull();
     expect(localStorage.getItem(ACCESS_TOKEN_KEY)).toBeNull();
+    expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBeNull();
+  });
+
+  it('XQA-67 AC2: keeps the session when only the access token has expired', () => {
+    store(-1, 60_000);
+
+    const stored = getStoredSession();
+    expect(stored?.user.username).toBe('player1');
+    expect(stored?.expiresAt).toBeLessThan(Date.now());
   });
 
   it('returns the session while it is still valid', () => {
+    store(60_000, 600_000);
+
+    expect(getStoredSession()?.user.username).toBe('player1');
+  });
+
+  it('treats a pre-XQA-67 session without refresh token as signed out', () => {
     localStorage.setItem(ACCESS_TOKEN_KEY, 'token');
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
     localStorage.setItem(EXPIRES_AT_KEY, String(Date.now() + 60_000));
 
-    expect(getStoredSession()?.user.username).toBe('player1');
+    expect(getStoredSession()).toBeNull();
+    expect(localStorage.getItem(ACCESS_TOKEN_KEY)).toBeNull();
   });
 });
