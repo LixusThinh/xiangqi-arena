@@ -59,6 +59,7 @@ export class InMemoryPrisma {
   readonly roomMember: ModelDelegate;
   readonly ruleProfile: ModelDelegate;
   readonly match: ModelDelegate;
+  readonly move: ModelDelegate;
 
   constructor() {
     const now = (): Date => new Date();
@@ -120,6 +121,24 @@ export class InMemoryPrisma {
         }),
         relations: {
           room: { table: 'room', kind: 'one', localKey: 'roomId', foreignKey: 'id' },
+          ruleProfile: { table: 'ruleProfile', kind: 'one', localKey: 'ruleProfileId', foreignKey: 'id' },
+          redPlayer: { table: 'user', kind: 'one', localKey: 'redPlayerId', foreignKey: 'id' },
+          blackPlayer: { table: 'user', kind: 'one', localKey: 'blackPlayerId', foreignKey: 'id' },
+          moves: { table: 'move', kind: 'many', localKey: 'id', foreignKey: 'matchId' },
+        },
+      },
+      move: {
+        unique: [['matchId', 'ply']],
+        defaults: () => ({
+          capturedPieceCode: null,
+          isCheck: false,
+          isCapture: false,
+          isIrreversible: false,
+          thinkTimeMs: 0,
+          createdAt: now(),
+        }),
+        relations: {
+          match: { table: 'match', kind: 'one', localKey: 'matchId', foreignKey: 'id' },
         },
       },
       roomMember: {
@@ -142,6 +161,7 @@ export class InMemoryPrisma {
     // ruleProfile.id là Int (SERIAL) chứ không phải BigInt
     this.ruleProfile = new ModelDelegate(this, 'ruleProfile', 'number');
     this.match = new ModelDelegate(this, 'match');
+    this.move = new ModelDelegate(this, 'move');
   }
 
   /**
