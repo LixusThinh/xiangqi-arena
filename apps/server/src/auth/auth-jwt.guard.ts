@@ -5,15 +5,17 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { AuthenticatedRequest } from './auth.types';
+import { PrismaService } from '../prisma/prisma.service';
+import { AccessTokenPayload, AuthenticatedRequest } from './auth.types';
 
-interface AccessTokenPayload {
-  sub: string;
-}
+const DIGITS = /^\d+$/;
 
 @Injectable()
 export class AuthJwtGuard implements CanActivate {
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
@@ -43,10 +45,32 @@ export class AuthJwtGuard implements CanActivate {
       throw error;
     }
 
-    if (!payload || typeof payload.sub !== 'string' || !/^\d+$/.test(payload.sub)) {
+    if (
+      !payload ||
+      typeof payload.sub !== 'string' ||
+      !DIGITS.test(payload.sub) ||
+      typeof payload.sid !== 'string' ||
+      !DIGITS.test(payload.sid)
+    ) {
+      // Token cấp trước XQA-66 không có `sid` → buộc đăng nhập lại.
       throw this.unauthorized('AUTH_TOKEN_INVALID', 'Access token is invalid');
     }
-    request.user = { sub: payload.sub };
+
+    // Access JWT vẫn còn hạn chữ ký nhưng phiên đã logout/hết hạn thì phải từ chối (AC XQA-66).
+    const session = await this.prisma.authSession.findUnique({
+      where: { id: BigInt(payload.sid) },
+      select: { userId: true, revokedAt: true, expiresAt: true },
+    });
+    if (
+      !session ||
+      session.revokedAt !== null ||
+      session.expiresAt.getTime() <= Date.now() ||
+      session.userId.toString() !== payload.sub
+    ) {
+      throw this.unauthorized('AUTH_SESSION_REVOKED', 'Session has been signed out or has expired');
+    }
+
+    request.user = { sub: payload.sub, sid: payload.sid };
     return true;
   }
 
