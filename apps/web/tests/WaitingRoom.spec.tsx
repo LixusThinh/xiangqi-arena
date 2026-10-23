@@ -15,6 +15,19 @@ jest.mock('next/navigation', () => ({
   usePathname: () => '/room/K7MPQ2XA',
 }));
 
+// XQA-76: MatchView mở socket khi vào ván; test của XQA-71 không cần socket thật.
+jest.mock('../lib/game-socket', () => ({
+  ...jest.requireActual('../lib/game-socket'),
+  connectGame: () => ({
+    join: () => new Promise(() => undefined),
+    move: () => new Promise(() => undefined),
+    onUpdate: () => undefined,
+    onEnd: () => undefined,
+    onConnectionChange: () => undefined,
+    close: () => undefined,
+  }),
+}));
+
 const CODE = 'K7MPQ2XA';
 const originalApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
 
