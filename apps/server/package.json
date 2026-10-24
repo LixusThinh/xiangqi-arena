@@ -22,6 +22,7 @@
     "@nestjs/jwt": "^11.0.0",
     "@nestjs/platform-express": "^11.0.12",
     "@prisma/client": "6.19.0",
+    "@xiangqi-arena/xiangqi-core": "workspace:^",
     "bcryptjs": "^3.0.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",

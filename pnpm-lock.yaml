@@ -28,6 +28,9 @@ importers:
       '@prisma/client':
         specifier: 6.19.0
         version: 6.19.0(prisma@6.19.0(typescript@5.9.3))(typescript@5.9.3)
+      '@xiangqi-arena/xiangqi-core':
+        specifier: workspace:^
+        version: link:../../packages/xiangqi-core
       bcryptjs:
         specifier: ^3.0.2
         version: 3.0.3
