@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title description">
+  <title id="title">XQA-61 Xiangqi Arena screen flow</title>
+  <desc id="description">Eight screen flow: Login to Lobby, Waiting Room, Game, AI, History, Admin, and Report.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#76938a"/>
+    </marker>
+    <style>
+      .bg{fill:#f7f7f3}.card{fill:#fff;stroke:#d8ded9;stroke-width:2}.primary{fill:#e9f4ed;stroke:#47816b;stroke-width:2}.dark{fill:#174a3c;stroke:#174a3c;stroke-width:2}
+      .title{font:700 30px Arial,sans-serif;fill:#202a26}.sub{font:14px Arial,sans-serif;fill:#68756f}.label{font:700 17px Arial,sans-serif;fill:#25342e}.small{font:13px Arial,sans-serif;fill:#68756f}
+      .white{font:700 17px Arial,sans-serif;fill:#fff}.line{fill:none;stroke:#76938a;stroke-width:3;marker-end:url(#arrow)}.dash{fill:none;stroke:#a4b4ad;stroke-width:2;stroke-dasharray:7 7;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect class="bg" width="1440" height="900"/>
+  <text class="title" x="80" y="72">XIANGQI ARENA · XQA-61 SCREEN FLOW</text>
+  <text class="sub" x="80" y="104">Đăng nhập · Sảnh · Phòng chờ · Ván cờ (chat + video) · Chọn AI · Lịch sử · Admin · Report</text>
+
+  <rect class="card" x="80" y="170" width="230" height="122" rx="18"/>
+  <text class="label" x="110" y="215">01 · Đăng nhập</text>
+  <text class="small" x="110" y="245">Đăng nhập / đăng ký</text>
+  <text class="small" x="110" y="268">Username/email · Mật khẩu</text>
+
+  <rect class="primary" x="410" y="170" width="250" height="122" rx="18"/>
+  <text class="label" x="440" y="215">02 · Sảnh</text>
+  <text class="small" x="440" y="245">Đấu nhanh · Tạo phòng</text>
+  <text class="small" x="440" y="268">Luyện AI · Thống kê</text>
+
+  <rect class="card" x="780" y="170" width="250" height="122" rx="18"/>
+  <text class="label" x="810" y="215">03 · Phòng chờ</text>
+  <text class="small" x="810" y="245">Mã phòng · Người chơi</text>
+  <text class="small" x="810" y="268">Cài đặt · Sẵn sàng</text>
+
+  <rect class="dark" x="1140" y="170" width="230" height="122" rx="18"/>
+  <text class="white" x="1170" y="215">04 · Ván cờ</text>
+  <text x="1170" y="245" style="font:13px Arial,sans-serif;fill:#d6e8df">Board · Chat · Webcam</text>
+  <text x="1170" y="268" style="font:13px Arial,sans-serif;fill:#d6e8df">Đồng hồ · Đầu hàng · Báo cáo</text>
+
+  <path class="line" d="M310 231 H398"/>
+  <path class="line" d="M660 231 H768"/>
+  <path class="line" d="M1030 231 H1128"/>
+
+  <rect class="card" x="125" y="510" width="250" height="122" rx="18"/>
+  <text class="label" x="155" y="555">05 · Chọn AI</text>
+  <text class="small" x="155" y="585">Cấp độ · Thời gian</text>
+  <text class="small" x="155" y="608">Bắt đầu luyện tập</text>
+
+  <rect class="card" x="465" y="510" width="250" height="122" rx="18"/>
+  <text class="label" x="495" y="555">06 · Lịch sử</text>
+  <text class="small" x="495" y="585">Thống kê · Lọc kết quả</text>
+  <text class="small" x="495" y="608">Xem lại ván</text>
+
+  <rect class="card" x="805" y="510" width="250" height="122" rx="18"/>
+  <text class="label" x="835" y="555">07 · Admin</text>
+  <text class="small" x="835" y="585">Người dùng · Ván đấu</text>
+  <text class="small" x="835" y="608">Hàng đợi báo cáo</text>
+
+  <rect class="primary" x="1145" y="510" width="250" height="122" rx="18"/>
+  <text class="label" x="1175" y="555">08 · Report</text>
+  <text class="small" x="1175" y="585">Loại · Đối tượng · Mô tả</text>
+  <text class="small" x="1175" y="608">Gửi · Xác nhận</text>
+
+  <path class="dash" d="M535 300 C535 390 250 400 250 498"/>
+  <path class="dash" d="M535 300 C535 390 590 405 590 498"/>
+  <path class="dash" d="M930 300 C930 400 930 410 930 498"/>
+  <path class="dash" d="M1250 300 C1250 400 1270 410 1270 498"/>
+  <path class="line" d="M375 571 C620 725 1020 725 1140 300"/>
+  <path class="line" d="M715 571 C880 710 1050 650 1170 305"/>
+  <path class="line" d="M1055 571 H1133"/>
+
+  <text class="small" x="80" y="790">Prototype flow · Dữ liệu minh họa · Local webcam preview · Chưa kết nối API/WebRTC peer-to-peer</text>
+  <text class="small" x="80" y="820">Mở prototype: /flow · Tài liệu: docs/project/xqa-61-screen-flow.md</text>
+</svg>

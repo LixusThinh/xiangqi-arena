@@ -2,6 +2,34 @@
 
 Ứng dụng web Next.js 14 (App Router) cho Xiangqi Arena — Phòng thi đấu Cờ Tướng trực tuyến 3 cột hoàn chỉnh với bàn cờ SVG tương tác Click-to-Move, đồng hồ đếm ngược lượt đi 60s, webcam preview cục bộ, khung chat thời gian thực và hệ thống modal thông báo.
 
+## Xác thực với backend
+
+Đăng nhập tại `/login` (bằng tên đăng nhập hoặc email), đăng ký tại `/register`. Hai form gọi trực tiếp Auth API của server (contract: `docs/api/auth.md`); tài khoản được lưu trong PostgreSQL. Lỗi được hiển thị bằng tiếng Việt theo mã lỗi của API (`AUTH_IDENTIFIER_TAKEN` 409, `AUTH_INVALID_CREDENTIALS` 401, `VALIDATION_ERROR` 400, mất kết nối). Sau đăng ký hoặc đăng nhập, web gọi `GET /auth/me` để xác nhận token, lưu phiên vào `localStorage` (token, user, thời điểm hết hạn) rồi chuyển về trang chủ. Mọi thao tác đọc/ghi phiên đi qua `getStoredSession` / `saveSession` / `clearSession` trong `lib/auth-api.ts`.
+
+### Phiên đăng nhập, route guard, đăng xuất (XQA-67)
+
+- **Lưu phiên:** `localStorage` giữ access token (15 phút), refresh token và hạn của cả hai (contract Auth v0.2). Phiên chỉ mất khi refresh token hết hạn (mặc định 7 ngày), bị thu hồi, hoặc người dùng đăng xuất.
+- **Gọi API cần đăng nhập:** dùng `authorizedRequest(path, init)` trong `lib/session.ts`, không tự gắn header. Hàm này refresh trước khi access token hết hạn 30 giây, gặp `AUTH_TOKEN_EXPIRED` thì refresh rồi gửi lại đúng 1 lần, nên người dùng không bị văng giữa chừng. Nhiều request cùng lúc chỉ tạo một lời gọi refresh (backend xoay vòng refresh token).
+- **Route guard:** `components/AuthGuard.tsx` bọc toàn app trong `app/layout.tsx`. Các tiền tố trong `PROTECTED_PATH_PREFIXES` (`/lobby`, `/room`, `/history`, `/profile`) cần đăng nhập; chưa đăng nhập thì chuyển về `/login?next=<trang đang mở>`, đăng nhập xong quay lại đúng trang đó (dùng cho link mời phòng). Trang mới cần đăng nhập: thêm tiền tố vào mảng này.
+- **Đăng xuất:** gọi `logout()` trong `lib/session.ts`: xóa phiên ở máy ngay rồi gọi `POST /auth/logout`. Tab khác đang mở trang cần đăng nhập cũng tự về `/login` (sự kiện `storage`).
+
+Tạo `apps/web/.env.local` từ `.env.example` và đặt `NEXT_PUBLIC_API_BASE_URL` thành base URL của backend (mặc định local trong ví dụ là `http://localhost:3000`). Biến `NEXT_PUBLIC_` được đóng vào bundle khi build; cần đặt đúng URL trước khi chạy build cho từng môi trường. API cần cho phép CORS từ origin của web.
+
+Chạy backend và database theo hướng dẫn trong [server README](../server/README.md). Sau đó chạy web ở cổng riêng, ví dụ `corepack pnpm --filter @xiangqi-arena/web dev -- --port 3001`, rồi mở `http://localhost:3001`. Đăng ký tài khoản mới để xác nhận backend tạo bản ghi; có thể đối chiếu bằng `corepack pnpm db:studio`.
+
+Kiểm thử luồng auth: `corepack pnpm --filter @xiangqi-arena/web test -- --runTestsByPath tests/auth-api.spec.ts tests/AuthForm.spec.tsx`.
+
+---
+
+## Auth mock (XQA-213)
+
+- Mở `/login` hoặc `/register`; trang Home có nút dẫn tới đăng nhập.
+- Đăng nhập thử bằng `player1` / `arena1234`. Mock trả `401 AUTH_INVALID_CREDENTIALS` khi thông tin không khớp và `409 AUTH_IDENTIFIER_TAKEN` khi đăng ký trùng username/email.
+- Form kiểm tra dữ liệu ở client theo [Auth REST contract](../../docs/api/auth.md), gồm password 8–72 ký tự và giới hạn 72 byte UTF-8.
+- Lời gọi đăng nhập/đăng ký nằm trong `lib/auth-api.ts`. Thay mock bằng HTTP client thật tại file này khi làm XQA-214; các form không gọi backend trực tiếp.
+- Đây là mock trong bộ nhớ để phát triển UI: tài khoản đăng ký mới mất khi tải lại trang. Route guard, refresh token và đăng xuất: xem mục XQA-67 ở trên.
+- Test auth: `corepack pnpm --filter @xiangqi-arena/web test -- --runTestsByPath tests/auth-api.spec.ts tests/AuthForm.spec.tsx`
+
 ---
 
 ## 1. Tổng quan & Kiến trúc Giao diện (Arena Room Architecture)
@@ -14,11 +42,11 @@ Phòng thi đấu Arena Room (`apps/web/app/page.tsx`) được thiết kế the
 +------------------------------+-------------------------------+--------------------------------+
 | LEFT COLUMN (lg:col-span-3)  | CENTER COLUMN (lg:col-span-6) | RIGHT COLUMN (lg:col-span-3)   |
 |                              |                               |                                |
-| [ Đối thủ - PlayerCard ]     | [ Bàn cờ - Board (SVG) ]      | [ ChatBox ]                    |
-| - Webcam / Avatar            | - Click-to-Move tương tác     | - Danh sách tin nhắn           |
+| [ Đối thủ - PlayerCard ]     | [ GameStatusPanel ]           | [ ChatBox ]                    |
+| - Webcam / Avatar            | - Lượt / cảnh báo CHIẾU       | - Danh sách tin nhắn           |
 | - Timer 60s đối thủ          | - Highlight ô chọn (mask.png) | - Tin nhắn hệ thống / đối thủ  |
-| - Badge lượt & Elo           | - Highlight nước đi (mask2)   | - Quick chips gửi nhanh        |
-|                              |                               | - Ô nhập & gửi Enter           |
+| - Badge lượt & Elo           | [ Bàn cờ - Board (SVG) ]      | - Quick chips gửi nhanh        |
+|                              | - Highlight nước đi (mask2)   | - Ô nhập & gửi Enter           |
 | [ Bạn - PlayerCard ]         | [ MatchControls ]             |                                |
 | - Webcam cục bộ (getUserMedia| - Chọn phe (Đỏ / Đen)         |                                |
 | - Timer 60s người chơi       | - Ván mới / Xin hòa / Thoát   |                                |
@@ -33,6 +61,7 @@ Phòng thi đấu Arena Room (`apps/web/app/page.tsx`) được thiết kế the
   - `PlayerCard` (Đối thủ): Hiển thị thẻ thông tin đối thủ (Tên, Danh hiệu, Elo, Phe), đồng hồ đếm lùi 60 giây và khung avatar/stream đối thủ.
   - `PlayerCard` (Người chơi): Hiển thị thông tin người chơi cục bộ, đồng hồ đếm lùi 60 giây và khung xem trước webcam cá nhân kèm nút Bật/Tắt camera.
 - **Cột Giữa (Center Column - `lg:col-span-6`)**:
+  - `<GameStatusPanel />`: Hiển thị lượt và cảnh báo chiếu từ props được truyền vào; khi có kết quả, hiện hộp thoại người thắng, lý do và nút "Ván mới". Chọn bốn tình huống dữ liệu giả bên dưới panel để xem các trạng thái XQA-216; panel không tự xác định lượt hoặc kiểm tra chiếu.
   - `<Board />`: Bàn cờ SVG tỷ lệ chuẩn 741×821 với hệ thống layer hiển thị ảnh nền gỗ, hiệu ứng highlight nước đi gần nhất (`mask2.png`), viền ô đang chọn (`mask.png`), 90 vùng click tương tác và 32 quân cờ icon độ phân giải cao.
   - `<MatchControls />`: Thanh điều khiển trận đấu nằm ngay dưới bàn cờ: bộ nút chuyển đổi phe cầm quân (Đỏ/Đen) cùng các hành động trận đấu (Ván mới, Cầu hòa, Thoát phòng).
 - **Cột Phải (Right Column - `lg:col-span-3`)**:
@@ -48,7 +77,27 @@ Phòng thi đấu Arena Room (`apps/web/app/page.tsx`) được thiết kế the
 
 ## 2. Danh mục & API các Components
 
-### 2.1. `<Board />` (`apps/web/components/Board.tsx`)
+### 2.1. `<GameStatusPanel />` (`apps/web/components/GameStatusPanel.tsx`)
+
+Component trình bày trạng thái được truyền vào, không tự tính lượt hoặc kiểm tra chiếu.
+
+```typescript
+export interface GameStatusPanelProps {
+  sideToMove: Side | null;
+  isCheck: boolean;
+  result: GameResult | null;
+  onNewGame: () => void;
+}
+
+export interface GameResult {
+  winner: Side;
+  reason: 'checkmate' | 'no-legal-moves';
+}
+```
+
+Arena page cung cấp bốn tình huống mock: Đỏ đi, Đen bị chiếu, Đỏ thắng do chiếu bí và Đen thắng do Đỏ hết nước đi. Dialog kết thúc hiển thị người thắng, lý do và gọi `onNewGame` khi bắt đầu lại.
+
+### 2.2. `<Board />` (`apps/web/components/Board.tsx`)
 
 Render đồ họa bàn cờ SVG chất lượng cao, tiếp nhận tương tác chuột để kích hoạt cơ chế Click-to-Move.
 
@@ -96,7 +145,7 @@ import Board from '@/components/Board';
 
 ---
 
-### 2.2. `<PlayerCard />` (`apps/web/components/PlayerCard.tsx`)
+### 2.3. `<PlayerCard />` (`apps/web/components/PlayerCard.tsx`)
 
 Hiển thị thông tin người chơi, đồng hồ đếm ngược 60s kèm cảnh báo trực quan và tích hợp trình xem trước webcam cục bộ qua WebRTC API.
 
@@ -134,7 +183,7 @@ export interface PlayerCardProps {
 
 ---
 
-### 2.3. `<MatchControls />` (`apps/web/components/MatchControls.tsx`)
+### 2.4. `<MatchControls />` (`apps/web/components/MatchControls.tsx`)
 
 Thanh công cụ trận đấu cung cấp bộ chọn phe và các nút thao tác trận đấu.
 
@@ -163,7 +212,7 @@ export interface MatchControlsProps {
 
 ---
 
-### 2.4. `<ChatBox />` (`apps/web/components/ChatBox.tsx`)
+### 2.5. `<ChatBox />` (`apps/web/components/ChatBox.tsx`)
 
 Khung hội thoại thời gian thực trong phòng đấu với danh sách tin nhắn, thanh câu chat nhanh và tự động cuộn xuống tin nhắn mới nhất.
 
@@ -199,7 +248,7 @@ export interface ChatBoxProps {
 
 ---
 
-### 2.5. `<Modal />` (`apps/web/components/Modal.tsx`)
+### 2.6. `<Modal />` (`apps/web/components/Modal.tsx`)
 
 Hộp thoại modal nổi bật với hiệu ứng làm mờ nền (`backdrop-blur-sm`), dùng cho các thông báo xác nhận hoặc thông điệp từ hệ thống.
 
@@ -433,8 +482,9 @@ Chạy các lệnh sau từ thư mục gốc của repo (`xiangqi-arena`):
 # Cài đặt toàn bộ dependencies trong monorepo
 pnpm install
 
-# Khởi chạy Next.js development server (mặc định tại http://localhost:3000)
-pnpm --filter @xiangqi-arena/web dev
+# Khởi chạy Next.js tại http://localhost:3001 (backend đã dùng cổng 3000;
+# backend chỉ cho phép CORS từ WEB_ORIGINS, mặc định http://localhost:3001)
+pnpm --filter @xiangqi-arena/web dev -- --port 3001
 
 # Chạy toàn bộ kiểm thử đơn vị & tích hợp Jest của web
 pnpm --filter @xiangqi-arena/web test
