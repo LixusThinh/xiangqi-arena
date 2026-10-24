@@ -9,7 +9,8 @@ import MatchControls from '@/components/MatchControls';
 import ChatBox, { ChatMessage } from '@/components/ChatBox';
 import Modal, { ModalProps } from '@/components/Modal';
 import GameStatusPanel, { GameResult } from '@/components/GameStatusPanel';
-import { clearSession, getStoredSession, type AuthUser } from '@/lib/auth-api';
+import { getStoredSession, SESSION_CHANGED_EVENT, type AuthUser } from '@/lib/auth-api';
+import { logout } from '@/lib/session';
 
 interface UndoRecord {
   undo: MoveUndo;
@@ -68,28 +69,26 @@ export default function ArenaPage({ searchParams }: ArenaPageProps) {
   const [currentUser, setCurrentUser] = useState<
     Pick<AuthUser, 'displayName' | 'username'> | null
   >(null);
-  const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(null);
 
-  // XQA-214: đọc phiên đăng nhập đã lưu (token 15 phút, chưa có refresh token - XQA-66).
+  // Phiên đăng nhập (XQA-67): hiển thị theo phiên đã lưu. Access token hết hạn không làm mất phiên
+  // vì lib/session.ts tự refresh; chỉ khi phiên bị xóa (logout, refresh thất bại) mới ẩn tên.
   useEffect(() => {
-    const session = getStoredSession();
-    if (!session) return;
-    setCurrentUser({
-      displayName: session.user.displayName,
-      username: session.user.username,
-    });
-    setSessionExpiresAt(session.expiresAt);
+    const syncUser = () => {
+      const session = getStoredSession();
+      setCurrentUser(
+        session
+          ? { displayName: session.user.displayName, username: session.user.username }
+          : null,
+      );
+    };
+    syncUser();
+    window.addEventListener(SESSION_CHANGED_EVENT, syncUser);
+    window.addEventListener('storage', syncUser);
+    return () => {
+      window.removeEventListener(SESSION_CHANGED_EVENT, syncUser);
+      window.removeEventListener('storage', syncUser);
+    };
   }, []);
-
-  useEffect(() => {
-    if (sessionExpiresAt === null) return;
-    const timer = window.setTimeout(() => {
-      clearSession();
-      setCurrentUser(null);
-      setSessionExpiresAt(null);
-    }, Math.max(0, sessionExpiresAt - Date.now()));
-    return () => window.clearTimeout(timer);
-  }, [sessionExpiresAt]);
   const [selectedSquare, setSelectedSquare] = useState<number | null>(null);
   const [validMoves, setValidMoves] = useState<number[]>([]);
   const [lastMove, setLastMove] = useState<{ from: number; to: number } | null>(null);
@@ -357,9 +356,7 @@ export default function ArenaPage({ searchParams }: ArenaPageProps) {
                 type="button"
                 className="mr-1 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-amber-400 hover:text-amber-300"
                 onClick={() => {
-                  clearSession();
-                  setCurrentUser(null);
-                  setSessionExpiresAt(null);
+                  void logout();
                 }}
               >
                 Đăng xuất

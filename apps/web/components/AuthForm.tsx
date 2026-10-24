@@ -16,6 +16,7 @@ import {
   validateLogin,
   validateRegister,
 } from '@/lib/auth-validation';
+import { safeNextPath } from '@/lib/session';
 
 const AUTH_FIELDS: readonly AuthField[] = [
   'identifier',
@@ -78,12 +79,13 @@ export default function AuthForm({ mode }: AuthFormProps) {
 
       try {
         const user = await authApi.me(session.accessToken);
-        saveSession(session.accessToken, session.expiresIn, user);
+        saveSession(session, user);
       } catch (error) {
         clearSession();
         throw error;
       }
-      router.push('/');
+      // Bị route guard đưa về /login?next=/room/ABC → đăng nhập xong quay lại đúng trang đó
+      router.push(safeNextPath(new URLSearchParams(window.location.search).get('next')));
     } catch (error) {
       if (error instanceof AuthApiError && error.fields.length > 0) {
         // Backend trả 400 kèm details[] → đánh dấu đúng ô bị lỗi.

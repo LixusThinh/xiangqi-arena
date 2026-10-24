@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import AuthGuard from '@/components/AuthGuard';
 
 export const metadata: Metadata = {
   title: 'Xiangqi Arena - Chinese Chess',
@@ -13,7 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="vi">
-      <body className="antialiased min-h-screen">{children}</body>
+      <body className="antialiased min-h-screen">
+        <AuthGuard>{children}</AuthGuard>
+      </body>
     </html>
   );
 }

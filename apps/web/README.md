@@ -4,7 +4,14 @@
 
 ## Xác thực với backend
 
-Đăng nhập tại `/login` (bằng tên đăng nhập hoặc email), đăng ký tại `/register`. Hai form gọi trực tiếp Auth API của server (contract: `docs/api/auth.md`); tài khoản được lưu trong PostgreSQL. Lỗi được hiển thị bằng tiếng Việt theo mã lỗi của API (`AUTH_IDENTIFIER_TAKEN` 409, `AUTH_INVALID_CREDENTIALS` 401, `VALIDATION_ERROR` 400, mất kết nối). Sau đăng ký hoặc đăng nhập, web gọi `GET /auth/me` để xác nhận token, lưu phiên vào `localStorage` (token, user, thời điểm hết hạn) rồi chuyển về trang chủ. Token sống 15 phút và chưa có refresh token (XQA-66, Sprint 2): hết hạn thì trang chủ tự đăng xuất. Mọi thao tác đọc/ghi phiên đi qua `getStoredSession` / `saveSession` / `clearSession` trong `lib/auth-api.ts`.
+Đăng nhập tại `/login` (bằng tên đăng nhập hoặc email), đăng ký tại `/register`. Hai form gọi trực tiếp Auth API của server (contract: `docs/api/auth.md`); tài khoản được lưu trong PostgreSQL. Lỗi được hiển thị bằng tiếng Việt theo mã lỗi của API (`AUTH_IDENTIFIER_TAKEN` 409, `AUTH_INVALID_CREDENTIALS` 401, `VALIDATION_ERROR` 400, mất kết nối). Sau đăng ký hoặc đăng nhập, web gọi `GET /auth/me` để xác nhận token, lưu phiên vào `localStorage` (token, user, thời điểm hết hạn) rồi chuyển về trang chủ. Mọi thao tác đọc/ghi phiên đi qua `getStoredSession` / `saveSession` / `clearSession` trong `lib/auth-api.ts`.
+
+### Phiên đăng nhập, route guard, đăng xuất (XQA-67)
+
+- **Lưu phiên:** `localStorage` giữ access token (15 phút), refresh token và hạn của cả hai (contract Auth v0.2). Phiên chỉ mất khi refresh token hết hạn (mặc định 7 ngày), bị thu hồi, hoặc người dùng đăng xuất.
+- **Gọi API cần đăng nhập:** dùng `authorizedRequest(path, init)` trong `lib/session.ts`, không tự gắn header. Hàm này refresh trước khi access token hết hạn 30 giây, gặp `AUTH_TOKEN_EXPIRED` thì refresh rồi gửi lại đúng 1 lần, nên người dùng không bị văng giữa chừng. Nhiều request cùng lúc chỉ tạo một lời gọi refresh (backend xoay vòng refresh token).
+- **Route guard:** `components/AuthGuard.tsx` bọc toàn app trong `app/layout.tsx`. Các tiền tố trong `PROTECTED_PATH_PREFIXES` (`/lobby`, `/room`, `/history`, `/profile`) cần đăng nhập; chưa đăng nhập thì chuyển về `/login?next=<trang đang mở>`, đăng nhập xong quay lại đúng trang đó (dùng cho link mời phòng). Trang mới cần đăng nhập: thêm tiền tố vào mảng này.
+- **Đăng xuất:** gọi `logout()` trong `lib/session.ts`: xóa phiên ở máy ngay rồi gọi `POST /auth/logout`. Tab khác đang mở trang cần đăng nhập cũng tự về `/login` (sự kiện `storage`).
 
 Tạo `apps/web/.env.local` từ `.env.example` và đặt `NEXT_PUBLIC_API_BASE_URL` thành base URL của backend (mặc định local trong ví dụ là `http://localhost:3000`). Biến `NEXT_PUBLIC_` được đóng vào bundle khi build; cần đặt đúng URL trước khi chạy build cho từng môi trường. API cần cho phép CORS từ origin của web.
 
@@ -20,7 +27,7 @@ Kiểm thử luồng auth: `corepack pnpm --filter @xiangqi-arena/web test -- --
 - Đăng nhập thử bằng `player1` / `arena1234`. Mock trả `401 AUTH_INVALID_CREDENTIALS` khi thông tin không khớp và `409 AUTH_IDENTIFIER_TAKEN` khi đăng ký trùng username/email.
 - Form kiểm tra dữ liệu ở client theo [Auth REST contract](../../docs/api/auth.md), gồm password 8–72 ký tự và giới hạn 72 byte UTF-8.
 - Lời gọi đăng nhập/đăng ký nằm trong `lib/auth-api.ts`. Thay mock bằng HTTP client thật tại file này khi làm XQA-214; các form không gọi backend trực tiếp.
-- Đây là mock trong bộ nhớ để phát triển UI: tài khoản đăng ký mới mất khi tải lại trang. Route guard, lưu/refresh token và đăng xuất chưa nằm trong phạm vi này.
+- Đây là mock trong bộ nhớ để phát triển UI: tài khoản đăng ký mới mất khi tải lại trang. Route guard, refresh token và đăng xuất: xem mục XQA-67 ở trên.
 - Test auth: `corepack pnpm --filter @xiangqi-arena/web test -- --runTestsByPath tests/auth-api.spec.ts tests/AuthForm.spec.tsx`
 
 ---
