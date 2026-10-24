@@ -21,13 +21,17 @@
     "@nestjs/core": "^11.0.12",
     "@nestjs/jwt": "^11.0.0",
     "@nestjs/platform-express": "^11.0.12",
+    "@nestjs/platform-socket.io": "^11.0.12",
+    "@nestjs/websockets": "^11.0.12",
     "@prisma/client": "6.19.0",
+    "@xiangqi-arena/xiangqi-core": "workspace:^",
     "bcryptjs": "^3.0.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "dotenv": "^16.4.7",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "socket.io": "^4.8.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.24.0",
@@ -42,6 +46,7 @@
     "globals": "^16.0.0",
     "jest": "^29.7.0",
     "prisma": "6.19.0",
+    "socket.io-client": "^4.8.1",
     "supertest": "^7",
     "ts-jest": "^29.3.1",
     "tsx": "^4.19.3",

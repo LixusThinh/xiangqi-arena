@@ -1,12 +1,30 @@
-import { BadRequestException, INestApplication, ValidationPipe } from '@nestjs/common';
+import { BadRequestException, INestApplication, INestApplicationContext, ValidationPipe } from '@nestjs/common';
+import { IoAdapter } from '@nestjs/platform-socket.io';
+import { ServerOptions } from 'socket.io';
 import { ApiExceptionFilter } from './api-exception.filter';
+
+/** Socket.IO dùng cùng danh sách origin với REST (XQA-75). */
+class CorsIoAdapter extends IoAdapter {
+  constructor(
+    app: INestApplicationContext,
+    private readonly origins: string[],
+  ) {
+    super(app);
+  }
+
+  override createIOServer(port: number, options?: ServerOptions): unknown {
+    return super.createIOServer(port, { ...options, cors: { origin: this.origins } });
+  }
+}
 
 /**
  * Cấu hình dùng chung cho main.ts và test e2e, để test chạy đúng pipe/filter/CORS như production.
  */
 export function configureApp(app: INestApplication, webOrigins = process.env.WEB_ORIGINS): void {
   // Web (Next.js) chạy ở origin khác cổng API → phải bật CORS, nếu không trình duyệt chặn mọi request.
-  app.enableCors({ origin: parseWebOrigins(webOrigins) });
+  const origins = parseWebOrigins(webOrigins);
+  app.enableCors({ origin: origins });
+  app.useWebSocketAdapter(new CorsIoAdapter(app, origins));
   app.useGlobalFilters(new ApiExceptionFilter());
   app.useGlobalPipes(
     new ValidationPipe({

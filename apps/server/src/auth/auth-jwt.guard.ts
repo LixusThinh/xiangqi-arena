@@ -29,9 +29,18 @@ export class AuthJwtGuard implements CanActivate {
       throw this.unauthorized('AUTH_TOKEN_INVALID', 'Access token is invalid');
     }
 
+    request.user = await this.verifyAccessToken(match[1]);
+    return true;
+  }
+
+  /**
+   * Kiểm chữ ký + hạn JWT và phiên AuthSession còn sống. Dùng chung cho REST (canActivate)
+   * và Socket.IO gateway (XQA-75) để hai đường cùng một luật xác thực.
+   */
+  async verifyAccessToken(token: string): Promise<{ sub: string; sid: string }> {
     let payload: AccessTokenPayload;
     try {
-      payload = await this.jwtService.verifyAsync<AccessTokenPayload>(match[1]);
+      payload = await this.jwtService.verifyAsync<AccessTokenPayload>(token);
     } catch (error) {
       if (error instanceof Error && error.name === 'TokenExpiredError') {
         throw this.unauthorized('AUTH_TOKEN_EXPIRED', 'Access token has expired');
@@ -70,8 +79,7 @@ export class AuthJwtGuard implements CanActivate {
       throw this.unauthorized('AUTH_SESSION_REVOKED', 'Session has been signed out or has expired');
     }
 
-    request.user = { sub: payload.sub, sid: payload.sid };
-    return true;
+    return { sub: payload.sub, sid: payload.sid };
   }
 
   private unauthorized(code: string, message: string): UnauthorizedException {

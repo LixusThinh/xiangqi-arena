@@ -1,6 +1,7 @@
 # docs
 
 - [REST Auth Contract v0.2](./api/auth.md) — register, login, refresh, logout, current-user.
+- [Game Contract v0.1](./api/game.md) — trạng thái ván, đi quân, kiểm tra server-side (XQA-74).
 - [REST Room Contract v0.1](./api/room.md) — tạo phòng, Sảnh, vào/rời phòng, phòng hiện tại (XQA-69).
 - [Engine Board & FEN Design v0.1](./engine/board-fen-zobrist.md) — Board representation, FEN parser/exporter, apply/undo move, Zobrist hashing (XQA-42).
 - [AI: hàm đánh giá + Minimax Alpha-Beta](./engine/ai-evaluate-search.md) — XQA-80, XQA-81, có nguồn bảng giá trị quân.
