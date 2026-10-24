@@ -19,6 +19,39 @@ describe('Xiangqi Arena Game Room Page', () => {
     expect(screen.getByText(/Trò chuyện phòng đấu/i)).toBeInTheDocument();
   });
 
+  it('shows all four mock turn and game-end states', () => {
+    render(<ArenaPage />);
+    const scenario = screen.getByRole('combobox', { name: 'Tình huống dữ liệu giả' });
+
+    expect(screen.getByText('Đến lượt Đỏ')).toBeInTheDocument();
+    expect(screen.queryByText('CHIẾU')).not.toBeInTheDocument();
+
+    fireEvent.change(scenario, { target: { value: 'black-in-check' } });
+    expect(screen.getByText('Đến lượt Đen')).toBeInTheDocument();
+    expect(screen.getByText('CHIẾU')).toBeInTheDocument();
+
+    fireEvent.change(scenario, { target: { value: 'red-wins-checkmate' } });
+    expect(screen.getByText('Đỏ thắng — Chiếu bí.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Ván mới' }));
+    expect(screen.getByText('Đến lượt Đỏ')).toBeInTheDocument();
+
+    fireEvent.change(scenario, { target: { value: 'black-wins-red-no-moves' } });
+    expect(screen.getByText('Đen thắng — Đỏ hết nước đi.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Ván mới' }));
+    expect(screen.getByText('Đến lượt Đỏ')).toBeInTheDocument();
+  });
+
+  it('panel follows the real board turn in live mode (default)', () => {
+    render(<ArenaPage />);
+    expect(screen.getByRole('combobox', { name: 'Tình huống dữ liệu giả' })).toHaveValue('live');
+    expect(screen.getByText('Đến lượt Đỏ')).toBeInTheDocument();
+
+    // Đỏ đi Mã 82 -> 63 (nước hợp lệ), panel phải chuyển sang lượt Đen
+    fireEvent.click(screen.getByTestId('piece-82'));
+    fireEvent.click(screen.getByTestId('cell-63'));
+    expect(screen.getByText('Đến lượt Đen')).toBeInTheDocument();
+  });
+
   it('selects piece on click and deselects on clicking the same piece', () => {
     render(<ArenaPage />);
     // Initial Red King is at sq 85

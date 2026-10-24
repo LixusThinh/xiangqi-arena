@@ -1,17 +1,51 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Position, Side, Piece, MoveUndo } from '@xiangqi-arena/xiangqi-core';
 import Board from '@/components/Board';
 import PlayerCard from '@/components/PlayerCard';
 import MatchControls from '@/components/MatchControls';
 import ChatBox, { ChatMessage } from '@/components/ChatBox';
 import Modal, { ModalProps } from '@/components/Modal';
+import GameStatusPanel, { GameResult } from '@/components/GameStatusPanel';
+import { getStoredSession, SESSION_CHANGED_EVENT, type AuthUser } from '@/lib/auth-api';
+import { logout } from '@/lib/session';
 
 interface UndoRecord {
   undo: MoveUndo;
   prevLastMove: { from: number; to: number } | null;
 }
+
+type MockScenarioId =
+  | 'live'
+  | 'red-turn'
+  | 'black-in-check'
+  | 'red-wins-checkmate'
+  | 'black-wins-red-no-moves';
+
+interface PanelGameState {
+  sideToMove: Side | null;
+  isCheck: boolean;
+  result: GameResult | null;
+}
+
+// Dữ liệu giả cho XQA-50 (4 trạng thái theo AC). 'live' = lấy lượt từ bàn cờ thật;
+// XQA-51 sẽ thay phần này bằng trạng thái do engine (XQA-49) trả về.
+const MOCK_GAME_STATES: Record<Exclude<MockScenarioId, 'live'>, PanelGameState> = {
+  'red-turn': { sideToMove: 'r', isCheck: false, result: null },
+  'black-in-check': { sideToMove: 'b', isCheck: true, result: null },
+  'red-wins-checkmate': {
+    sideToMove: null,
+    isCheck: false,
+    result: { winner: 'r', reason: 'checkmate' },
+  },
+  'black-wins-red-no-moves': {
+    sideToMove: null,
+    isCheck: false,
+    result: { winner: 'b', reason: 'no-legal-moves' },
+  },
+};
 
 export interface ArenaPageProps {
   params?: Record<string, string | string[]>;
@@ -31,6 +65,30 @@ export default function ArenaPage({ searchParams }: ArenaPageProps) {
   const [sideToMove, setSideToMove] = useState<Side>(() =>
     initialFen ? Position.fromFen(initialFen).sideToMove : 'r'
   );
+  const [mockScenario, setMockScenario] = useState<MockScenarioId>('live');
+  const [currentUser, setCurrentUser] = useState<
+    Pick<AuthUser, 'displayName' | 'username'> | null
+  >(null);
+
+  // Phiên đăng nhập (XQA-67): hiển thị theo phiên đã lưu. Access token hết hạn không làm mất phiên
+  // vì lib/session.ts tự refresh; chỉ khi phiên bị xóa (logout, refresh thất bại) mới ẩn tên.
+  useEffect(() => {
+    const syncUser = () => {
+      const session = getStoredSession();
+      setCurrentUser(
+        session
+          ? { displayName: session.user.displayName, username: session.user.username }
+          : null,
+      );
+    };
+    syncUser();
+    window.addEventListener(SESSION_CHANGED_EVENT, syncUser);
+    window.addEventListener('storage', syncUser);
+    return () => {
+      window.removeEventListener(SESSION_CHANGED_EVENT, syncUser);
+      window.removeEventListener('storage', syncUser);
+    };
+  }, []);
   const [selectedSquare, setSelectedSquare] = useState<number | null>(null);
   const [validMoves, setValidMoves] = useState<number[]>([]);
   const [lastMove, setLastMove] = useState<{ from: number; to: number } | null>(null);
@@ -190,6 +248,7 @@ export default function ArenaPage({ searchParams }: ArenaPageProps) {
     setPosition(newPos);
     setBoard([...newPos.board]);
     setSideToMove('r');
+    setMockScenario('live');
     setSelectedSquare(null);
     setValidMoves([]);
     setLastMove(null);
@@ -264,7 +323,12 @@ export default function ArenaPage({ searchParams }: ArenaPageProps) {
   };
 
   const opponentSide: Side = playerSide === 'r' ? 'b' : 'r';
-
+  // Panel chỉ nhận dữ liệu từ ngoài (XQA-50 AC3). 'live' lấy lượt từ bàn cờ thật;
+  // chiếu / kết thúc ván chờ engine XQA-49, tới XQA-51 sẽ thay bằng trạng thái engine.
+  const panelState: PanelGameState =
+    mockScenario === 'live'
+      ? { sideToMove, isCheck: false, result: null }
+      : MOCK_GAME_STATES[mockScenario];
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center">
@@ -285,6 +349,27 @@ export default function ArenaPage({ searchParams }: ArenaPageProps) {
         </div>
 
         <div className="flex items-center gap-3">
+          {currentUser ? (
+            <>
+              <span className="text-xs text-slate-300">{currentUser.displayName}</span>
+              <button
+                type="button"
+                className="mr-1 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-amber-400 hover:text-amber-300"
+                onClick={() => {
+                  void logout();
+                }}
+              >
+                Đăng xuất
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              className="mr-1 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-amber-400 hover:text-amber-300"
+            >
+              Đăng nhập
+            </Link>
+          )}
           <div className="px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs font-medium text-slate-300 flex items-center gap-2 shadow-inner">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             Lượt: <span className="font-bold text-amber-300">{sideToMove === 'r' ? 'Đỏ (Đi trước)' : 'Đen'}</span>
@@ -326,6 +411,30 @@ export default function ArenaPage({ searchParams }: ArenaPageProps) {
 
         {/* Center Column: Board and Match Controls */}
         <section className="lg:col-span-6 flex flex-col items-center gap-4 order-1 lg:order-2">
+          <GameStatusPanel
+            sideToMove={panelState.sideToMove}
+            isCheck={panelState.isCheck}
+            result={panelState.result}
+            onNewGame={handleConfirmNewGame}
+          />
+          <label className="flex w-full max-w-[560px] flex-col gap-1 text-[11px] font-medium text-slate-400">
+            Tình huống dữ liệu giả
+            <select
+              aria-label="Tình huống dữ liệu giả"
+              value={mockScenario}
+              onChange={(event) => {
+                setModalConfig((prev) => ({ ...prev, isOpen: false }));
+                setMockScenario(event.target.value as MockScenarioId);
+              }}
+              className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200 focus:border-amber-400 focus:outline-none"
+            >
+              <option value="live">Theo bàn cờ thật</option>
+              <option value="red-turn">Đỏ tới lượt, không bị chiếu</option>
+              <option value="black-in-check">Đen tới lượt, đang bị chiếu</option>
+              <option value="red-wins-checkmate">Đỏ thắng do chiếu bí</option>
+              <option value="black-wins-red-no-moves">Đen thắng do Đỏ hết nước đi</option>
+            </select>
+          </label>
           <Board
             board={board}
             orientation={playerSide}

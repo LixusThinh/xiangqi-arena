@@ -6,3 +6,4 @@ export * from './zobrist';
 export * from './position';
 export * from './movegen';
 export * from './rules';
+export * from './ai';
