@@ -5,6 +5,7 @@
 - [REST Room Contract v0.1](./api/room.md) — tạo phòng, Sảnh, vào/rời phòng, phòng hiện tại (XQA-69).
 - [Engine Board & FEN Design v0.1](./engine/board-fen-zobrist.md) — Board representation, FEN parser/exporter, apply/undo move, Zobrist hashing (XQA-42).
 - [AI: hàm đánh giá + Minimax Alpha-Beta](./engine/ai-evaluate-search.md) — XQA-80, XQA-81, có nguồn bảng giá trị quân.
+- [AI 3 mức độ khó + benchmark tự đấu](./engine/ai-difficulty-benchmark.md) — XQA-100: EASY/MEDIUM/HARD, quiescence, Khó thắng Dễ 90%/20 ván.
 - [RepetitionJudge phần 1](./engine/repetition-judge.md) — lặp nước, chiếu mãi, bắt mãi theo Điều 23 (XQA-78).
 - [Engine Rules & MoveGen Spec v0.1](./engine/rules-and-movegen-spec.md) — Hướng dẫn kiến trúc & giải thuật cản mã, ngòi pháo, lộ mặt tướng, MoveGen và kiểm tra chiếu bí.
 

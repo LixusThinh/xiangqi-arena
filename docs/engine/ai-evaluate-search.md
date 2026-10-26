@@ -54,7 +54,7 @@ Bảng giá trị vị trí chi tiết kiểu ElephantEye có thể thay vào sa
 - Hết nước hợp lệ = bên tới lượt thua (chiếu bí hoặc hết nước, Điều 7.1). Điểm thắng `MATE_SCORE − ply` để ưu tiên thắng sớm.
 - Nút lá chỉ chấm điểm, không sinh nước. Đánh đổi: thế hết nước đúng ở nút lá chấm theo vật chất; đổi lại, độ sâu 3 từ thế khởi đầu chạy khoảng 0,1 giây trên máy dev, giữa ván dưới 0,2 giây (AC2 yêu cầu ≤ 2 giây).
 - `maxTimeMs` (tùy chọn): quá giờ thì dừng và trả nước tốt nhất đã tìm (`timedOut: true`).
-- Chưa có: quiescence search, bảng transposition, iterative deepening, xét lặp nước Điều 23 trong cây (để XQA-100).
+- Chưa có: bảng transposition, iterative deepening, xét lặp nước Điều 23 trong cây. Quiescence search đã thêm ở XQA-100 dưới dạng tùy chọn `quiescence` (mặc định tắt), xem [ai-difficulty-benchmark.md](./ai-difficulty-benchmark.md).
 
 ### Bộ thế cờ kiểm tra "không bỏ nước ăn Xe miễn phí" (XQA-23 AC2)
 

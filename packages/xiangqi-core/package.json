@@ -9,7 +9,8 @@
     "fixtures:generate": "node scripts/generate-fixtures.js",
     "test": "jest",
     "test:harness": "node scripts/ci-rules-harness.js",
-    "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\""
+    "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "bench:ai": "node scripts/ai-benchmark.js --games 20 --a HARD --b EASY --min-win-rate 0.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.24.0",
