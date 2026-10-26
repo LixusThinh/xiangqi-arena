@@ -2,7 +2,8 @@
  * PrismaService giả lập trong RAM cho test e2e (Jest + supertest).
  *
  * Vì sao không dùng PostgreSQL thật: job CI chỉ có DATABASE_URL giả, không có service Postgres.
- * Bộ giả lập này chỉ cài ĐÚNG các truy vấn mà AuthService / AuthJwtGuard / RoomService đang dùng,
+ * Bộ giả lập này chỉ cài ĐÚNG các truy vấn mà AuthService / AuthJwtGuard / RoomService / GameService /
+ * HistoryService đang dùng,
  * với ngữ nghĩa giống Prisma (unique constraint → lỗi P2002, select lồng quan hệ, updateMany trả count).
  * Thêm truy vấn mới vào service thì phải bổ sung ở đây, nếu không test sẽ báo "not implemented".
  */
@@ -60,6 +61,7 @@ export class InMemoryPrisma {
   readonly ruleProfile: ModelDelegate;
   readonly match: ModelDelegate;
   readonly move: ModelDelegate;
+  readonly ratingHistory: ModelDelegate;
 
   constructor() {
     const now = (): Date => new Date();
@@ -141,6 +143,14 @@ export class InMemoryPrisma {
           match: { table: 'match', kind: 'one', localKey: 'matchId', foreignKey: 'id' },
         },
       },
+      ratingHistory: {
+        unique: [],
+        defaults: () => ({ createdAt: now() }),
+        relations: {
+          user: { table: 'user', kind: 'one', localKey: 'userId', foreignKey: 'id' },
+          match: { table: 'match', kind: 'one', localKey: 'matchId', foreignKey: 'id' },
+        },
+      },
       roomMember: {
         unique: [['roomId', 'userId']],
         defaults: () => ({ isReady: false, joinedAt: now() }),
@@ -162,6 +172,7 @@ export class InMemoryPrisma {
     this.ruleProfile = new ModelDelegate(this, 'ruleProfile', 'number');
     this.match = new ModelDelegate(this, 'match');
     this.move = new ModelDelegate(this, 'move');
+    this.ratingHistory = new ModelDelegate(this, 'ratingHistory');
   }
 
   /**
