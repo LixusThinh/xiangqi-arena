@@ -9,6 +9,7 @@
     "fixtures:generate": "node scripts/generate-fixtures.js",
     "test": "jest",
     "test:harness": "node scripts/ci-rules-harness.js",
+    "ai:benchmark": "node scripts/ai-benchmark.js",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\""
   },
   "devDependencies": {
