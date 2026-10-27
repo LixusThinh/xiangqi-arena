@@ -10,7 +10,8 @@ import { evaluate, MATE_SCORE, PIECE_VALUES } from './evaluate';
  *   giúp alpha-beta cắt nhiều nhánh hơn.
  * - Hết nước hợp lệ = bên tới lượt THUA (bị chiếu bí hoặc hết nước – Điều 7.1). Thua càng muộn càng tốt,
  *   thắng càng sớm càng tốt (điểm mate trừ theo độ sâu).
- * - Chưa xét lặp nước / Điều 23 trong cây tìm kiếm (để XQA-100 / RepetitionJudge).
+ * - Chưa xét lặp nước / Điều 23 trong cây tìm kiếm (ván thật do GameService + RepetitionJudge xử; XQA-100 chỉ thêm
+ *   nhiễu `noise` để làm các mức độ khó, xem levels.ts).
  */
 
 export interface SearchOptions {
@@ -18,6 +19,15 @@ export interface SearchOptions {
   depth: number;
   /** Dừng mở rộng nút mới khi vượt quá số ms này (trả nước tốt nhất đã tìm được). Mặc định: không giới hạn. */
   maxTimeMs?: number;
+  /**
+   * Nhiễu (XQA-100), cùng đơn vị với điểm đánh giá (Tốt chưa qua sông = 100). Mỗi nước ở gốc được cộng một số ngẫu nhiên
+   * đều trong [−noise, +noise] trước khi chọn, nên AI yếu đi một cách có kiểm soát: nước hơn nhau ít hơn `noise`
+   * có thể bị chọn ngược. Điểm mate (±100000) lớn hơn mọi nhiễu hợp lý nên nước thắng thấy được vẫn luôn được chọn.
+   * Mặc định 0 = không nhiễu, kết quả tất định như cũ.
+   */
+  noise?: number;
+  /** Nguồn số ngẫu nhiên trong [0, 1) cho `noise`; mặc định Math.random. Truyền hàm có seed để benchmark lặp lại được. */
+  rng?: () => number;
 }
 
 export interface SearchResult {
@@ -57,6 +67,11 @@ export function searchBestMove(position: Position, options: SearchOptions): Sear
   if (!Number.isInteger(depth) || depth < 1) {
     throw new Error(`Search depth must be an integer >= 1; received ${depth}`);
   }
+  const noise = options.noise ?? 0;
+  if (!Number.isFinite(noise) || noise < 0) {
+    throw new Error(`Search noise must be a finite number >= 0; received ${noise}`);
+  }
+  const rng = options.rng ?? Math.random;
   const deadline = options.maxTimeMs === undefined ? Infinity : Date.now() + options.maxTimeMs;
   const pos = position.clone(); // tìm kiếm trên bản sao, không làm đổi thế cờ của người gọi
   let nodes = 0;
@@ -89,20 +104,26 @@ export function searchBestMove(position: Position, options: SearchOptions): Sear
   }
 
   let bestMove = rootMoves[0];
-  let bestScore = -Infinity;
+  let bestScore = -Infinity; // điểm thật (không nhiễu) của nước đang được chọn
+  let bestAdjusted = -Infinity; // điểm đã cộng nhiễu, dùng để so sánh giữa các nước ở gốc
   let alpha = -Infinity;
   const beta = Infinity;
   let timedOut = false;
   try {
     for (const move of rootMoves) {
       const undo = pos.applyMove(move);
-      const score = -negamax(depth - 1, 1, -beta, -alpha);
+      // Có nhiễu thì cần điểm CHÍNH XÁC của từng nước gốc: không thu hẹp cửa sổ alpha, nếu không nước kém sẽ chỉ có
+      // cận trên và nhiễu cộng vào đó vô nghĩa. Không nhiễu thì thu hẹp như cũ để cắt tỉa tối đa.
+      const rootAlpha = noise > 0 ? -Infinity : alpha;
+      const score = -negamax(depth - 1, 1, -beta, -rootAlpha);
       pos.undoMove(undo);
-      if (score > bestScore) {
+      const adjusted = noise > 0 ? score + (rng() * 2 - 1) * noise : score;
+      if (adjusted > bestAdjusted) {
+        bestAdjusted = adjusted;
         bestScore = score;
         bestMove = move;
       }
-      if (score > alpha) alpha = score;
+      if (noise === 0 && score > alpha) alpha = score;
     }
   } catch (error) {
     if (!(error instanceof SearchTimeout)) throw error;
