@@ -31,6 +31,13 @@ export class RegisterDto {
   displayName!: string;
 }
 
+/** Body của POST /auth/refresh và POST /auth/logout. Token là 43 ký tự base64url (32 byte ngẫu nhiên). */
+export class RefreshTokenDto {
+  @IsString()
+  @Matches(/^[A-Za-z0-9_-]{43}$/)
+  refreshToken!: string;
+}
+
 export class LoginDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()

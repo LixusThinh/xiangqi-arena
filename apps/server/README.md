@@ -10,7 +10,7 @@ Trong Solution Explorer, mở `apps/server`:
 |---|---|
 | `src/main.ts` | Điểm khởi chạy HTTP server NestJS |
 | `src/app.module.ts` | Nối các module của backend |
-| `src/auth` | API `POST /auth/register`, `POST /auth/login`, `GET /auth/me`; contract tại `docs/api/auth.md` |
+| `src/auth` | API `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me`; contract tại `docs/api/auth.md` |
 | `src/user`, `src/room`, `src/game`, `src/admin` | Module khung; API nghiệp vụ khác sẽ được bổ sung theo contract đã duyệt |
 | `src/prisma` | Kết nối ứng dụng NestJS với PostgreSQL |
 | `prisma/schema.prisma` | Mô tả bảng, quan hệ và enum trong database |
@@ -50,7 +50,11 @@ Seed có thể chạy lại; mật khẩu được lưu dưới dạng bcrypt ha
 
 ## Auth API — contract-first
 
-Xem [REST Auth Contract v0.1](../../docs/api/auth.md) trước khi tích hợp FE. Ba endpoint register/login/me dùng access JWT Bearer 15 phút; response không bao giờ trả mật khẩu hoặc password hash. Cần đặt `JWT_ACCESS_SECRET` trong `apps/server/.env` (mẫu local có sẵn trong `.env.example`); secret production phải do môi trường triển khai cấp riêng.
+Xem [REST Auth Contract v0.2](../../docs/api/auth.md) trước khi tích hợp FE. Access JWT Bearer sống 15 phút, refresh token xoay vòng (rotation) sống tối đa `REFRESH_TOKEN_TTL_SEC` (mặc định 7 ngày); logout thu hồi phiên trong bảng `auth_sessions` nên access token của phiên đó bị từ chối ngay. Response không bao giờ trả mật khẩu, password hash hay hash của refresh token. CORS chỉ mở cho các origin trong `WEB_ORIGINS`.
+
+### Test e2e (XQA-66)
+
+`test/*.e2e.spec.ts` dựng toàn bộ `AppModule` bằng `@nestjs/testing` + `supertest`, thay PostgreSQL bằng `test/support/in-memory-prisma.ts` vì CI không có database. Chạy cùng `corepack pnpm test`. Thêm truy vấn Prisma mới vào service mà bộ giả lập chưa có thì test báo lỗi `not implemented` → bổ sung vào file đó. Cần đặt `JWT_ACCESS_SECRET` trong `apps/server/.env` (mẫu local có sẵn trong `.env.example`); secret production phải do môi trường triển khai cấp riêng.
 
 ## Phạm vi bàn giao và trạng thái
 

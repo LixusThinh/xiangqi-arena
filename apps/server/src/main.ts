@@ -1,30 +1,12 @@
-import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { ApiExceptionFilter } from './api-exception.filter';
 import { AppModule } from './app.module';
+import { configureApp } from './app.setup';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
-  app.useGlobalFilters(new ApiExceptionFilter());
-  app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-      exceptionFactory: (errors) =>
-        new BadRequestException({
-          statusCode: 400,
-          error: 'Bad Request',
-          code: 'VALIDATION_ERROR',
-          message: 'Request validation failed',
-          details: errors.map((error) => ({
-            field: error.property,
-            message: Object.values(error.constraints ?? {}).join(', '),
-          })),
-        }),
-    }),
-  );
+  configureApp(app);
 
   const config = app.get(ConfigService);
   const portValue = config.get<string>('PORT', '3000');

@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { AuthJwtGuard } from './auth-jwt.guard';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto } from './auth.dto';
+import { LoginDto, RefreshTokenDto, RegisterDto } from './auth.dto';
 import { AuthenticatedRequest, AuthSessionResponse, AuthUserResponse } from './auth.types';
 
 @Controller('auth')
@@ -27,6 +27,18 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   login(@Body() dto: LoginDto): Promise<AuthSessionResponse> {
     return this.authService.login(dto);
+  }
+
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  refresh(@Body() dto: RefreshTokenDto): Promise<AuthSessionResponse> {
+    return this.authService.refresh(dto);
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  logout(@Body() dto: RefreshTokenDto): Promise<void> {
+    return this.authService.logout(dto);
   }
 
   @Get('me')

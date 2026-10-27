@@ -107,8 +107,25 @@ model User {
   ratingHistory    RatingHistory[]
   submittedReports Report[]        @relation("ReportReporter")
   receivedReports  Report[]        @relation("ReportReportedUser")
+  authSessions     AuthSession[]
 
   @@map("users")
+}
+
+/// Một phiên đăng nhập (XQA-66). Access token mang `sid` = id phiên; logout/refresh dựa vào bảng này.
+/// Chỉ lưu SHA-256 của refresh token, không lưu token gốc.
+model AuthSession {
+  id               BigInt    @id @default(autoincrement()) @map("session_id") @db.BigInt
+  userId           BigInt    @map("user_id") @db.BigInt
+  refreshTokenHash String    @unique @map("refresh_token_hash") @db.Char(64)
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(6)
+  lastUsedAt       DateTime? @map("last_used_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("auth_sessions")
 }
 
 model RuleProfile {

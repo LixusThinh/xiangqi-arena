@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { AuthJwtGuard } from './auth-jwt.guard';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { ACCESS_TOKEN_TTL_SEC } from './auth.constants';
 
 @Module({
   imports: [
@@ -14,8 +15,8 @@ import { AuthService } from './auth.service';
         if (!secret) {
           throw new Error('JWT_ACCESS_SECRET must be set in apps/server/.env');
         }
-        // expiresIn phải khớp với `expiresIn: 900` trả về trong AuthSessionResponse
-        return { secret, signOptions: { expiresIn: 900 } };
+        // expiresIn phải khớp với `expiresIn` trả về trong AuthSessionResponse
+        return { secret, signOptions: { expiresIn: ACCESS_TOKEN_TTL_SEC } };
       },
     }),
   ],
