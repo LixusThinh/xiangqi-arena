@@ -1,0 +1,120 @@
+name: E2E
+
+# XQA-108: luồng MVP trên trình duyệt thật với PostgreSQL thật.
+# Tách khỏi ci.yml vì cần DB + 2 tiến trình server/web và chạy lâu hơn.
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '9.15.0'
+  CI: 'true'
+  DATABASE_URL: 'postgresql://xiangqi:xiangqi_e2e@localhost:5432/xiangqi_e2e?schema=public'
+  JWT_ACCESS_SECRET: 'e2e-ci-only-access-token-secret-at-least-32-bytes'
+  REFRESH_TOKEN_TTL_SEC: '604800'
+  WEB_ORIGINS: 'http://localhost:3001'
+  PORT: '3000'
+  SEED_ADMIN_PASSWORD: 'Admin-e2e-2026!'
+  SEED_TEST_PASSWORD: 'Player-e2e-2026!'
+  NEXT_PUBLIC_API_BASE_URL: 'http://localhost:3000'
+
+jobs:
+  e2e:
+    name: 🎭 E2E Playwright (MVP)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: xiangqi_e2e
+          POSTGRES_USER: xiangqi
+          POSTGRES_PASSWORD: xiangqi_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U xiangqi -d xiangqi_e2e"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Get pnpm store directory
+        id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma generate + migrate deploy + seed
+        run: |
+          pnpm --filter @xiangqi-arena/server prisma:generate
+          pnpm --filter @xiangqi-arena/server prisma:deploy
+          pnpm --filter @xiangqi-arena/server prisma:seed
+
+      - name: Build server + web
+        run: |
+          pnpm --filter @xiangqi-arena/server build
+          pnpm --filter @xiangqi-arena/web build
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @xiangqi-arena/e2e exec playwright install --with-deps chromium
+
+      - name: Start server (3000) + web (3001)
+        run: |
+          nohup pnpm --filter @xiangqi-arena/server start > server.log 2>&1 &
+          PORT=3001 nohup pnpm --filter @xiangqi-arena/web start > web.log 2>&1 &
+          npx --yes wait-on@8.0.1 --timeout 90000 http-get://localhost:3000/health http-get://localhost:3001/login
+
+      - name: Run E2E
+        run: pnpm --filter @xiangqi-arena/e2e e2e
+
+      - name: Server / web logs
+        if: failure()
+        run: |
+          echo '--- server.log ---'; tail -n 200 server.log || true
+          echo '--- web.log ---'; tail -n 100 web.log || true
+          # Đẩy log thành annotation để đọc được ở tab Checks / qua API mà không cần tải log
+          for f in server.log web.log; do
+            if [ -f "$f" ]; then
+              msg=$(tail -n 40 "$f" | sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g')
+              echo "::error title=$f::$msg"
+            fi
+          done
+
+      - name: Upload Playwright report (trace + video khi fail)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            apps/e2e/playwright-report
+            apps/e2e/test-results
+          retention-days: 7
+          if-no-files-found: ignore
