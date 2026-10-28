@@ -1,0 +1,201 @@
+{
+  "name": "Điều 23 – harness thế cờ thật (XQA-96)",
+  "version": "1.0",
+  "created": "2026-10-28",
+  "document": "luat_co_tuong_viet_nam.pdf – Điều 23 (10 điểm), Điều 24",
+  "note": "Ca active là thế nhóm tự dựng theo từng điểm luật (golden=false). Golden fixture theo hình Điều 24 (XQA-79) thêm vào mảng cases với golden=true khi có FEN từ hình.",
+  "points": [
+    "Điểm 1",
+    "Điểm 2",
+    "Điểm 3",
+    "Điểm 4",
+    "Điểm 5",
+    "Điểm 6",
+    "Điểm 7",
+    "Điểm 8",
+    "Điểm 9",
+    "Điểm 10"
+  ],
+  "unitTestOnly": {
+    "Điểm 3": "câu 2 (nhiều quân bắt mãi một quân) – judgeCycle trong tests/rules-repetition.spec.ts",
+    "Điểm 5": "judgeCycle (24.17)",
+    "Điểm 7": "judgeCycle + kiểm cờ ghim trên bàn cờ thật (chưa có chu kỳ lặp thật)",
+    "Điểm 8": "judgeCycle (24.32)",
+    "Điểm 9": "câu 2 (Tướng/Tốt + quân khác) – judgeCycle (24.25, 24.26)"
+  },
+  "cases": [
+    {
+      "id": "D23-P1",
+      "point": "Điểm 1",
+      "title": "Xe Đỏ chiếu mãi",
+      "cycle": [
+        "a1a0",
+        "e0e1",
+        "a0a1",
+        "e1e0"
+      ],
+      "expect": {
+        "kind": "loss",
+        "loser": "r"
+      },
+      "fen": "4k4/R8/9/9/9/9/9/9/9/3K5 r - - 0 1",
+      "repeat": 2,
+      "source": "Thế tự dựng theo Điều 23 – Điểm 1",
+      "golden": false,
+      "status": "active"
+    },
+    {
+      "id": "D23-P2",
+      "point": "Điểm 2",
+      "title": "Một chiếu một bắt: Xe Đỏ chiếu rồi dọa Mã không căn",
+      "cycle": [
+        "a3a0",
+        "e0e1",
+        "a0a3",
+        "e1e0"
+      ],
+      "expect": {
+        "kind": "draw"
+      },
+      "fen": "4k4/9/9/R6n1/9/9/9/9/9/3K5 r - - 0 1",
+      "repeat": 2,
+      "source": "Thế tự dựng theo Điều 23 – Điểm 2",
+      "golden": false,
+      "status": "active"
+    },
+    {
+      "id": "D23-P3",
+      "point": "Điểm 3",
+      "title": "Xe đuổi bắt mãi Mã không căn",
+      "cycle": [
+        "h4h2",
+        "a2b4",
+        "h2h4",
+        "b4a2"
+      ],
+      "expect": {
+        "kind": "loss",
+        "loser": "r"
+      },
+      "fen": "3k5/9/n8/9/7R1/9/9/9/9/4K4 r - - 0 1",
+      "repeat": 2,
+      "source": "Thế tự dựng theo Điều 23 – Điểm 3",
+      "golden": false,
+      "status": "active"
+    },
+    {
+      "id": "D23-P4",
+      "point": "Điểm 4",
+      "title": "Một Xe lần lượt dọa bắt hai Mã",
+      "cycle": [
+        "h4h2",
+        "i0i1",
+        "h2h4",
+        "i1i0"
+      ],
+      "expect": {
+        "kind": "draw"
+      },
+      "fen": "3k4r/9/n8/9/1n5R1/9/9/9/9/4K4 r - - 0 1",
+      "repeat": 2,
+      "source": "Thế tự dựng theo Điều 23 – Điểm 4",
+      "golden": false,
+      "status": "active"
+    },
+    {
+      "id": "D23-P6a",
+      "point": "Điểm 6",
+      "title": "Đuổi bắt mãi Mã có căn thật",
+      "cycle": [
+        "h4h2",
+        "a2b4",
+        "h2h4",
+        "b4a2"
+      ],
+      "expect": {
+        "kind": "draw"
+      },
+      "fen": "3k5/9/n8/9/7R1/9/9/r8/1r7/4K4 r - - 0 1",
+      "repeat": 2,
+      "source": "Thế tự dựng theo Điều 23 – Điểm 6",
+      "golden": false,
+      "status": "active"
+    },
+    {
+      "id": "D23-P6b",
+      "point": "Điểm 6",
+      "title": "Một nước bắt quân có căn, một nước bắt quân không căn (24.13 hình 31)",
+      "cycle": [
+        "h4h2",
+        "a2b4",
+        "h2h4",
+        "b4a2"
+      ],
+      "expect": {
+        "kind": "draw"
+      },
+      "fen": "3k5/9/n8/9/7R1/9/9/r8/9/4K4 r - - 0 1",
+      "repeat": 2,
+      "source": "Thế tự dựng theo Điều 23 – Điểm 6",
+      "golden": false,
+      "status": "active"
+    },
+    {
+      "id": "D23-P9",
+      "point": "Điểm 9",
+      "title": "Tướng Đỏ đuổi bắt mãi Pháo Đen",
+      "cycle": [
+        "e9d9",
+        "d8e8",
+        "d9e9",
+        "e8d8"
+      ],
+      "expect": {
+        "kind": "draw"
+      },
+      "fen": "5k3/9/9/9/9/9/9/9/3c5/4K4 r - - 0 1",
+      "repeat": 2,
+      "source": "Thế tự dựng theo Điều 23 – Điểm 9",
+      "golden": false,
+      "status": "active"
+    },
+    {
+      "id": "D23-P10",
+      "point": "Điểm 10",
+      "title": "Xe đòi đổi mãi Xe (hai bên ăn được nhau)",
+      "cycle": [
+        "h4h2",
+        "a2a4",
+        "h2h4",
+        "a4a2"
+      ],
+      "expect": {
+        "kind": "draw"
+      },
+      "fen": "4k4/9/r8/9/7R1/9/9/9/9/3K5 r - - 0 1",
+      "repeat": 2,
+      "source": "Thế tự dựng theo Điều 23 – Điểm 10",
+      "golden": false,
+      "status": "active"
+    },
+    {
+      "id": "D23-242",
+      "point": "Điều 24.2",
+      "title": "Hai bên đi nước chờ",
+      "cycle": [
+        "a9a8",
+        "i0i1",
+        "a8a9",
+        "i1i0"
+      ],
+      "expect": {
+        "kind": "draw"
+      },
+      "fen": "4k3r/9/9/9/9/9/9/9/9/R2K5 r - - 0 1",
+      "repeat": 2,
+      "source": "Thế tự dựng theo Điều 24.2",
+      "golden": false,
+      "status": "active"
+    }
+  ]
+}
