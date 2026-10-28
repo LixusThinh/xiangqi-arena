@@ -1,6 +1,6 @@
 import { io, type Socket } from 'socket.io-client';
 
-/** Kiểu dữ liệu theo contract docs/api/game.md (XQA-74) và docs/api/socket.md (XQA-75). */
+/** Kiểu dữ liệu theo contract docs/api/game.md (XQA-74, XQA-90) và docs/api/socket.md (XQA-75, XQA-91). */
 export type PlayerColor = 'RED' | 'BLACK';
 export type MatchStatus = 'WAITING' | 'ACTIVE' | 'FINISHED' | 'ABORTED';
 export type MatchResult = 'RED_WIN' | 'BLACK_WIN' | 'DRAW';
@@ -21,6 +21,18 @@ export interface GameMoveView {
   isCheck: boolean;
 }
 
+export interface DrawOffer {
+  by: PlayerColor;
+  atPly: number;
+}
+
+/** Người chơi đang mất kết nối, ván được giữ tới `deadline` (XQA-93). */
+export interface DisconnectedPlayer {
+  color: PlayerColor;
+  /** ISO time hết hạn chờ. */
+  deadline: string;
+}
+
 export interface GameState {
   matchId: string;
   roomCode: string;
@@ -37,6 +49,10 @@ export interface GameState {
   yourColor: PlayerColor | null;
   lastMove: GameMoveView | null;
   moves: GameMoveView[];
+  /** Đề nghị hòa đang chờ trả lời (XQA-91); null nếu không có. */
+  drawOffer: DrawOffer | null;
+  /** Người chơi đang mất kết nối (XQA-93); rỗng nếu cả hai đang kết nối. */
+  disconnected: DisconnectedPlayer[];
   redTimeLeftMs: number;
   blackTimeLeftMs: number;
   startedAt: string | null;
@@ -48,6 +64,26 @@ export interface GameEnd {
   result: MatchResult | null;
   endReason: string | null;
   endRule: string | null;
+}
+
+export interface DrawOffered extends DrawOffer {
+  matchId: string;
+}
+
+export interface DrawRejected {
+  matchId: string;
+  /** Người từ chối. */
+  by: PlayerColor | null;
+}
+
+export interface PlayerDisconnected extends DisconnectedPlayer {
+  matchId: string;
+  graceSec: number;
+}
+
+export interface PlayerReconnected {
+  matchId: string;
+  color: PlayerColor;
 }
 
 export interface MoveRequest {
@@ -78,6 +114,10 @@ export const GAME_ERROR_MESSAGES: Record<string, string> = {
   GAME_NOT_PLAYER: 'Bạn không phải người chơi của ván này.',
   GAME_NOT_JOINED: 'Mất liên kết với ván, đang vào lại…',
   GAME_NOT_FOUND: 'Không tìm thấy ván đấu.',
+  GAME_DRAW_OFFER_PENDING: 'Đang có một đề nghị hòa chờ trả lời.',
+  GAME_DRAW_OFFER_TOO_SOON: 'Đề nghị hòa vừa bị từ chối. Đi thêm một nước rồi hãy đề nghị lại.',
+  GAME_NO_DRAW_OFFER: 'Đề nghị hòa không còn hiệu lực.',
+  GAME_DRAW_OFFER_OWN: 'Không thể tự trả lời đề nghị hòa của mình.',
   AUTH_TOKEN_MISSING: 'Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.',
   AUTH_TOKEN_INVALID: 'Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.',
   AUTH_TOKEN_EXPIRED: 'Phiên đăng nhập đã hết hạn. Vui lòng tải lại trang.',
@@ -89,8 +129,10 @@ export const END_REASON_LABELS: Record<string, string> = {
   CHECKMATE: 'Chiếu bí',
   STALEMATE: 'Hết nước đi',
   REPETITION: 'Lặp nước (Điều 23)',
-  RESIGN: 'Xin thua',
+  RESIGNATION: 'Xin thua',
+  DRAW_AGREEMENT: 'Hai bên đồng ý hòa',
   TIMEOUT: 'Hết giờ',
+  DISCONNECT: 'Mất kết nối quá thời gian chờ',
 };
 
 /** Kết nối realtime tới một ván. MatchView chỉ dùng interface này → test thay bằng bản giả. */
@@ -98,8 +140,17 @@ export interface GameConnection {
   /** Vào ván theo mã phòng; tự vào lại khi socket kết nối lại. */
   join(roomCode: string): Promise<GameState>;
   move(input: MoveRequest): Promise<GameState>;
+  /** XQA-91: xin thua / đề nghị hòa / trả lời đề nghị hòa. */
+  resign(matchId: string): Promise<GameState>;
+  offerDraw(matchId: string): Promise<GameState>;
+  answerDraw(matchId: string, accept: boolean): Promise<GameState>;
   onUpdate(listener: (state: GameState) => void): void;
   onEnd(listener: (end: GameEnd) => void): void;
+  onDrawOffered(listener: (offer: DrawOffered) => void): void;
+  onDrawRejected(listener: (info: DrawRejected) => void): void;
+  /** XQA-94: đối thủ (hoặc chính mình ở tab khác) mất kết nối / vào lại. */
+  onPlayerDisconnected(listener: (info: PlayerDisconnected) => void): void;
+  onPlayerReconnected(listener: (info: PlayerReconnected) => void): void;
   onConnectionChange(listener: (connected: boolean) => void): void;
   close(): void;
 }
@@ -170,11 +221,32 @@ export const connectGame: ConnectGame = (token) => {
     move(input) {
       return request<GameState>(socket, 'game:move', input);
     },
+    resign(matchId) {
+      return request<GameState>(socket, 'game:resign', { matchId });
+    },
+    offerDraw(matchId) {
+      return request<GameState>(socket, 'game:draw-offer', { matchId });
+    },
+    answerDraw(matchId, accept) {
+      return request<GameState>(socket, accept ? 'game:draw-accept' : 'game:draw-reject', { matchId });
+    },
     onUpdate(listener) {
       updateListeners.push(listener);
     },
     onEnd(listener) {
       socket.on('game:end', listener);
+    },
+    onDrawOffered(listener) {
+      socket.on('game:draw-offered', listener);
+    },
+    onDrawRejected(listener) {
+      socket.on('game:draw-rejected', listener);
+    },
+    onPlayerDisconnected(listener) {
+      socket.on('player:disconnected', listener);
+    },
+    onPlayerReconnected(listener) {
+      socket.on('player:reconnected', listener);
     },
     onConnectionChange(listener) {
       socket.on('connect', () => listener(true));
