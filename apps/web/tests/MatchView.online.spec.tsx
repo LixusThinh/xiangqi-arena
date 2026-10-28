@@ -9,6 +9,8 @@ import { saveSession } from '../lib/auth-api';
 import {
   GameSocketError,
   type DrawRejected,
+  type PlayerDisconnected,
+  type PlayerReconnected,
   type GameConnection,
   type GameEnd,
   type GameState,
@@ -74,6 +76,7 @@ function state(overrides: Partial<GameState> = {}): GameState {
     lastMove: null,
     moves: [],
     drawOffer: null,
+    disconnected: [],
     redTimeLeftMs: 600000,
     blackTimeLeftMs: 600000,
     startedAt: '2026-10-21T08:00:00.000Z',
@@ -96,6 +99,8 @@ class FakeConnection implements GameConnection {
   ends: Array<(e: GameEnd) => void> = [];
   conn: Array<(c: boolean) => void> = [];
   rejected: Array<(r: DrawRejected) => void> = [];
+  gone: Array<(p: PlayerDisconnected) => void> = [];
+  back: Array<(p: PlayerReconnected) => void> = [];
   moves: MoveRequest[] = [];
   /** Kết quả cho resign / offerDraw / answerDraw; mặc định không bao giờ trả. */
   actionImpl: (name: string) => Promise<GameState> = () => new Promise(() => undefined);
@@ -119,6 +124,12 @@ class FakeConnection implements GameConnection {
   onDrawOffered() {}
   onDrawRejected(l: (r: DrawRejected) => void) {
     this.rejected.push(l);
+  }
+  onPlayerDisconnected(l: (p: PlayerDisconnected) => void) {
+    this.gone.push(l);
+  }
+  onPlayerReconnected(l: (p: PlayerReconnected) => void) {
+    this.back.push(l);
   }
   onUpdate(l: (s: GameState) => void) {
     this.updates.push(l);
@@ -361,5 +372,75 @@ describe('MatchView – xin hòa / xin thua (XQA-92)', () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce(ok(playingRoom));
     render(<MatchView code={CODE} connect={() => conn} />);
     expect(await screen.findByText('Đối thủ đề nghị hòa')).toBeInTheDocument();
+  });
+});
+
+describe('MatchView – vào lại ván, banner mất kết nối (XQA-94)', () => {
+  const T0 = Date.parse('2026-10-28T10:00:00.000Z');
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('AC1: reload giữa ván → join lại theo mã phòng, bàn cờ khôi phục đúng nước đã đi + lượt', async () => {
+    const conn = new FakeConnection(afterRedMove('BLACK'));
+    await renderAs(BLACK, conn);
+    expect(conn.join).toHaveBeenCalledWith(CODE);
+    expect(screen.getByTestId(`piece-${E7}`)).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Đến lượt bạn (Đen)');
+  });
+
+  it('AC2: đối thủ mất kết nối → banner đếm ngược theo hạn của server, mỗi giây giảm 1', async () => {
+    jest.useFakeTimers({ now: T0 });
+    const conn = new FakeConnection(state());
+    await renderAs(RED, conn);
+    act(() =>
+      conn.gone.forEach((l) =>
+        l({ matchId: '9', color: 'BLACK', deadline: new Date(T0 + 60_000).toISOString(), graceSec: 60 }),
+      ),
+    );
+    expect(screen.getByTestId('opponent-disconnected')).toHaveTextContent('60 giây');
+    act(() => {
+      jest.advanceTimersByTime(5_000);
+    });
+    expect(screen.getByTestId('opponent-disconnected')).toHaveTextContent('55 giây');
+  });
+
+  it('đối thủ vào lại (player:reconnected) → banner tắt', async () => {
+    const conn = new FakeConnection(state());
+    await renderAs(RED, conn);
+    act(() =>
+      conn.gone.forEach((l) =>
+        l({ matchId: '9', color: 'BLACK', deadline: new Date(Date.now() + 60_000).toISOString(), graceSec: 60 }),
+      ),
+    );
+    expect(screen.getByTestId('opponent-disconnected')).toBeInTheDocument();
+    act(() => conn.back.forEach((l) => l({ matchId: '9', color: 'BLACK' })));
+    expect(screen.queryByTestId('opponent-disconnected')).not.toBeInTheDocument();
+  });
+
+  it('reload khi đối thủ đang mất kết nối → banner hiện ngay từ state.disconnected', async () => {
+    const deadline = new Date(Date.now() + 30_000).toISOString();
+    const conn = new FakeConnection(state({ disconnected: [{ color: 'BLACK', deadline }] }));
+    await renderAs(RED, conn);
+    expect(screen.getByTestId('opponent-disconnected')).toHaveTextContent(/(29|30) giây/);
+  });
+
+  it('banner không hiện cho chính mình và tắt khi ván kết thúc', async () => {
+    const deadline = new Date(Date.now() + 30_000).toISOString();
+    const conn = new FakeConnection(state({ disconnected: [{ color: 'RED', deadline }] }));
+    await renderAs(RED, conn);
+    expect(screen.queryByTestId('opponent-disconnected')).not.toBeInTheDocument();
+    conn.pushUpdate(
+      state({ status: 'FINISHED', turn: null, result: 'RED_WIN', endReason: 'DISCONNECT', disconnected: [] }),
+    );
+    expect(await screen.findByText('Đỏ thắng — Mất kết nối quá thời gian chờ.')).toBeInTheDocument();
+    expect(screen.queryByTestId('opponent-disconnected')).not.toBeInTheDocument();
+  });
+
+  it('mình mất kết nối → banner "đang thử kết nối lại" nhắc hạn 60 giây', async () => {
+    const conn = new FakeConnection(state());
+    await renderAs(RED, conn);
+    act(() => conn.conn.forEach((l) => l(false)));
+    expect(screen.getByRole('alert')).toHaveTextContent('Vào lại trong 60 giây');
   });
 });
