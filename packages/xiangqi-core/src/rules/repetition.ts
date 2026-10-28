@@ -5,15 +5,16 @@ import { Color, Move, Piece, PieceType, Square } from '../types';
 import { opponentOf } from './check';
 
 /**
- * RepetitionJudge – phần 1 (XQA-78): lịch sử thế cờ, phát hiện lặp, nhận diện nước chiếu / nước đuổi bắt,
- * và xử các mẫu rõ ràng của Điều 23 (luat_co_tuong_viet_nam.pdf, Chương 5).
+ * RepetitionJudge (XQA-78 phần 1, XQA-95 phần 2): lịch sử thế cờ, phát hiện lặp, nhận diện nước chiếu /
+ * nước đuổi bắt, và xử 10 điểm của Điều 23 (luat_co_tuong_viet_nam.pdf, Chương 5).
  *
  * Phân biệt 3 tầng (theo quy ước dự án):
- * - LUẬT CỜ: Điều 22 (thuật ngữ), Điều 23 (10 điểm), Điều 24.2, Điều 7.2b/c.
+ * - LUẬT CỜ: Điều 7.1g, 7.2b/c, Điều 22 (thuật ngữ), Điều 23 (10 điểm), Điều 24 (ví dụ).
  * - BUSINESS RULE của hệ thống: thế cờ lặp lại đủ `threshold` lần (mặc định 3 = RuleProfile.repetitionThreshold
  *   trong seed) thì mới xét xử. Luật chỉ nói "không thay đổi nước đi", không quy định số lần.
- * - QUYẾT ĐỊNH THIẾT KẾ phần 1: chỉ xét "đuổi bắt" do CHÍNH quân vừa đi tạo ra (không xét nước mở đường cho quân
- *   khác bắt); mẫu nào phần 1 chưa đủ căn cứ xử thì trả `undetermined` để phần 2 (XQA-95) xử, KHÔNG đoán.
+ * - QUYẾT ĐỊNH THIẾT KẾ: "dọa bắt mới" = cặp (quân ta, quân địch) mà sau nước đi quân ta ăn hợp lệ được quân địch,
+ *   còn trước nước đi thì không. Tính cả quân đứng yên được "mở đường" (Pháo đổi ngòi – 24.21, 24.22).
+ *   Mẫu luật không nói rõ thì trả `undetermined` và ghi đề xuất BR (docs/engine/repetition-judge.md), KHÔNG đoán.
  */
 
 /** Ngưỡng mặc định, khớp `repetitionThreshold` của RuleProfile trong apps/server/prisma/seed.ts. */
@@ -21,7 +22,7 @@ export const DEFAULT_REPETITION_THRESHOLD = 3;
 
 export type MoveKind = 'check' | 'chase' | 'idle';
 
-/** Một mối "dọa bắt" mới (Điều 22.4) do quân vừa đi tạo ra. */
+/** Một mối "dọa bắt" mới (Điều 22.4) sau nước đi: do quân vừa đi, hoặc do quân khác được mở đường. */
 export interface ChaseInfo {
   /** Định danh quân đuổi, giữ nguyên khi quân di chuyển (để biết "một quân đuổi mãi một quân"). */
   chaserId: number;
@@ -36,6 +37,19 @@ export interface ChaseInfo {
    * Bảo vệ mà không ăn lại được (bị ghim, lộ mặt tướng) = căn giả → false.
    */
   targetProtected: boolean;
+  /**
+   * Quân bị đuổi không có nước đi hợp lệ nào (bị ghim / bị giam). Điểm 7 câu 1, 24.15: khi đó căn thật
+   * không cứu được bên đuổi.
+   */
+  targetImmobile: boolean;
+  /**
+   * Quân bị đuổi cùng loại và ăn lại được ngay quân đuổi = đòi đổi quân / thí quân (Điều 22.5, 22.7, 24.20).
+   * Nếu MỌI nước đều là đòi đổi thì là "đòi đổi mãi / thí mãi" (Điểm 10, hòa); có lẫn nước bắt thật thì vẫn là
+   * bắt mãi (Điểm 8).
+   */
+  isExchangeOffer: boolean;
+  /** Quân đuổi không phải quân vừa đi (được mở đường, ví dụ Pháo có ngòi mới). */
+  discovered: boolean;
 }
 
 export interface MoveRecord {
@@ -62,14 +76,16 @@ export interface RepetitionViolation {
   type: RepetitionViolationType;
   /** Điểm của Điều 23 làm căn cứ. */
   rule: string;
-  /** Có ở perpetual_chase: quân đuổi và quân bị đuổi. */
+  /** Có ở perpetual_chase: quân đuổi (quân đầu tiên nếu nhiều quân cùng bắt) và quân bị đuổi. */
   chase?: Pick<ChaseInfo, 'chaserId' | 'chaserType' | 'targetId' | 'targetType'>;
+  /** Có ở perpetual_chase: mọi quân tham gia đuổi bắt quân bị đuổi trong chu kỳ (Điểm 3 câu 2). */
+  chaserIds?: number[];
 }
 
 export type RepetitionResult =
   | { kind: 'loss'; loser: Color; winner: Color; rule: string }
   | { kind: 'draw'; rule: string }
-  /** Mẫu lặp mà phần 1 chưa đủ căn cứ xử (để RepetitionJudge phần 2 – XQA-95). Ván tiếp tục. */
+  /** Mẫu lặp mà luật không quy định rõ (chờ business rule PM duyệt). Ván tiếp tục. */
   | { kind: 'undetermined'; reason: string };
 
 export interface RepetitionVerdict {
@@ -125,6 +141,7 @@ export class RepetitionJudge {
       throw new Error(`Illegal move for repetition judge: ${move.from}->${move.to}`);
     }
     const before = this.position.clone();
+    const idsBefore = [...this.pieceIds];
     const side = before.sideToMove;
     const piece = before.board[move.from] as Piece;
     const pieceId = this.pieceIds[move.from] as number;
@@ -135,7 +152,7 @@ export class RepetitionJudge {
     this.pieceIds[move.from] = null;
 
     const isCheck = this.position.isCheck(opponentOf(side));
-    const chases = findNewChases(before, this.position, move, pieceId, this.pieceIds);
+    const chases = findNewChases(before, idsBefore, this.position, this.pieceIds, pieceId);
     const hashAfter = this.position.toHashString();
     this.hashes.push(hashAfter);
     this.records.push({
@@ -174,6 +191,27 @@ export class RepetitionJudge {
   }
 }
 
+const SIDE_NAME: Record<Color, string> = { r: 'Đỏ', b: 'Đen' };
+
+/**
+ * Mối dọa bắt có được tính là "nước bắt" khi xét bắt mãi không (theo từng nước):
+ * - Tốt chưa qua sông: được phép đuổi (Điểm 3 ngoại lệ, 24.21).
+ * - Quân có căn thật: không tính (Điểm 6 câu 1; 24.13 hình 31, 24.23, 24.20 hình 54: "một nước có căn thì nước
+ *   này không coi là nước bắt quân"), TRỪ khi quân đó không đi được (Điểm 7 câu 1, 24.15) hoặc Mã/Pháo bắt Xe
+ *   (Điểm 6 câu 2, 24.11).
+ */
+export function chaseCounts(c: ChaseInfo): boolean {
+  if (c.targetIsUncrossedPawn) return false;
+  if (c.targetProtected && !c.targetImmobile && !isMinorOnRook(c)) return false;
+  return true;
+}
+
+function isMinorOnRook(c: Pick<ChaseInfo, 'chaserType' | 'targetType'>): boolean {
+  return (c.chaserType === 'n' || c.chaserType === 'c') && c.targetType === 'r';
+}
+
+const isKingOrPawn = (type: PieceType): boolean => type === 'k' || type === 'p';
+
 /**
  * Xử một chu kỳ lặp (các nước giữa lần đầu và lần hiện tại của thế cờ bị lặp). Hàm thuần, test được độc lập.
  */
@@ -182,66 +220,20 @@ export function judgeCycle(cycle: readonly MoveRecord[]): {
   result: RepetitionResult;
 } {
   const violations: RepetitionViolation[] = [];
-  const unresolved: string[] = [];
 
   for (const side of ['r', 'b'] as const) {
     const moves = cycle.filter((m) => m.side === side);
     if (moves.length === 0) continue;
 
     if (moves.every((m) => m.isCheck)) {
-      // Điểm 1: chiếu mãi (một quân hay nhiều quân thay nhau chiếu – Điều 24 hình 1–3) → xử thua
+      // Điểm 1, Điều 7.1g: chiếu mãi (một quân hay nhiều quân thay nhau chiếu – 24.2 hình 1–3) → xử thua
       violations.push({ side, type: 'perpetual_check', rule: 'Điều 23 – Điểm 1' });
       continue;
     }
-    if (!moves.every((m) => m.kind === 'chase')) {
-      // Có nước chiếu xen nước bắt / nước chờ: Điểm 2, Điểm 10 → không phạm luật, lặp thì xử hòa
-      continue;
-    }
-
-    const pairsPerMove = moves.map(
-      (m) => new Set(m.chases.map((c) => `${c.chaserId}:${c.targetId}`)),
-    );
-    const common = [...pairsPerMove[0]].filter((key) => pairsPerMove.every((s) => s.has(key)));
-    if (common.length === 0) {
-      const chasersPerMove = moves.map((m) => new Set(m.chases.map((c) => c.chaserId)));
-      const singleChaser = [...chasersPerMove[0]].some((id) => chasersPerMove.every((s) => s.has(id)));
-      if (singleChaser) {
-        continue; // Điểm 4 câu 1: một quân lần lượt đuổi bắt mãi hai hoặc nhiều quân → hòa
-      }
-      // Nhiều quân thay nhau đuổi: Điểm 3 câu 2 (thua) và Điểm 4 câu 2 (hòa) cần phân tích sâu hơn → phần 2.
-      unresolved.push(
-        `${side === 'r' ? 'Đỏ' : 'Đen'}: nhiều quân thay nhau đuổi bắt liên tục (Điểm 3 câu 2 / Điểm 4 câu 2)`,
-      );
-      continue;
-    }
-
-    const [chaserId, targetId] = common[0].split(':').map(Number);
-    const infos = moves.map(
-      (m) => m.chases.find((c) => c.chaserId === chaserId && c.targetId === targetId) as ChaseInfo,
-    );
-    const { chaserType, targetType } = infos[0];
-    const chase = { chaserId, chaserType, targetId, targetType };
-
-    if (chaserType === 'k' || chaserType === 'p') {
-      continue; // Điểm 9: Tướng hoặc Tốt bắt mãi → hòa (không phạm luật)
-    }
-    if (infos.every((c) => c.targetIsUncrossedPawn)) {
-      continue; // Điểm 3 ngoại lệ: đuổi bắt mãi Tốt chưa qua sông được phép
-    }
-    if (infos.every((c) => c.targetProtected)) {
-      if ((chaserType === 'n' || chaserType === 'c') && targetType === 'r') {
-        // Điểm 6 câu 2: Mã/Pháo đuổi bắt mãi Xe có căn thật vẫn xử thua
-        violations.push({ side, type: 'perpetual_chase', rule: 'Điều 23 – Điểm 6 (Mã/Pháo bắt Xe)', chase });
-      }
-      continue; // Điểm 6 câu 1: đuổi bắt mãi quân có căn thật → hòa
-    }
-    // Điểm 3 (và Điểm 6 vế "căn giả"): một quân đuổi bắt mãi một quân → xử thua
-    violations.push({ side, type: 'perpetual_chase', rule: 'Điều 23 – Điểm 3', chase });
+    const chase = findPerpetualChase(moves);
+    if (chase) violations.push({ side, type: 'perpetual_chase', ...chase });
   }
 
-  if (unresolved.length > 0) {
-    return { violations, result: { kind: 'undetermined', reason: unresolved.join('; ') } };
-  }
   if (violations.length === 0) {
     return {
       violations,
@@ -255,23 +247,85 @@ export function judgeCycle(cycle: readonly MoveRecord[]): {
   if (violations[0].type === violations[1].type) {
     return { violations, result: { kind: 'draw', rule: 'Điều 7.2c – hai bên cùng phạm một điều luật cấm' } };
   }
+  // Luật không nói rõ khi một bên chiếu mãi, bên kia bắt mãi → chờ BR-REP-01 (đề xuất, chưa duyệt)
   return {
     violations,
-    result: { kind: 'undetermined', reason: 'Hai bên phạm hai loại vi phạm khác nhau (chiếu mãi và bắt mãi)' },
+    result: {
+      kind: 'undetermined',
+      reason: `Hai bên phạm hai loại khác nhau (${violations
+        .map((v) => `${SIDE_NAME[v.side]} ${v.type === 'perpetual_check' ? 'chiếu mãi' : 'bắt mãi'}`)
+        .join(', ')}); chờ BR-REP-01`,
+    },
   };
 }
 
-/** Các ô có quân đối phương (trừ Tướng) mà quân ở `sq` ăn được hợp lệ nếu tới lượt phe `color`. */
-function captureTargets(pos: Position, sq: Square, color: Color): Square[] {
+/**
+ * Một bên có "bắt mãi" không. Cần: mọi nước của bên đó trong chu kỳ đều có mối dọa bắt được tính (`chaseCounts`)
+ * nhắm vào CÙNG một quân địch, không có nước chiếu xen vào (Điểm 2: một chiếu một bắt → hòa).
+ */
+function findPerpetualChase(
+  moves: readonly MoveRecord[],
+): Pick<RepetitionViolation, 'rule' | 'chase' | 'chaserIds'> | null {
+  if (moves.some((m) => m.isCheck)) return null; // Điểm 2
+  const counted = moves.map((m) => m.chases.filter(chaseCounts));
+  if (counted.some((list) => list.length === 0)) return null; // có nước chờ / nước bắt quân có căn → Điểm 2, 6, 10
+
+  const targetSets = counted.map((list) => new Set(list.map((c) => c.targetId)));
+  const commonTargets = [...targetSets[0]].filter((t) => targetSets.every((set) => set.has(t)));
+  // Không có quân nào bị đuổi ở MỌI nước → một quân / nhiều quân luân phiên đuổi nhiều quân (Điểm 4) → hòa
+
+  for (const targetId of commonTargets) {
+    const onTarget = counted.map((list) => list.filter((c) => c.targetId === targetId));
+    // Mọi nước đều chỉ là đòi đổi quân cùng loại → đòi đổi mãi / thí mãi (Điểm 10, 24.20, 24.36) → không phạm.
+    // Có ít nhất một nước bắt thật → vẫn là bắt mãi (Điểm 8, 24.32).
+    if (onTarget.every((list) => list.every((c) => c.isExchangeOffer))) continue;
+
+    const chasers = new Map<number, PieceType>();
+    for (const list of onTarget) for (const c of list) chasers.set(c.chaserId, c.chaserType);
+    const others = [...chasers.values()].filter((t) => !isKingOrPawn(t)).length;
+    const kingOrPawn = chasers.size - others;
+    // Điểm 9: Tướng / Tốt bắt mãi → hòa; phối hợp với MỘT Xe/Mã/Pháo cũng hòa (24.24, 24.25).
+    // Phối hợp với từ hai quân khác trở lên → bắt mãi (24.26 hình 71–73).
+    if (others === 0) continue;
+    if (kingOrPawn > 0 && others <= 1) continue;
+
+    const infos = onTarget.flat();
+    const first = infos[0];
+    const chase = {
+      chaserId: first.chaserId,
+      chaserType: first.chaserType,
+      targetId,
+      targetType: first.targetType,
+    };
+    const chaserIds = [...chasers.keys()];
+    let rule: string;
+    if (chasers.size > 1) {
+      rule = 'Điều 23 – Điểm 3 câu 2 (nhiều quân bắt mãi một quân)';
+    } else if (infos.some((c) => c.targetProtected && isMinorOnRook(c))) {
+      rule = 'Điều 23 – Điểm 6 (Mã/Pháo bắt Xe)';
+    } else if (infos.some((c) => c.targetProtected && c.targetImmobile)) {
+      rule = 'Điều 23 – Điểm 7 (quân có căn nhưng không đi được)';
+    } else {
+      rule = 'Điều 23 – Điểm 3';
+    }
+    return { rule, chase, chaserIds };
+  }
+  return null;
+}
+
+/** Mọi nước ăn hợp lệ của phe `color` (bỏ ăn Tướng) trong thế `pos`: Map ô quân ta → các ô quân địch. */
+function captureMap(pos: Position, color: Color): Map<Square, Square[]> {
   const probe = pos.clone();
   probe.sideToMove = color; // "nước đi giả định": chỉ dùng để sinh nước, không dùng hash
-  return probe
-    .generatePieceMoves(sq)
-    .map((m) => m.to)
-    .filter((to) => {
-      const target = probe.board[to];
-      return target !== null && target.color !== color && target.type !== 'k';
-    });
+  const map = new Map<Square, Square[]>();
+  for (const m of probe.generateLegalMoves()) {
+    const target = probe.board[m.to];
+    if (target === null || target.color === color || target.type === 'k') continue;
+    const list = map.get(m.from) ?? [];
+    list.push(m.to);
+    map.set(m.from, list);
+  }
+  return map;
 }
 
 /** Sau khi quân ở `from` ăn quân tại `target`, bên bị ăn có ăn lại hợp lệ ngay được không (căn thật). */
@@ -284,29 +338,46 @@ function canRecapture(pos: Position, from: Square, target: Square, attacker: Col
 
 function findNewChases(
   before: Position,
+  idsBefore: readonly (number | null)[],
   after: Position,
-  move: Move,
-  chaserId: number,
-  pieceIds: (number | null)[],
+  idsAfter: readonly (number | null)[],
+  movedId: number,
 ): ChaseInfo[] {
   const mover = before.sideToMove;
-  const chaser = after.board[move.to] as Piece;
-  const threatenedBefore = new Set(captureTargets(before, move.from, mover));
+  const opponent = opponentOf(mover);
+  const pairsBefore = new Set<string>();
+  for (const [from, targets] of captureMap(before, mover)) {
+    for (const to of targets) pairsBefore.add(`${idsBefore[from]}:${idsBefore[to]}`);
+  }
+
+  // Góc nhìn bên bị đuổi: quân bị đuổi còn đi được không, có ăn lại ngay quân đuổi được không
+  const defender = after.clone();
+  defender.sideToMove = opponent;
+
   const chases: ChaseInfo[] = [];
-  for (const targetSquare of captureTargets(after, move.to, mover)) {
-    // Quân bị đuổi đứng yên trong nước này nên cùng ô = cùng quân → chỉ tính mối đe dọa MỚI
-    if (threatenedBefore.has(targetSquare)) continue;
-    const target = after.board[targetSquare] as Piece;
-    chases.push({
-      chaserId,
-      chaserType: chaser.type,
-      targetId: pieceIds[targetSquare] as number,
-      targetType: target.type,
-      targetSquare,
-      targetIsUncrossedPawn:
-        target.type === 'p' && !hasCrossedRiver(target.color, squareToCoord(targetSquare).row),
-      targetProtected: canRecapture(after, move.to, targetSquare, mover),
-    });
+  for (const [from, targets] of captureMap(after, mover)) {
+    const chaserId = idsAfter[from] as number;
+    const chaser = after.board[from] as Piece;
+    for (const targetSquare of targets) {
+      const targetId = idsAfter[targetSquare] as number;
+      // Chỉ tính mối đe dọa MỚI: cặp (quân đuổi, quân bị đuổi) chưa có trước nước đi
+      if (pairsBefore.has(`${chaserId}:${targetId}`)) continue;
+      const target = after.board[targetSquare] as Piece;
+      const targetMoves = defender.generatePieceMoves(targetSquare);
+      chases.push({
+        chaserId,
+        chaserType: chaser.type,
+        targetId,
+        targetType: target.type,
+        targetSquare,
+        targetIsUncrossedPawn:
+          target.type === 'p' && !hasCrossedRiver(target.color, squareToCoord(targetSquare).row),
+        targetProtected: canRecapture(after, from, targetSquare, mover),
+        targetImmobile: targetMoves.length === 0,
+        isExchangeOffer: target.type === chaser.type && targetMoves.some((m) => m.to === from),
+        discovered: chaserId !== movedId,
+      });
+    }
   }
   return chases;
 }

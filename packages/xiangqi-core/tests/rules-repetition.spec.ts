@@ -1,13 +1,15 @@
 /**
  * XQA-78 – RepetitionJudge phần 1.
  * AC1: test các ca lặp đơn giản pass. AC2: API trả loại vi phạm.
- * Căn cứ: luat_co_tuong_viet_nam.pdf – Điều 22, Điều 23 (Điểm 1, 2, 3, 4, 6, 9), Điều 24.2, Điều 7.2b/c.
+ * XQA-95 – phần 2: đủ 10 điểm Điều 23 (xem block "phần 2" cuối file).
+ * Căn cứ: luat_co_tuong_viet_nam.pdf – Điều 22, Điều 23 (Điểm 1–10), Điều 24, Điều 7.1g, 7.2b/c.
  * Các thế cờ dưới đây do nhóm tự dựng để kiểm từng điểm luật, KHÔNG phải hình minh họa trong tài liệu
  * (golden test theo hình Điều 24 thuộc XQA-79).
  */
 import {
   algebraicToSquare,
   ChaseInfo,
+  chaseCounts,
   coordToSquare,
   judgeCycle,
   Move,
@@ -247,6 +249,9 @@ function rec(
       targetSquare: 10,
       targetIsUncrossedPawn: false,
       targetProtected: false,
+      targetImmobile: false,
+      isExchangeOffer: false,
+      discovered: false,
       ...c,
     })),
     kind,
@@ -315,19 +320,217 @@ describe('judgeCycle – các điểm của Điều 23', () => {
     expect(result).toMatchObject({ kind: 'draw' });
   });
 
-  it('nhiều quân thay nhau đuổi (Điểm 3 câu 2 / Điểm 4 câu 2) → phần 1 trả undetermined, không đoán', () => {
-    const { result } = judgeCycle([
-      rec('r', 'chase', [{ chaserId: 1, targetId: 2 }]),
-      idle('b'),
-      rec('r', 'chase', [{ chaserId: 7, targetId: 2 }]),
-      idle('b'),
-    ]);
-    expect(result.kind).toBe('undetermined');
-  });
-
-  it('một bên chiếu mãi, bên kia bắt mãi → undetermined (để phần 2)', () => {
+  it('một bên chiếu mãi, bên kia bắt mãi → undetermined, chờ BR-REP-01 (luật không nói rõ)', () => {
     const { violations, result } = judgeCycle([rec('r', 'check'), rec('b', 'chase', [{}])]);
     expect(violations.map((v) => v.type)).toEqual(['perpetual_check', 'perpetual_chase']);
-    expect(result.kind).toBe('undetermined');
+    expect(result).toMatchObject({ kind: 'undetermined' });
+    expect(result.kind === 'undetermined' && result.reason).toContain('BR-REP-01');
+  });
+});
+
+/* ---------------------------------- XQA-95: phần 2 ---------------------------------- */
+
+describe('XQA-95 judgeCycle – các điểm phần 2', () => {
+  const idle = (side: 'r' | 'b') => rec(side, 'idle');
+  const chaseBy = (side: 'r' | 'b', ...cs: Partial<ChaseInfo>[]) => rec(side, 'chase', cs);
+
+  it('Điểm 3 câu 2 (24.29, 24.16): hai quân thay nhau bắt mãi MỘT quân → thua, ghi đủ quân đuổi', () => {
+    const { violations, result } = judgeCycle([
+      chaseBy('r', { chaserId: 1, chaserType: 'r', targetId: 9 }),
+      idle('b'),
+      chaseBy('r', { chaserId: 7, chaserType: 'c', targetId: 9 }),
+      idle('b'),
+    ]);
+    expect(violations[0]).toMatchObject({
+      side: 'r',
+      type: 'perpetual_chase',
+      rule: 'Điều 23 – Điểm 3 câu 2 (nhiều quân bắt mãi một quân)',
+      chaserIds: [1, 7],
+    });
+    expect(result).toMatchObject({ kind: 'loss', loser: 'r' });
+  });
+
+  it('Điểm 4 câu 2 (24.28 hình 80): hai quân luân phiên bắt HAI quân → hòa', () => {
+    const { violations, result } = judgeCycle([
+      chaseBy('r', { chaserId: 1, targetId: 9 }),
+      idle('b'),
+      chaseBy('r', { chaserId: 7, targetId: 8 }),
+      idle('b'),
+    ]);
+    expect(violations).toEqual([]);
+    expect(result).toMatchObject({ kind: 'draw' });
+  });
+
+  it('Điểm 3 câu 2 + căn thật (24.31): nhiều quân bắt một quân có căn thật → hòa', () => {
+    const { result } = judgeCycle([
+      chaseBy('r', { chaserId: 1, targetId: 9, targetProtected: true }),
+      idle('b'),
+      chaseBy('r', { chaserId: 7, targetId: 9, targetProtected: true }),
+      idle('b'),
+    ]);
+    expect(result).toMatchObject({ kind: 'draw' });
+  });
+
+  it('24.11 hình 24–25: hai Pháo bắt mãi Xe có căn → vẫn thua', () => {
+    const rook = { targetId: 9, targetType: 'r' as const, targetProtected: true, chaserType: 'c' as const };
+    const { result } = judgeCycle([
+      chaseBy('r', { ...rook, chaserId: 1 }),
+      idle('b'),
+      chaseBy('r', { ...rook, chaserId: 7 }),
+      idle('b'),
+    ]);
+    expect(result).toMatchObject({ kind: 'loss', loser: 'r' });
+  });
+
+  it('Điểm 5 (24.17): hai bắt một bắt lại → bên hai bắt thua, bên bắt lại không phạm', () => {
+    const { violations, result } = judgeCycle([
+      chaseBy('r', { chaserId: 1, targetId: 9 }),
+      chaseBy('b', { chaserId: 9, targetId: 1 }),
+      chaseBy('r', { chaserId: 1, targetId: 9 }),
+      idle('b'),
+    ]);
+    expect(violations.map((v) => v.side)).toEqual(['r']);
+    expect(result).toMatchObject({ kind: 'loss', loser: 'r', rule: 'Điều 23 – Điểm 3' });
+  });
+
+  it('24.13 hình 31 / 24.23: một nước bắt quân có căn, một nước bắt quân không căn → không phạm (hòa)', () => {
+    const { violations, result } = judgeCycle([
+      chaseBy('r', { targetId: 9, targetProtected: true }),
+      idle('b'),
+      chaseBy('r', { targetId: 9, targetProtected: false }),
+      idle('b'),
+    ]);
+    expect(violations).toEqual([]);
+    expect(result).toMatchObject({ kind: 'draw' });
+  });
+
+  it('Điểm 7 câu 1 (24.15): quân có căn thật nhưng không đi được → vẫn bắt mãi, thua', () => {
+    const pinned = { targetId: 9, targetProtected: true, targetImmobile: true };
+    const { violations, result } = judgeCycle([chaseBy('r', pinned), idle('b'), chaseBy('r', pinned), idle('b')]);
+    expect(violations[0].rule).toBe('Điều 23 – Điểm 7 (quân có căn nhưng không đi được)');
+    expect(result).toMatchObject({ kind: 'loss', loser: 'r' });
+  });
+
+  it('Điểm 7 câu 2 (24.20 hình 55): Mã đuổi mãi Mã bị cản (không ăn lại được) → thua', () => {
+    const horse = { chaserType: 'n' as const, targetType: 'n' as const, isExchangeOffer: false };
+    const { result } = judgeCycle([chaseBy('r', horse), idle('b'), chaseBy('r', horse), idle('b')]);
+    expect(result).toMatchObject({ kind: 'loss', loser: 'r' });
+  });
+
+  it('Điểm 10 / 24.20 / 24.36: đòi đổi mãi quân cùng loại (hai bên ăn được nhau) → hòa', () => {
+    const swap = { chaserType: 'r' as const, targetType: 'r' as const, isExchangeOffer: true };
+    const { violations, result } = judgeCycle([chaseBy('r', swap), idle('b'), chaseBy('r', swap), idle('b')]);
+    expect(violations).toEqual([]);
+    expect(result).toMatchObject({ kind: 'draw' });
+  });
+
+  it('Điểm 8 (24.32): một nước bắt thật + một nước vừa bắt vừa đòi đổi → vẫn bắt mãi, thua', () => {
+    const { result } = judgeCycle([
+      chaseBy('r', { targetId: 9, chaserType: 'r', targetType: 'r', isExchangeOffer: true }),
+      idle('b'),
+      chaseBy('r', { targetId: 9, chaserType: 'r', targetType: 'r', isExchangeOffer: false }),
+      idle('b'),
+    ]);
+    expect(result).toMatchObject({ kind: 'loss', loser: 'r' });
+  });
+
+  it('Điểm 9 câu 2 (24.25): Tốt phối hợp với MỘT Xe bắt mãi một quân → hòa', () => {
+    const { result } = judgeCycle([
+      chaseBy('r', { chaserId: 1, chaserType: 'p', targetId: 9 }),
+      idle('b'),
+      chaseBy('r', { chaserId: 7, chaserType: 'r', targetId: 9 }),
+      idle('b'),
+    ]);
+    expect(result).toMatchObject({ kind: 'draw' });
+  });
+
+  it('24.26 hình 71–73: Tướng phối hợp với HAI Mã bắt mãi một quân → thua', () => {
+    const { result } = judgeCycle([
+      chaseBy('r', { chaserId: 1, chaserType: 'k', targetId: 9 }, { chaserId: 5, chaserType: 'n', targetId: 9 }),
+      idle('b'),
+      chaseBy('r', { chaserId: 1, chaserType: 'k', targetId: 9 }, { chaserId: 6, chaserType: 'n', targetId: 9 }),
+      idle('b'),
+    ]);
+    expect(result).toMatchObject({ kind: 'loss', loser: 'r' });
+  });
+
+  it('Điểm 2: một chiếu một bắt (dù bắt cùng một quân) → hòa', () => {
+    const { result } = judgeCycle([rec('r', 'check'), idle('b'), chaseBy('r', { targetId: 9 }), idle('b')]);
+    expect(result).toMatchObject({ kind: 'draw' });
+  });
+});
+
+describe('XQA-95 RepetitionJudge – bàn cờ thật', () => {
+  it('24.13 hình 31: Xe bắt Mã khi có căn, khi không căn → không phạm luật, hòa', () => {
+    // Như thế ĐUỔI BẮT MÃI nhưng chỉ ô a2 có Xe Đen a7 giữ; ô b4 không ai giữ
+    const fen = fenOf({ d0: 'k', e9: 'K', h4: 'R', a2: 'n', a7: 'r' });
+    const judge = new RepetitionJudge(Position.fromFen(fen));
+    const verdicts = playAll(judge, [...CHASE_CYCLE, ...CHASE_CYCLE]);
+    expect(judge.history[0].chases[0]).toMatchObject({ targetProtected: true });
+    expect(judge.history[2].chases[0]).toMatchObject({ targetProtected: false });
+    expect(verdicts.at(-1)?.result).toMatchObject({ kind: 'draw' });
+  });
+
+  it('Điểm 7: Mã Đen có Tượng giữ (căn thật) nhưng bị ghim lộ mặt tướng → targetImmobile, dọa bắt vẫn được tính', () => {
+    // Cột e: Tướng Đỏ e9 … Mã Đen e2 … Tướng Đen e0 → Mã e2 không được rời cột. Tượng Đen c0 giữ e2.
+    const fen = fenOf({ e0: 'k', c0: 'b', e2: 'n', i0: 'r', e9: 'K', h4: 'R' });
+    const judge = new RepetitionJudge(Position.fromFen(fen));
+    judge.play(mv('h4h2'));
+    const onHorse = judge.history[0].chases.find((c) => c.targetSquare === algebraicToSquare('e2'));
+    expect(onHorse).toMatchObject({ targetProtected: true, targetImmobile: true });
+    expect(onHorse && chaseCounts(onHorse)).toBe(true);
+  });
+
+  it('đối chứng Điểm 7: cùng thế nhưng Tướng Đỏ d9 (Mã không bị ghim) → căn thật, không tính là nước bắt', () => {
+    const fen = fenOf({ e0: 'k', c0: 'b', e2: 'n', i0: 'r', d9: 'K', h4: 'R' });
+    const judge = new RepetitionJudge(Position.fromFen(fen));
+    judge.play(mv('h4h2'));
+    const onHorse = judge.history[0].chases.find((c) => c.targetSquare === algebraicToSquare('e2'));
+    expect(onHorse).toMatchObject({ targetProtected: true, targetImmobile: false });
+    expect(onHorse && chaseCounts(onHorse)).toBe(false);
+  });
+
+  it('Xe đổi Xe (24.20): Xe Đen ăn lại được Xe Đỏ → isExchangeOffer, đuổi mãi chỉ là đòi đổi → hòa', () => {
+    const fen = fenOf({ e0: 'k', d9: 'K', h4: 'R', a2: 'r' });
+    const judge = new RepetitionJudge(Position.fromFen(fen));
+    const verdicts = playAll(judge, [...['h4h2', 'a2a4', 'h2h4', 'a4a2'], ...['h4h2', 'a2a4', 'h2h4', 'a4a2']]);
+    expect(judge.history[0].chases[0]).toMatchObject({ chaserType: 'r', targetType: 'r', isExchangeOffer: true });
+    expect(judge.history[2].chases[0]).toMatchObject({ isExchangeOffer: true });
+    expect(verdicts.at(-1)?.violations).toEqual([]);
+    expect(verdicts.at(-1)?.result).toMatchObject({ kind: 'draw' });
+  });
+
+  it('Mã đuổi Mã bị cản chân (Điểm 7 câu 2): Mã Đen không ăn lại được → isExchangeOffer = false', () => {
+    // Mã Đỏ g5→e4 dọa Mã Đen d2 (chân e3 trống). Mã Đen d2 muốn ăn e4 phải qua chân d3 – bị Tốt Đen d3 cản.
+    const blocked = new RepetitionJudge(Position.fromFen(fenOf({ e0: 'k', d9: 'K', g5: 'N', d2: 'n', d3: 'p' })));
+    blocked.play(mv('g5e4'));
+    const free = new RepetitionJudge(Position.fromFen(fenOf({ e0: 'k', d9: 'K', g5: 'N', d2: 'n' })));
+    free.play(mv('g5e4'));
+    const pick = (j: RepetitionJudge) => j.history[0].chases.find((c) => c.targetSquare === algebraicToSquare('d2'));
+    expect(pick(blocked)).toMatchObject({ chaserType: 'n', targetType: 'n', isExchangeOffer: false });
+    expect(pick(free)).toMatchObject({ isExchangeOffer: true });
+  });
+
+  it('mở đường (24.21): Tốt Đỏ về lại làm ngòi → Pháo Đỏ đứng yên được tính là quân đuổi (discovered)', () => {
+    // Pháo Đỏ a9, Mã Đen a2. Tốt Đỏ (đã qua sông) b4 → a4 thành ngòi duy nhất giữa a9 và a2.
+    const fen = fenOf({ e0: 'k', d9: 'K', a9: 'C', b4: 'P', a2: 'n' });
+    const judge = new RepetitionJudge(Position.fromFen(fen));
+    judge.play(mv('b4a4'));
+    expect(judge.history[0].kind).toBe('chase');
+    expect(judge.history[0].chases).toContainEqual(
+      expect.objectContaining<Partial<ChaseInfo>>({
+        chaserType: 'c',
+        targetType: 'n',
+        targetSquare: algebraicToSquare('a2'),
+        discovered: true,
+      }),
+    );
+  });
+
+  it('thế cờ ván thường: lặp Mã 2 bên (giống e2e server) vẫn là hòa, không sinh dọa bắt giả', () => {
+    const judge = new RepetitionJudge(Position.initial());
+    const cycle = ['h9g7', 'h0g2', 'g7h9', 'g2h0'];
+    const verdicts = playAll(judge, [...cycle, ...cycle]);
+    expect(verdicts.at(-1)?.result).toMatchObject({ kind: 'draw' });
   });
 });
