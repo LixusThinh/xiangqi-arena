@@ -26,6 +26,12 @@ export interface DrawOfferView {
   atPly: number;
 }
 
+/** Người chơi đang mất kết nối, ván được giữ tới `deadline` (XQA-93). */
+export interface DisconnectedPlayerView {
+  color: PlayerColor;
+  deadline: Date;
+}
+
 /** Trạng thái ván gửi cho FE (REST và socket dùng chung). */
 export interface GameStateView {
   matchId: string;
@@ -48,6 +54,8 @@ export interface GameStateView {
   moves: GameMoveView[];
   /** Đề nghị hòa đang chờ; null nếu không có hoặc ván đã kết thúc. */
   drawOffer: DrawOfferView | null;
+  /** Người chơi đang mất kết nối (chỉ khi ván ACTIVE). Rỗng nếu cả hai đều đang kết nối. */
+  disconnected: DisconnectedPlayerView[];
   redTimeLeftMs: number;
   blackTimeLeftMs: number;
   startedAt: Date | null;

@@ -2,6 +2,7 @@ import { HttpException, Logger } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
+  OnGatewayDisconnect,
   OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
@@ -11,6 +12,7 @@ import { Server, Socket } from 'socket.io';
 import { AuthJwtGuard } from '../auth/auth-jwt.guard';
 import { GameService } from './game.service';
 import { GameStateView, PlayerColor } from './game.types';
+import { PresenceService } from './presence.service';
 
 /** Ack trả về cho client qua callback của socket.emit(event, payload, ack). */
 export type WsAck<T> = { ok: true; data: T } | { ok: false; error: { code: string; message: string } };
@@ -18,6 +20,8 @@ export type WsAck<T> = { ok: true; data: T } | { ok: false; error: { code: strin
 interface SocketData {
   userId: string;
   sessionId: string;
+  /** Các ván socket này đã game:join (để biết rời ván nào khi mất kết nối – XQA-93). */
+  matches?: string[];
 }
 
 type GameSocket = Socket<Record<string, never>, Record<string, never>, Record<string, never>, SocketData>;
@@ -51,10 +55,13 @@ export function viewFor(state: GameStateView, userId: string): GameStateView {
  * - game:resign, game:draw-offer / draw-accept / draw-reject (XQA-91) → cùng luật join như game:move;
  *   thành công → game:update (+ game:end nếu ván kết thúc). Đề nghị hòa → thêm game:draw-offered,
  *   bị từ chối → thêm game:draw-rejected, để FE bật popup / toast.
- * - Chưa có: mất kết nối giữ ván 60s (XQA-93), đồng hồ (XQA-141).
+ * - Mất kết nối (XQA-93): socket cuối cùng của một người chơi rời ván ACTIVE → giữ ván
+ *   RuleProfile.reconnectGraceSec (60s), phát player:disconnected { matchId, color, deadline, graceSec }.
+ *   game:join lại trong hạn → player:reconnected; quá hạn → GameService.forfeitByDisconnect, phát game:update + game:end.
+ * - Chưa có: đồng hồ (XQA-141).
  */
 @WebSocketGateway()
-export class GameGateway implements OnGatewayInit {
+export class GameGateway implements OnGatewayInit, OnGatewayDisconnect {
   private readonly logger = new Logger(GameGateway.name);
 
   @WebSocketServer()
@@ -63,6 +70,7 @@ export class GameGateway implements OnGatewayInit {
   constructor(
     private readonly gameService: GameService,
     private readonly authGuard: AuthJwtGuard,
+    private readonly presence: PresenceService,
   ) {}
 
   afterInit(server: Server): void {
@@ -96,11 +104,20 @@ export class GameGateway implements OnGatewayInit {
     try {
       const userId = socket.data.userId;
       const matchId = await this.resolveMatchId(body);
-      const state = await this.gameService.getState(matchId, userId);
+      let state = await this.gameService.getState(matchId, userId);
       if (!state.yourColor) {
         return this.fail('GAME_NOT_PLAYER', 'You are not a player in this match');
       }
       await socket.join(matchRoom(matchId));
+      const joined = (socket.data.matches ??= []);
+      if (!joined.includes(matchId)) {
+        joined.push(matchId);
+        if (this.presence.connect(matchId, userId)) {
+          // Vào lại trong thời gian chờ: báo đối thủ tắt banner, trả state không còn mình trong `disconnected`
+          this.server.to(matchRoom(matchId)).emit('player:reconnected', { matchId, color: state.yourColor });
+          state = await this.gameService.getState(matchId, userId);
+        }
+      }
       return { ok: true, data: state };
     } catch (error) {
       return { ok: false, error: this.toError(error) };
@@ -194,6 +211,43 @@ export class GameGateway implements OnGatewayInit {
     }
   }
 
+  /** XQA-93: socket đóng (rớt mạng, reload, tắt tab) → giữ ván cho những ván nó đang chơi. */
+  async handleDisconnect(socket: GameSocket): Promise<void> {
+    const userId = socket.data.userId;
+    for (const matchId of socket.data.matches ?? []) {
+      try {
+        const target = await this.gameService.presenceTarget(matchId, userId);
+        if (!target.active || !target.color) {
+          this.presence.clear(matchId);
+          continue;
+        }
+        const info = this.presence.disconnect(matchId, userId, target.graceMs, () => {
+          void this.expire(matchId, userId);
+        });
+        if (info) {
+          this.server.to(matchRoom(matchId)).emit('player:disconnected', {
+            matchId,
+            color: target.color,
+            deadline: info.deadline.toISOString(),
+            graceSec: Math.round(target.graceMs / 1000),
+          });
+        }
+      } catch (error) {
+        this.logger.error(`disconnect handling failed for match ${matchId}`, error instanceof Error ? error.stack : String(error));
+      }
+    }
+  }
+
+  /** Hết thời gian chờ mà chưa vào lại → xử thua (hoặc ABORTED nếu cả hai cùng vắng – BR-RECON-01). */
+  private async expire(matchId: string, userId: string): Promise<void> {
+    try {
+      const state = await this.gameService.forfeitByDisconnect(matchId, userId);
+      if (state) await this.broadcast(state);
+    } catch (error) {
+      this.logger.error(`reconnect timeout failed for match ${matchId}`, error instanceof Error ? error.stack : String(error));
+    }
+  }
+
   /** Phát trạng thái mới cho mọi socket trong phòng ván, mỗi socket nhận yourColor của chính nó. */
   private async broadcast(state: GameStateView): Promise<void> {
     const sockets = await this.server.in(matchRoom(state.matchId)).fetchSockets();
@@ -201,6 +255,7 @@ export class GameGateway implements OnGatewayInit {
       s.emit('game:update', viewFor(state, (s.data as SocketData).userId));
     }
     if (state.status === 'FINISHED' || state.status === 'ABORTED') {
+      this.presence.clear(state.matchId);
       this.server.to(matchRoom(state.matchId)).emit('game:end', {
         matchId: state.matchId,
         result: state.result,

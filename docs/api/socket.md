@@ -1,8 +1,8 @@
-# Contract Socket.IO v0.2 — Game (XQA-75, XQA-91)
+# Contract Socket.IO v0.3 — Game (XQA-75, XQA-91, XQA-93)
 
 Kênh realtime cho ván cờ. Gateway chỉ là transport: mọi luật (đúng người, đúng lượt, `expectedPly`, luật đi quân, kết thúc ván) do `GameService` quyết — giống hệt REST `POST /matches/:id/moves` (`docs/api/game.md`, XQA-74).
 
-> Phạm vi v0.2: `game:join`, `game:move`, `game:resign`, `game:draw-offer` / `draw-accept` / `draw-reject`, `game:update`, `game:end`, `game:draw-offered`, `game:draw-rejected`. Chưa có: reconnect giữ ván 60s + `player:*` (XQA-93), đồng hồ (XQA-141), `room:*`, `webrtc:*` (XQA-124).
+> Phạm vi v0.2: `game:join`, `game:move`, `game:resign`, `game:draw-offer` / `draw-accept` / `draw-reject`, `game:update`, `game:end`, `game:draw-offered`, `game:draw-rejected`. v0.3 thêm `player:disconnected`, `player:reconnected` và giữ ván khi mất kết nối (XQA-93). Chưa có: đồng hồ (XQA-141), `room:*`, `webrtc:*` (XQA-124).
 
 ## Kết nối
 
@@ -112,6 +112,30 @@ Có đề nghị hòa mới. FE bên kia mở popup Đồng ý / Từ chối. Tr
 
 `by` là người **từ chối**. FE của người đề nghị hiện toast.
 
+## Mất kết nối và vào lại (XQA-93)
+
+Khi socket **cuối cùng** của một người chơi rời ván đang `ACTIVE` (rớt mạng, reload, tắt tab), server giữ ván `RuleProfile.reconnectGraceSec` giây (seed: 60) và báo đối thủ.
+
+### `player:disconnected` — `{ matchId, color, deadline, graceSec }`
+
+`deadline` là ISO time hết hạn chờ. FE đối thủ hiện banner đếm ngược tới `deadline`. `GameState.disconnected = [{ color, deadline }]` cũng có trong `game:join` / `GET /matches/:id`, nên reload vẫn thấy.
+
+### `player:reconnected` — `{ matchId, color }`
+
+Người đó `game:join` lại trong hạn. Ack `game:join` trả GameState đầy đủ (thế cờ, lượt, đề nghị hòa…) để khôi phục bàn cờ.
+
+### Hết hạn
+
+- Người mất kết nối thua: `result` = đối thủ thắng, `endReason = "DISCONNECT"`; server phát `game:update` + `game:end`.
+- **BR-RECON-01 (đề xuất, chờ PM duyệt):** lúc hết hạn mà đối thủ cũng đang mất kết nối → ván `ABORTED`, `result = null`, `endReason = "DISCONNECT"`. Ván `ABORTED` không vào lịch sử (`/me/matches` chỉ lấy `FINISHED`).
+- Ván kết thúc bằng cách khác trong lúc chờ (đối thủ xin thua, …) → hết hạn không làm gì.
+
+Quy tắc khác:
+- Mở nhiều tab: chỉ tính mất kết nối khi **tất cả** tab của người đó đã đóng.
+- Ván đã `FINISHED`/`ABORTED`: rời đi không giữ ván.
+
+**Giới hạn:** trạng thái chờ nằm trong RAM của một tiến trình server (`PresenceService`). Server khởi động lại thì mất đồng hồ chờ, ván vẫn `ACTIVE` và người chơi vào lại chơi tiếp được. Chạy nhiều instance cần Redis adapter + lưu presence vào Redis (ngoài phạm vi đồ án).
+
 ## Gợi ý luồng FE (XQA-76)
 
 1. Vào trang ván: `GET /rooms/:code/match` để có state ban đầu (hoặc chỉ `game:join` với `roomCode`).
@@ -120,4 +144,5 @@ Có đề nghị hòa mới. FE bên kia mở popup Đồng ý / Từ chối. Tr
    - `ok` → dùng `data` (hoặc đợi `game:update`, cùng nội dung).
    - lỗi → giữ nguyên bàn cờ, toast theo `error.code`; riêng `GAME_STALE_STATE` thì `game:join` lại để lấy state mới.
 4. `game:update` → thay state. `game:end` → mở hộp thoại kết thúc.
-5. Mất kết nối rồi `connect` lại → `game:join` lại (socket mới chưa ở trong phòng nào).
+5. Mất kết nối rồi `connect` lại → `game:join` lại (socket mới chưa ở trong phòng nào). Phải join lại trong `graceSec` giây, không thì bị xử thua (XQA-93).
+6. Nhận `player:disconnected` → banner "Đối thủ mất kết nối" đếm ngược tới `deadline`; `player:reconnected` → tắt banner (XQA-94).
