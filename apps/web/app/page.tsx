@@ -352,6 +352,12 @@ export default function ArenaPage({ searchParams }: ArenaPageProps) {
           {currentUser ? (
             <>
               <span className="text-xs text-slate-300">{currentUser.displayName}</span>
+              <Link
+                href="/lobby"
+                className="rounded-lg bg-amber-400 px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-amber-300"
+              >
+                Chơi online
+              </Link>
               <button
                 type="button"
                 className="mr-1 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-amber-400 hover:text-amber-300"
