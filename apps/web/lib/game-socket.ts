@@ -26,6 +26,13 @@ export interface DrawOffer {
   atPly: number;
 }
 
+/** Người chơi đang mất kết nối, ván được giữ tới `deadline` (XQA-93). */
+export interface DisconnectedPlayer {
+  color: PlayerColor;
+  /** ISO time hết hạn chờ. */
+  deadline: string;
+}
+
 export interface GameState {
   matchId: string;
   roomCode: string;
@@ -44,6 +51,8 @@ export interface GameState {
   moves: GameMoveView[];
   /** Đề nghị hòa đang chờ trả lời (XQA-91); null nếu không có. */
   drawOffer: DrawOffer | null;
+  /** Người chơi đang mất kết nối (XQA-93); rỗng nếu cả hai đang kết nối. */
+  disconnected: DisconnectedPlayer[];
   redTimeLeftMs: number;
   blackTimeLeftMs: number;
   startedAt: string | null;
@@ -65,6 +74,16 @@ export interface DrawRejected {
   matchId: string;
   /** Người từ chối. */
   by: PlayerColor | null;
+}
+
+export interface PlayerDisconnected extends DisconnectedPlayer {
+  matchId: string;
+  graceSec: number;
+}
+
+export interface PlayerReconnected {
+  matchId: string;
+  color: PlayerColor;
 }
 
 export interface MoveRequest {
@@ -129,6 +148,9 @@ export interface GameConnection {
   onEnd(listener: (end: GameEnd) => void): void;
   onDrawOffered(listener: (offer: DrawOffered) => void): void;
   onDrawRejected(listener: (info: DrawRejected) => void): void;
+  /** XQA-94: đối thủ (hoặc chính mình ở tab khác) mất kết nối / vào lại. */
+  onPlayerDisconnected(listener: (info: PlayerDisconnected) => void): void;
+  onPlayerReconnected(listener: (info: PlayerReconnected) => void): void;
   onConnectionChange(listener: (connected: boolean) => void): void;
   close(): void;
 }
@@ -219,6 +241,12 @@ export const connectGame: ConnectGame = (token) => {
     },
     onDrawRejected(listener) {
       socket.on('game:draw-rejected', listener);
+    },
+    onPlayerDisconnected(listener) {
+      socket.on('player:disconnected', listener);
+    },
+    onPlayerReconnected(listener) {
+      socket.on('player:reconnected', listener);
     },
     onConnectionChange(listener) {
       socket.on('connect', () => listener(true));

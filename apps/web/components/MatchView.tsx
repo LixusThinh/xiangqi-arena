@@ -27,6 +27,8 @@ import { getAccessToken } from '@/lib/session';
  *   nước bị từ chối thì bàn cờ giữ nguyên + báo lỗi; nước của đối thủ tới qua game:update.
  * - XQA-92: nút Xin hòa / Xin thua. Xin thua có bước xác nhận; đề nghị hòa của đối thủ hiện popup
  *   Đồng ý / Từ chối. Popup dựa vào state.drawOffer của server nên reload trang vẫn thấy.
+ * - XQA-94: reload / rớt mạng → tự vào lại ván (connectGame join lại khi socket nối lại); đối thủ mất kết nối
+ *   → banner đếm ngược tới hạn chờ của server (state.disconnected, player:disconnected / player:reconnected).
  */
 export default function MatchView({
   code,
@@ -47,6 +49,7 @@ export default function MatchView({
   const [pending, setPending] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
   const [confirmResign, setConfirmResign] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const connRef = useRef<GameConnection | null>(null);
 
   useEffect(() => {
@@ -96,6 +99,14 @@ export default function MatchView({
       });
       conn.onEnd(setEnded);
       conn.onDrawRejected(() => setNotice('Đối thủ đã từ chối đề nghị hòa.'));
+      conn.onPlayerDisconnected(({ color, deadline }) =>
+        setGame((g) =>
+          g ? { ...g, disconnected: [...g.disconnected.filter((d) => d.color !== color), { color, deadline }] } : g,
+        ),
+      );
+      conn.onPlayerReconnected(({ color }) =>
+        setGame((g) => (g ? { ...g, disconnected: g.disconnected.filter((d) => d.color !== color) } : g)),
+      );
       conn.onConnectionChange(setConnected);
       const state = await conn.join(room.code);
       if (!cancelled) setGame(state);
@@ -109,6 +120,16 @@ export default function MatchView({
       connRef.current = null;
     };
   }, [room, connect]);
+
+  // Hạn chờ của đối thủ (nếu đang mất kết nối) → đồng hồ đếm ngược chạy mỗi giây
+  const opponentGone =
+    game?.status === 'ACTIVE' ? (game.disconnected.find((d) => d.color !== game.yourColor) ?? null) : null;
+  useEffect(() => {
+    if (!opponentGone) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [opponentGone]);
 
   const position = useMemo(() => (game ? Position.fromFen(game.fen) : Position.initial()), [game]);
   const myTurn =
@@ -232,7 +253,17 @@ export default function MatchView({
         </header>
         {!connected && (
           <p role="alert" className="w-full max-w-[560px] rounded-lg bg-amber-900/60 px-3 py-2 text-center text-sm text-amber-100">
-            Mất kết nối máy chủ, đang thử kết nối lại…
+            Mất kết nối máy chủ, đang thử kết nối lại… Vào lại trong 60 giây để không bị xử thua.
+          </p>
+        )}
+        {opponentGone && (
+          <p
+            data-testid="opponent-disconnected"
+            aria-live="polite"
+            className="w-full max-w-[560px] rounded-lg bg-sky-950/80 px-3 py-2 text-center text-sm text-sky-100"
+          >
+            Đối thủ mất kết nối. Nếu không vào lại sau{' '}
+            <strong>{Math.max(0, Math.ceil((Date.parse(opponentGone.deadline) - now) / 1000))} giây</strong>, bạn được xử thắng.
           </p>
         )}
         <PlayerBadge member={opponent} />
