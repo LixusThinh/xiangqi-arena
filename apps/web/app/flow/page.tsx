@@ -5,6 +5,7 @@ import { Position } from '@xiangqi-arena/xiangqi-core';
 import Board from '@/components/Board';
 import ChatBox, { ChatMessage } from '@/components/ChatBox';
 import PlayerCard from '@/components/PlayerCard';
+import VideoCallPanel, { type CallStatus } from '@/components/VideoCallPanel';
 
 type FlowScreen =
   | 'login'
@@ -119,6 +120,10 @@ export default function ScreenFlowPage() {
   const [reportSent, setReportSent] = useState(false);
   const [selectedLevel, setSelectedLevel] = useState('Trung cấp');
   const [gameOver, setGameOver] = useState(false);
+  // XQA-107: trạng thái video call giả, chưa có WebRTC (XQA-125)
+  const [callStatus, setCallStatus] = useState<CallStatus>('connected');
+  const [micOn, setMicOn] = useState(true);
+  const [camOn, setCamOn] = useState(true);
 
   const sendMessage = (text: string) => {
     setMessages((current) => [
@@ -342,6 +347,17 @@ export default function ScreenFlowPage() {
               </div>
               <div className="order-3 space-y-4">
                 <PlayerCard name="Nhân" title="Kỳ thủ · 1,284 điểm" side="r" timeRemaining={52} isActive isLocalPlayer />
+                <VideoCallPanel
+                  opponentName="Kỳ Vương"
+                  selfName="Nhân"
+                  status={callStatus}
+                  micOn={micOn}
+                  camOn={camOn}
+                  onToggleMic={() => setMicOn((v) => !v)}
+                  onToggleCam={() => setCamOn((v) => !v)}
+                  onEndCall={() => setCallStatus('ended')}
+                  onStartCall={() => setCallStatus('connected')}
+                />
                 <div className="h-[360px] min-h-[320px]">
                   <ChatBox messages={messages} onSendMessage={sendMessage} />
                 </div>
