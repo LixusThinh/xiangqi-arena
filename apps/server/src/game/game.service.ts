@@ -27,7 +27,9 @@ import {
   STARTING_FEN,
 } from '@xiangqi-arena/xiangqi-core';
 import { PrismaService } from '../prisma/prisma.service';
+import { PresenceService } from './presence.service';
 import {
+  DisconnectedPlayerView,
   DrawOfferView,
   GameMoveView,
   GamePlayer,
@@ -130,12 +132,16 @@ interface Replay {
  * - Kết thúc theo yêu cầu người chơi (XQA-90, XQA-91): xin thua, xin hòa → đối thủ đồng ý.
  *   Mọi đường kết thúc đi qua `finishInTx`: chỉ ván ACTIVE mới được chốt, kết quả do server tính,
  *   client không gửi result/endReason được (FR-13, BR-05).
+ * - Mất kết nối (XQA-93): gateway theo dõi qua PresenceService; hết thời gian chờ → forfeitByDisconnect.
  * - Chưa có: đồng hồ / hết giờ (XQA-141), Elo.
  * Transport (REST ở GameController, Socket.IO ở gateway XQA-75) chỉ gọi vào đây.
  */
 @Injectable()
 export class GameService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly presence: PresenceService,
+  ) {}
 
   /** Trạng thái ván. Ván ở WAITING (vừa đủ 2 người) được bắt đầu ngay khi một người chơi mở. */
   async getState(matchId: string, userId: string): Promise<GameStateView> {
@@ -308,6 +314,47 @@ export class GameService {
   }
 
   /**
+   * Thông tin để gateway quyết định có giữ ván khi user rớt mạng không (XQA-93):
+   * chỉ người chơi của ván đang ACTIVE; thời gian chờ lấy từ RuleProfile.reconnectGraceSec.
+   */
+  async presenceTarget(
+    matchId: string,
+    userId: string,
+  ): Promise<{ active: boolean; color: PlayerColor | null; graceMs: number }> {
+    const match = await this.loadMatch(matchId);
+    return {
+      active: match.status === MatchStatus.ACTIVE,
+      color: this.colorOf(match, userId),
+      graceMs: match.ruleProfile.reconnectGraceSec * 1000,
+    };
+  }
+
+  /**
+   * Hết thời gian chờ vào lại (FR-22): người mất kết nối thua, lý do DISCONNECT.
+   * BR-RECON-01 (đề xuất, chờ PM duyệt): lúc hết hạn mà đối thủ cũng đang mất kết nối → ván ABORTED, không ai thắng.
+   * Trả null nếu ván không còn ACTIVE (đã kết thúc bằng cách khác trong lúc chờ).
+   */
+  async forfeitByDisconnect(matchId: string, userId: string): Promise<GameStateView | null> {
+    const match = await this.loadMatch(matchId);
+    const color = this.colorOf(match, userId);
+    if (!color || match.status !== MatchStatus.ACTIVE) return null;
+    const opponentId = (color === 'RED' ? match.blackPlayerId : match.redPlayerId).toString();
+    const bothGone = this.presence.isDisconnected(matchId, opponentId);
+    try {
+      await this.prisma.$transaction((tx) =>
+        bothGone
+          ? this.finishInTx(tx, match, null, MatchEndReason.DISCONNECT, MatchStatus.ABORTED)
+          : this.finishInTx(tx, match, opponentWins(color), MatchEndReason.DISCONNECT),
+      );
+    } catch (error) {
+      if (error instanceof ConflictException) return null;
+      throw error;
+    }
+    this.presence.clear(matchId);
+    return this.getState(matchId, opponentId);
+  }
+
+  /**
    * Chốt kết quả cho ván không do nước đi (xin thua, hòa, mất kết nối – XQA-93).
    * Chỉ chạy khi ván còn ACTIVE; ván đã kết thúc → GAME_NOT_ACTIVE, kết quả cũ giữ nguyên.
    */
@@ -464,11 +511,21 @@ export class GameService {
       lastMove: moves[moves.length - 1] ?? null,
       moves,
       drawOffer: ended ? null : this.toDrawOffer(match),
+      disconnected: ended ? [] : this.toDisconnected(match),
       redTimeLeftMs: Number(match.redTimeLeftMs),
       blackTimeLeftMs: Number(match.blackTimeLeftMs),
       startedAt: match.startedAt,
       endedAt: match.endedAt,
     };
+  }
+
+  private toDisconnected(match: MatchRow): DisconnectedPlayerView[] {
+    const list: DisconnectedPlayerView[] = [];
+    for (const d of this.presence.disconnected(match.id.toString())) {
+      const color = this.colorOf(match, d.userId);
+      if (color) list.push({ color, deadline: d.deadline });
+    }
+    return list;
   }
 
   private toDrawOffer(match: MatchRow): DrawOfferView | null {

@@ -22,4 +22,4 @@ Biến môi trường: `E2E_WEB_URL` (mặc định `http://localhost:3001`), `E
 ## Giới hạn hiện tại
 
 - Chưa có màn Sảnh (XQA-70) nên phòng được tạo bằng REST `POST /rooms` với token của người chơi; khách vào bằng link mời `/room/<mã>`.
-- Ca "xin thua → lịch sử" đang `test.fixme`, bật khi PR #32 (XQA-92) và #36 (XQA-98) merge.
+- Ca "xin thua → lịch sử" đã bật (XQA-92, XQA-98 có trong develop).

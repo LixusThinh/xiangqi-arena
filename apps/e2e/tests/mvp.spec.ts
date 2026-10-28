@@ -94,8 +94,8 @@ test.describe('MVP: đăng ký → phòng → chơi online', () => {
     await expect(black.page.getByTestId(`piece-${sq('e7')}`)).toBeVisible();
   });
 
-  // Bật khi PR #32 (nút Xin thua – XQA-92) và #36 (trang Lịch sử – XQA-98) đã merge vào develop.
-  test.fixme('xin thua → hộp kết thúc ở cả hai bên → ván xuất hiện trong Lịch sử', async () => {
+  // XQA-92 (nút Xin thua) + XQA-98 (trang Lịch sử) đã có trong develop.
+  test('xin thua → hộp kết thúc ở cả hai bên → ván xuất hiện trong Lịch sử', async () => {
     await move(red.page, 'h7', 'e7');
     await expect(black.page.getByTestId(`piece-${sq('e7')}`)).toBeVisible();
 

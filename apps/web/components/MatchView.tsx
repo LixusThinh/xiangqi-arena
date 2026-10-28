@@ -25,6 +25,10 @@ import { getAccessToken } from '@/lib/session';
  * - XQA-71: vào ván, xoay bàn cờ theo màu của người đang xem.
  * - XQA-76: đi quân online qua socket (docs/api/socket.md). Bàn cờ CHỈ đổi theo state server gửi về:
  *   nước bị từ chối thì bàn cờ giữ nguyên + báo lỗi; nước của đối thủ tới qua game:update.
+ * - XQA-92: nút Xin hòa / Xin thua. Xin thua có bước xác nhận; đề nghị hòa của đối thủ hiện popup
+ *   Đồng ý / Từ chối. Popup dựa vào state.drawOffer của server nên reload trang vẫn thấy.
+ * - XQA-94: reload / rớt mạng → tự vào lại ván (connectGame join lại khi socket nối lại); đối thủ mất kết nối
+ *   → banner đếm ngược tới hạn chờ của server (state.disconnected, player:disconnected / player:reconnected).
  */
 export default function MatchView({
   code,
@@ -44,6 +48,8 @@ export default function MatchView({
   const [connected, setConnected] = useState(true);
   const [pending, setPending] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
+  const [confirmResign, setConfirmResign] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const connRef = useRef<GameConnection | null>(null);
 
   useEffect(() => {
@@ -92,6 +98,15 @@ export default function MatchView({
         setSelected(null);
       });
       conn.onEnd(setEnded);
+      conn.onDrawRejected(() => setNotice('Đối thủ đã từ chối đề nghị hòa.'));
+      conn.onPlayerDisconnected(({ color, deadline }) =>
+        setGame((g) =>
+          g ? { ...g, disconnected: [...g.disconnected.filter((d) => d.color !== color), { color, deadline }] } : g,
+        ),
+      );
+      conn.onPlayerReconnected(({ color }) =>
+        setGame((g) => (g ? { ...g, disconnected: g.disconnected.filter((d) => d.color !== color) } : g)),
+      );
       conn.onConnectionChange(setConnected);
       const state = await conn.join(room.code);
       if (!cancelled) setGame(state);
@@ -105,6 +120,16 @@ export default function MatchView({
       connRef.current = null;
     };
   }, [room, connect]);
+
+  // Hạn chờ của đối thủ (nếu đang mất kết nối) → đồng hồ đếm ngược chạy mỗi giây
+  const opponentGone =
+    game?.status === 'ACTIVE' ? (game.disconnected.find((d) => d.color !== game.yourColor) ?? null) : null;
+  useEffect(() => {
+    if (!opponentGone) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [opponentGone]);
 
   const position = useMemo(() => (game ? Position.fromFen(game.fen) : Position.initial()), [game]);
   const myTurn =
@@ -143,6 +168,29 @@ export default function MatchView({
       } finally {
         setPending(false);
         setSelected(null);
+      }
+    },
+    [game],
+  );
+
+  /** Xin thua / xin hòa: giống đi quân, chỉ đổi màn hình theo state server trả về. */
+  const runAction = useCallback(
+    async (action: (conn: GameConnection, matchId: string) => Promise<GameState>) => {
+      const conn = connRef.current;
+      if (!conn || !game) return;
+      setPending(true);
+      setNotice(null);
+      try {
+        setGame(await action(conn, game.matchId));
+      } catch (err) {
+        const codeOf = err instanceof GameSocketError ? err.code : 'SOCKET_TIMEOUT';
+        setNotice(GAME_ERROR_MESSAGES[codeOf] ?? (err as Error).message);
+        // State ở máy đã cũ (đề nghị hết hạn, ván đã xong, socket rớt phòng) → lấy lại từ server
+        if (codeOf !== 'SOCKET_TIMEOUT') {
+          conn.join(game.roomCode).then(setGame, () => undefined);
+        }
+      } finally {
+        setPending(false);
       }
     },
     [game],
@@ -191,6 +239,10 @@ export default function MatchView({
     ? { from: algebraicToSquare(game.lastMove.from), to: algebraicToSquare(game.lastMove.to) }
     : null;
   const endInfo = ended ?? (game && game.status !== 'ACTIVE' && game.status !== 'WAITING' ? game : null);
+  const active = game?.status === 'ACTIVE' && endInfo === null;
+  const offer = active ? (game?.drawOffer ?? null) : null;
+  const myOffer = offer !== null && offer.by === game?.yourColor;
+  const incomingOffer = offer !== null && !myOffer;
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-6 text-slate-100">
@@ -201,7 +253,17 @@ export default function MatchView({
         </header>
         {!connected && (
           <p role="alert" className="w-full max-w-[560px] rounded-lg bg-amber-900/60 px-3 py-2 text-center text-sm text-amber-100">
-            Mất kết nối máy chủ, đang thử kết nối lại…
+            Mất kết nối máy chủ, đang thử kết nối lại… Vào lại trong 60 giây để không bị xử thua.
+          </p>
+        )}
+        {opponentGone && (
+          <p
+            data-testid="opponent-disconnected"
+            aria-live="polite"
+            className="w-full max-w-[560px] rounded-lg bg-sky-950/80 px-3 py-2 text-center text-sm text-sky-100"
+          >
+            Đối thủ mất kết nối. Nếu không vào lại sau{' '}
+            <strong>{Math.max(0, Math.ceil((Date.parse(opponentGone.deadline) - now) / 1000))} giây</strong>, bạn được xử thắng.
           </p>
         )}
         <PlayerBadge member={opponent} />
@@ -224,7 +286,53 @@ export default function MatchView({
             {notice}
           </p>
         )}
+        {active && (
+          <div className="flex w-full max-w-[560px] items-center justify-end gap-2">
+            {myOffer && (
+              <span data-testid="draw-offer-sent" className="mr-auto text-xs text-slate-400">
+                Đã gửi đề nghị hòa, chờ đối thủ trả lời…
+              </span>
+            )}
+            <button
+              type="button"
+              disabled={pending || offer !== null}
+              onClick={() => void runAction((conn, id) => conn.offerDraw(id))}
+              className="rounded-lg border border-slate-600 bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              🤝 Xin hòa
+            </button>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => setConfirmResign(true)}
+              className="rounded-lg border border-red-800/50 bg-red-950/60 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-900/80 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              🏳️ Xin thua
+            </button>
+          </div>
+        )}
       </div>
+      <Modal
+        isOpen={active && confirmResign}
+        title="Xin thua?"
+        message="Bạn chắc chắn muốn xin thua? Đối thủ sẽ được xử thắng và không thể hoàn tác."
+        confirmText="Xin thua"
+        cancelText="Chơi tiếp"
+        onConfirm={() => {
+          setConfirmResign(false);
+          void runAction((conn, id) => conn.resign(id));
+        }}
+        onCancel={() => setConfirmResign(false)}
+      />
+      <Modal
+        isOpen={incomingOffer && !confirmResign && !pending}
+        title="Đối thủ đề nghị hòa"
+        message="Đồng ý thì ván kết thúc với kết quả Hòa. Từ chối thì ván tiếp tục."
+        confirmText="Đồng ý hòa"
+        cancelText="Từ chối"
+        onConfirm={() => void runAction((conn, id) => conn.answerDraw(id, true))}
+        onCancel={() => void runAction((conn, id) => conn.answerDraw(id, false))}
+      />
       <Modal
         isOpen={endInfo !== null}
         title="Ván đấu kết thúc"
