@@ -1,0 +1,215 @@
+{
+  "name": "XQA-113 – bộ 10 thế cờ mẫu cho demo và test",
+  "version": "1.0",
+  "created": "2026-10-28",
+  "document": "Luật Cờ Tướng Việt Nam (QĐ 1409/2004, tài liệu tập huấn trọng tài 2015) – luat_co_tuong_viet_nam.pdf",
+  "note": "Bản text của tài liệu luật chỉ có chuỗi nước của các hình, không có vị trí quân, nên các thế dưới đây do nhóm tự dựng theo đúng điều luật ghi ở source.article. source.figure chỉ ghi khi thế khớp hình trong tài liệu.",
+  "positions": [
+    {
+      "id": "FEN-01",
+      "name": "Thế xếp quân ban đầu",
+      "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR r - - 0 1",
+      "source": {
+        "article": "Điều 3, hình c",
+        "figure": "Hình c (vị trí xếp quân ban đầu)"
+      },
+      "purpose": "Demo màn chơi; kiểm FEN khởi đầu",
+      "expect": {
+        "status": "ongoing",
+        "inCheck": false,
+        "legalMoveCount": 44
+      }
+    },
+    {
+      "id": "FEN-02",
+      "name": "Chiếu bí bằng hai Xe",
+      "fen": "R3k4/1R7/9/9/9/9/9/9/9/3K5 b - - 0 1",
+      "source": {
+        "article": "Điều 7.1a (chiếu bí), Điều 6.2",
+        "figure": null
+      },
+      "purpose": "Demo kết thúc ván CHECKMATE",
+      "expect": {
+        "status": "checkmate",
+        "inCheck": true,
+        "winner": "r"
+      }
+    },
+    {
+      "id": "FEN-03",
+      "name": "Hết nước đi khi không bị chiếu – bên hết nước thua",
+      "fen": "4k4/9/4P4/9/9/3R1R3/9/9/9/3K5 b - - 0 1",
+      "source": {
+        "article": "Điều 7.1b",
+        "figure": null
+      },
+      "purpose": "Demo kết thúc ván STALEMATE (khác cờ vua: bên hết nước THUA)",
+      "expect": {
+        "status": "no_moves",
+        "inCheck": false,
+        "winner": "r"
+      }
+    },
+    {
+      "id": "FEN-04",
+      "name": "Lộ mặt tướng: Mã che giữa hai Tướng không được rời cột",
+      "fen": "4k4/9/4n4/9/9/9/9/9/9/R3K4 b - - 0 1",
+      "source": {
+        "article": "Điều 4.3a (hai Tướng không được đối mặt)",
+        "figure": null
+      },
+      "purpose": "Test: Mã e2 không có nước hợp lệ",
+      "expect": {
+        "status": "ongoing",
+        "inCheck": false,
+        "pieceMoves": {
+          "square": "e2",
+          "to": []
+        }
+      }
+    },
+    {
+      "id": "FEN-05",
+      "name": "Bị chiếu, Tướng chỉ còn một ô chạy (ô d0 bị Tướng Đỏ khống chế theo luật lộ mặt)",
+      "fen": "4k4/9/9/9/2N1R4/9/9/9/9/3K5 b - - 0 1",
+      "source": {
+        "article": "Điều 6.2a, Điều 4.3a",
+        "figure": null
+      },
+      "purpose": "Test ứng phó nước chiếu",
+      "expect": {
+        "status": "ongoing",
+        "inCheck": true,
+        "legalMoves": [
+          "e0f0"
+        ]
+      }
+    },
+    {
+      "id": "FEN-06",
+      "name": "Cản Mã: Mã e5 bị quân e4 cản chân",
+      "fen": "4k4/9/9/9/4p4/4N4/9/9/9/3K5 r - - 0 1",
+      "source": {
+        "article": "Điều 4.3e, hình e (minh họa cản Mã)",
+        "figure": null
+      },
+      "purpose": "Test luật cản Mã",
+      "expect": {
+        "status": "ongoing",
+        "inCheck": false,
+        "pieceMoves": {
+          "square": "e5",
+          "to": [
+            "c4",
+            "c6",
+            "d7",
+            "f7",
+            "g4",
+            "g6"
+          ]
+        }
+      }
+    },
+    {
+      "id": "FEN-07",
+      "name": "Cản Tượng: Tượng c9 bị quân d8 chặn mắt",
+      "fen": "4k4/9/9/9/9/9/9/9/3N5/2BK5 r - - 0 1",
+      "source": {
+        "article": "Điều 4.3c, hình d (minh họa cản Tượng)",
+        "figure": null
+      },
+      "purpose": "Test luật cản Tượng",
+      "expect": {
+        "status": "ongoing",
+        "inCheck": false,
+        "pieceMoves": {
+          "square": "c9",
+          "to": [
+            "a7"
+          ]
+        }
+      }
+    },
+    {
+      "id": "FEN-08",
+      "name": "Pháo ăn quân qua đúng một ngòi",
+      "fen": "4k4/9/1n7/9/1p7/9/9/1C7/9/3K5 r - - 0 1",
+      "source": {
+        "article": "Điều 4.3g",
+        "figure": null
+      },
+      "purpose": "Test Pháo: ăn b2 qua ngòi b4, không đi tới b3",
+      "expect": {
+        "status": "ongoing",
+        "inCheck": false,
+        "pieceMoves": {
+          "square": "b7",
+          "to": [
+            "a7",
+            "b2",
+            "b5",
+            "b6",
+            "b8",
+            "b9",
+            "c7",
+            "d7",
+            "e7",
+            "f7",
+            "g7",
+            "h7",
+            "i7"
+          ]
+        }
+      }
+    },
+    {
+      "id": "FEN-09",
+      "name": "Chiếu mãi: Xe Đỏ lắc chiếu, Tướng Đen chạy",
+      "fen": "4k4/R8/9/9/9/9/9/9/9/3K5 r - - 0 1",
+      "source": {
+        "article": "Điều 23 Điểm 1, Điều 7.1g, Điều 24.2 (hình 1–3)",
+        "figure": null
+      },
+      "purpose": "Demo/test Điều 23: bên chiếu mãi bị xử thua",
+      "expect": {
+        "status": "ongoing",
+        "inCheck": false,
+        "cycle": [
+          "a1a0",
+          "e0e1",
+          "a0a1",
+          "e1e0"
+        ],
+        "cycleRepeat": 2,
+        "repetition": {
+          "kind": "loss",
+          "loser": "r"
+        }
+      }
+    },
+    {
+      "id": "FEN-10",
+      "name": "Đuổi bắt mãi quân có căn thật → hòa; bỏ căn → bên đuổi thua",
+      "fen": "3k5/9/n8/9/7R1/9/9/r8/1r7/4K4 r - - 0 1",
+      "source": {
+        "article": "Điều 23 Điểm 3, Điểm 6; Điều 24.13 (hình 29–30), 24.14",
+        "figure": null
+      },
+      "purpose": "Demo/test Điều 23: Xe đuổi Mã có căn thật → hòa",
+      "expect": {
+        "status": "ongoing",
+        "inCheck": false,
+        "cycle": [
+          "h4h2",
+          "a2b4",
+          "h2h4",
+          "b4a2"
+        ],
+        "cycleRepeat": 2,
+        "repetition": {
+          "kind": "draw"
+        }
+      }
+    }
+  ]
+}
