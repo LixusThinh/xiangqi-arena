@@ -6,7 +6,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { MatchEndReason, MatchResult, MatchStatus, Prisma, RoomStatus } from '@prisma/client';
+import {
+  DrawOfferStatus,
+  MatchEndReason,
+  MatchResult,
+  MatchStatus,
+  Prisma,
+  RoomStatus,
+} from '@prisma/client';
 import {
   algebraicToSquare,
   Color,
@@ -20,7 +27,14 @@ import {
   STARTING_FEN,
 } from '@xiangqi-arena/xiangqi-core';
 import { PrismaService } from '../prisma/prisma.service';
-import { GameMoveView, GamePlayer, GameStateView, MoveInput, PlayerColor } from './game.types';
+import {
+  DrawOfferView,
+  GameMoveView,
+  GamePlayer,
+  GameStateView,
+  MoveInput,
+  PlayerColor,
+} from './game.types';
 
 /**
  * Kết quả ván sau một nước đi. Thứ tự ưu tiên: hết nước (chiếu bí / hết nước đi – Điều 7.1)
@@ -70,7 +84,7 @@ const matchSelect = {
   redPlayerId: true,
   blackPlayerId: true,
   room: { select: { roomCode: true } },
-  ruleProfile: { select: { repetitionThreshold: true } },
+  ruleProfile: { select: { repetitionThreshold: true, reconnectGraceSec: true } },
   redPlayer: { select: playerSelect },
   blackPlayer: { select: playerSelect },
   moves: {
@@ -84,9 +98,21 @@ const matchSelect = {
       isCheck: true,
     },
   },
+  drawOffers: {
+    where: { status: DrawOfferStatus.PENDING },
+    orderBy: { id: 'desc' },
+    take: 1,
+    select: { id: true, offeredBy: true, atPly: true },
+  },
 } as const;
 
 type MatchRow = Prisma.MatchGetPayload<{ select: typeof matchSelect }>;
+type Tx = Prisma.TransactionClient;
+
+/** Kết quả khi một bên chịu thua / bị xử thua: bên kia thắng. */
+export function opponentWins(loser: PlayerColor): MatchResult {
+  return loser === 'RED' ? MatchResult.BLACK_WIN : MatchResult.RED_WIN;
+}
 
 interface Replay {
   position: Position;
@@ -101,7 +127,10 @@ interface Replay {
  * - Kiểm đúng người, đúng lượt, đúng thế cờ (expectedPly) → chống đi hộ, đi sai lượt, gửi trùng.
  * - Ghi nước + cập nhật ván trong 1 transaction có điều kiện currentPly → 2 request cùng lúc chỉ 1 thành công.
  * - Tự kết thúc ván: chiếu bí, hết nước (Điều 7.1), lặp nước theo RepetitionJudge (Điều 23).
- * - Chưa có: đồng hồ (XQA-141), xin thua/hòa (XQA-91), mất kết nối (XQA-93), Elo.
+ * - Kết thúc theo yêu cầu người chơi (XQA-90, XQA-91): xin thua, xin hòa → đối thủ đồng ý.
+ *   Mọi đường kết thúc đi qua `finishInTx`: chỉ ván ACTIVE mới được chốt, kết quả do server tính,
+ *   client không gửi result/endReason được (FR-13, BR-05).
+ * - Chưa có: đồng hồ / hết giờ (XQA-141), Elo.
  * Transport (REST ở GameController, Socket.IO ở gateway XQA-75) chỉ gọi vào đây.
  */
 @Injectable()
@@ -176,6 +205,11 @@ export class GameService {
       if (claimed.count !== 1) {
         throw this.error(ConflictException, 'GAME_STALE_STATE', 'Another move was applied first');
       }
+      // Đi quân thay vì trả lời = bỏ qua đề nghị hòa của đối thủ (BR-DRAW-02, đề xuất)
+      await tx.drawOffer.updateMany({
+        where: { matchId: match.id, status: DrawOfferStatus.PENDING, offeredBy: { not: BigInt(userId) } },
+        data: { status: DrawOfferStatus.EXPIRED },
+      });
       await tx.move.create({
         data: {
           matchId: match.id,
@@ -193,15 +227,144 @@ export class GameService {
           thinkTimeMs: this.thinkTime(match, now),
         },
       });
-      if (result) {
-        await tx.room.updateMany({
-          where: { id: match.roomId, status: RoomStatus.PLAYING },
-          data: { status: RoomStatus.FINISHED },
-        });
-      }
+      if (result) await this.afterFinish(tx, match);
     });
 
     return this.getState(matchId, userId);
+  }
+
+  /** Xin thua (FR-14): người gửi thua, đối thủ thắng, lý do RESIGNATION. */
+  async resign(matchId: string, userId: string): Promise<GameStateView> {
+    const { match, color } = await this.activeMatchFor(matchId, userId);
+    await this.prisma.$transaction((tx) =>
+      this.finishInTx(tx, match, opponentWins(color), MatchEndReason.RESIGNATION),
+    );
+    return this.getState(matchId, userId);
+  }
+
+  /**
+   * Đề nghị hòa (FR-15). Mỗi ván chỉ có 1 đề nghị chờ trả lời.
+   * BR-DRAW-01 (đề xuất, chờ PM duyệt): bị từ chối thì phải đi thêm ít nhất 1 nước mới được đề nghị lại.
+   */
+  async offerDraw(matchId: string, userId: string): Promise<GameStateView> {
+    const { match } = await this.activeMatchFor(matchId, userId);
+    const pending = match.drawOffers[0];
+    if (pending) {
+      const mine = pending.offeredBy.toString() === userId;
+      throw this.error(
+        ConflictException,
+        'GAME_DRAW_OFFER_PENDING',
+        mine
+          ? 'You already offered a draw; wait for the answer'
+          : 'Your opponent has offered a draw; accept or reject it',
+      );
+    }
+    const lastDeclined = await this.prisma.drawOffer.findFirst({
+      where: { matchId: match.id, offeredBy: BigInt(userId), status: DrawOfferStatus.DECLINED },
+      orderBy: { id: 'desc' },
+      select: { atPly: true },
+    });
+    if (lastDeclined && !this.hasMovedSince(match, userId, lastDeclined.atPly)) {
+      throw this.error(
+        ConflictException,
+        'GAME_DRAW_OFFER_TOO_SOON',
+        'Your last draw offer was rejected; make a move before offering again',
+      );
+    }
+    await this.prisma.drawOffer.create({
+      data: {
+        matchId: match.id,
+        offeredBy: BigInt(userId),
+        atPly: match.currentPly,
+        status: DrawOfferStatus.PENDING,
+      },
+    });
+    return this.getState(matchId, userId);
+  }
+
+  /** Trả lời đề nghị hòa: đồng ý → DRAW (DRAW_AGREEMENT); từ chối → ván tiếp tục. */
+  async respondDraw(matchId: string, userId: string, accept: boolean): Promise<GameStateView> {
+    const { match } = await this.activeMatchFor(matchId, userId);
+    const pending = match.drawOffers[0];
+    if (!pending) {
+      throw this.error(ConflictException, 'GAME_NO_DRAW_OFFER', 'There is no pending draw offer');
+    }
+    if (pending.offeredBy.toString() === userId) {
+      throw this.error(ConflictException, 'GAME_DRAW_OFFER_OWN', 'You cannot answer your own draw offer');
+    }
+    await this.prisma.$transaction(async (tx) => {
+      const answered = await tx.drawOffer.updateMany({
+        where: { id: pending.id, status: DrawOfferStatus.PENDING },
+        data: { status: accept ? DrawOfferStatus.ACCEPTED : DrawOfferStatus.DECLINED },
+      });
+      if (answered.count !== 1) {
+        throw this.error(ConflictException, 'GAME_NO_DRAW_OFFER', 'The draw offer is no longer pending');
+      }
+      if (accept) {
+        await this.finishInTx(tx, match, MatchResult.DRAW, MatchEndReason.DRAW_AGREEMENT);
+      }
+    });
+    return this.getState(matchId, userId);
+  }
+
+  /**
+   * Chốt kết quả cho ván không do nước đi (xin thua, hòa, mất kết nối – XQA-93).
+   * Chỉ chạy khi ván còn ACTIVE; ván đã kết thúc → GAME_NOT_ACTIVE, kết quả cũ giữ nguyên.
+   */
+  private async finishInTx(
+    tx: Tx,
+    match: Pick<MatchRow, 'id' | 'roomId'>,
+    result: MatchResult | null,
+    endReason: MatchEndReason,
+    status: MatchStatus = MatchStatus.FINISHED,
+  ): Promise<void> {
+    const claimed = await tx.match.updateMany({
+      where: { id: match.id, status: MatchStatus.ACTIVE },
+      data: { status, result, endReason, endedAt: new Date() },
+    });
+    if (claimed.count !== 1) {
+      throw this.error(ConflictException, 'GAME_NOT_ACTIVE', 'The match has already ended');
+    }
+    await this.afterFinish(tx, match);
+  }
+
+  /** Việc phụ khi ván kết thúc: phòng → FINISHED, đề nghị hòa còn chờ → EXPIRED. */
+  private async afterFinish(tx: Tx, match: Pick<MatchRow, 'id' | 'roomId'>): Promise<void> {
+    await tx.room.updateMany({
+      where: { id: match.roomId, status: RoomStatus.PLAYING },
+      data: { status: RoomStatus.FINISHED },
+    });
+    await tx.drawOffer.updateMany({
+      where: { matchId: match.id, status: DrawOfferStatus.PENDING },
+      data: { status: DrawOfferStatus.EXPIRED },
+    });
+  }
+
+  /** Người chơi của ván + ván đang ACTIVE (ván WAITING được bắt đầu như khi đi nước đầu). */
+  private async activeMatchFor(
+    matchId: string,
+    userId: string,
+  ): Promise<{ match: MatchRow; color: PlayerColor }> {
+    let match = await this.loadMatch(matchId);
+    const color = this.colorOf(match, userId);
+    if (!color) {
+      throw this.error(ForbiddenException, 'GAME_NOT_PLAYER', 'You are not a player in this match');
+    }
+    if (match.status === MatchStatus.WAITING) {
+      match = await this.start(match);
+    }
+    if (match.status !== MatchStatus.ACTIVE) {
+      throw this.error(ConflictException, 'GAME_NOT_ACTIVE', 'The match has already ended');
+    }
+    return { match, color };
+  }
+
+  /** Người chơi đã đi ít nhất 1 nước sau ply `since` chưa. */
+  private hasMovedSince(match: MatchRow, userId: string, since: number): boolean {
+    const color = this.colorOf(match, userId);
+    // Đỏ đi các ply lẻ (1, 3, ...), Đen đi các ply chẵn (2, 4, ...)
+    const parity = color === 'RED' ? 1 : 0;
+    return match.moves.some((m) => m.ply > since && m.ply % 2 === parity);
   }
 
   /** Tìm ván đang diễn ra (hoặc vừa tạo) của một phòng – dùng khi FE chỉ biết mã phòng. */
@@ -300,11 +463,19 @@ export class GameService {
       yourColor,
       lastMove: moves[moves.length - 1] ?? null,
       moves,
+      drawOffer: ended ? null : this.toDrawOffer(match),
       redTimeLeftMs: Number(match.redTimeLeftMs),
       blackTimeLeftMs: Number(match.blackTimeLeftMs),
       startedAt: match.startedAt,
       endedAt: match.endedAt,
     };
+  }
+
+  private toDrawOffer(match: MatchRow): DrawOfferView | null {
+    const pending = match.drawOffers[0];
+    if (!pending) return null;
+    const by = this.colorOf(match, pending.offeredBy.toString());
+    return by ? { by, atPly: pending.atPly } : null;
   }
 
   private toPlayer(p: MatchRow['redPlayer']): GamePlayer {

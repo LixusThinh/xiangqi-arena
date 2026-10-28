@@ -1,8 +1,8 @@
-# Contract Socket.IO v0.1 — Game (XQA-75)
+# Contract Socket.IO v0.2 — Game (XQA-75, XQA-91)
 
 Kênh realtime cho ván cờ. Gateway chỉ là transport: mọi luật (đúng người, đúng lượt, `expectedPly`, luật đi quân, kết thúc ván) do `GameService` quyết — giống hệt REST `POST /matches/:id/moves` (`docs/api/game.md`, XQA-74).
 
-> Phạm vi v0.1: `game:join`, `game:move`, `game:update`, `game:end`. Chưa có: `game:resign` / `game:draw-*` (XQA-91), reconnect giữ ván 60s + `player:*` (XQA-93), đồng hồ (XQA-141), `room:*`, `webrtc:*` (XQA-124). Các event này sẽ thêm vào file này khi làm.
+> Phạm vi v0.2: `game:join`, `game:move`, `game:resign`, `game:draw-offer` / `draw-accept` / `draw-reject`, `game:update`, `game:end`, `game:draw-offered`, `game:draw-rejected`. Chưa có: reconnect giữ ván 60s + `player:*` (XQA-93), đồng hồ (XQA-141), `room:*`, `webrtc:*` (XQA-124).
 
 ## Kết nối
 
@@ -52,6 +52,44 @@ type Ack<T> = { ok: true; data: T } | { ok: false; error: { code: string; messag
 - Lỗi (thế cờ server **không đổi**): `GAME_NOT_PLAYER`, `GAME_NOT_ACTIVE`, `GAME_STALE_STATE`, `GAME_NOT_YOUR_TURN`, `GAME_ILLEGAL_MOVE`, `VALIDATION_ERROR`.
 - Gửi trùng / 2 nước cùng lúc: chỉ 1 nước được ghi, nước còn lại nhận `GAME_STALE_STATE`.
 
+### `game:resign` (XQA-91)
+
+```jsonc
+{ "matchId": "1" }
+```
+
+- Phải `game:join` trước (`GAME_NOT_JOINED`). Gửi được cả khi không phải lượt mình.
+- Thành công → ván `FINISHED`, đối thủ thắng, `endReason = "RESIGNATION"`; server phát `game:update` + `game:end`.
+- Xác nhận "có chắc muốn xin thua" là việc của FE (XQA-92). Server không hỏi lại.
+- Lỗi: `GAME_NOT_ACTIVE` (ván đã kết thúc), `GAME_NOT_PLAYER`, `VALIDATION_ERROR`.
+
+### `game:draw-offer` · `game:draw-accept` · `game:draw-reject` (XQA-91)
+
+Payload cả ba: `{ "matchId": "1" }`.
+
+| Event | Ai gửi | Kết quả |
+|---|---|---|
+| `game:draw-offer` | người chơi bất kỳ | Tạo đề nghị chờ. `state.drawOffer = { by, atPly }`. Server phát `game:draw-offered { matchId, by, atPly }` + `game:update` |
+| `game:draw-accept` | **đối thủ** của người đề nghị | Ván `FINISHED`, `result = "DRAW"`, `endReason = "DRAW_AGREEMENT"`; `game:update` + `game:end` |
+| `game:draw-reject` | **đối thủ** của người đề nghị | Ván tiếp tục, `drawOffer = null`; `game:draw-rejected { matchId, by }` + `game:update` |
+
+Lỗi riêng:
+
+| Code | Khi nào |
+|---|---|
+| `GAME_DRAW_OFFER_PENDING` | Đã có một đề nghị đang chờ (của mình hoặc đối thủ) |
+| `GAME_DRAW_OFFER_TOO_SOON` | Đề nghị trước của mình bị từ chối và mình chưa đi thêm nước nào (BR-DRAW-01) |
+| `GAME_NO_DRAW_OFFER` | Đồng ý / từ chối khi không có đề nghị chờ |
+| `GAME_DRAW_OFFER_OWN` | Tự đồng ý / từ chối đề nghị của chính mình |
+
+Luật hệ thống (business rule, **đề xuất, chờ PM duyệt**, không phải luật Cờ Tướng):
+
+- **BR-DRAW-01:** đề nghị bị từ chối thì người đó phải đi thêm ít nhất 1 nước mới được đề nghị lại. Chống spam popup.
+- **BR-DRAW-02:** đối thủ đi quân thay vì trả lời → đề nghị hết hạn (`EXPIRED`). Người đề nghị tự đi quân thì đề nghị vẫn còn.
+- Ván kết thúc bằng bất kỳ cách nào → đề nghị đang chờ chuyển `EXPIRED`.
+
+REST tương đương (dự phòng, **không** phát event cho đối thủ): `POST /matches/:id/resign`, `/draw-offer`, `/draw-accept`, `/draw-reject` → `200` + GameState.
+
 ## Server → Client
 
 ### `game:update` — `GameState`
@@ -64,7 +102,15 @@ Phát sau mỗi nước hợp lệ. Mỗi socket nhận `yourColor` của chính
 { "matchId": "1", "result": "DRAW", "endReason": "REPETITION", "endRule": "Điều 24.2 ..." }
 ```
 
-Phát (sau `game:update`) khi ván chuyển `FINISHED`/`ABORTED`.
+Phát (sau `game:update`) khi ván chuyển `FINISHED`/`ABORTED`. `endReason` gồm cả `RESIGNATION`, `DRAW_AGREEMENT` (XQA-91).
+
+### `game:draw-offered` — `{ matchId, by: "RED" | "BLACK", atPly }`
+
+Có đề nghị hòa mới. FE bên kia mở popup Đồng ý / Từ chối. Trạng thái chuẩn vẫn là `state.drawOffer` (reload trang vẫn thấy).
+
+### `game:draw-rejected` — `{ matchId, by }`
+
+`by` là người **từ chối**. FE của người đề nghị hiện toast.
 
 ## Gợi ý luồng FE (XQA-76)
 

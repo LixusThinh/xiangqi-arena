@@ -48,7 +48,10 @@ export function viewFor(state: GameStateView, userId: string): GameStateView {
  * - game:move → chỉ socket đã join ván đó; luật đi quân, lượt, expectedPly do GameService quyết (XQA-74).
  *   Thành công → game:update cho mọi socket trong phòng (mỗi người nhận yourColor của mình),
  *   ván kết thúc → thêm game:end.
- * - Chưa có: xin thua / xin hòa (XQA-91), mất kết nối giữ ván 60s (XQA-93), đồng hồ (XQA-141).
+ * - game:resign, game:draw-offer / draw-accept / draw-reject (XQA-91) → cùng luật join như game:move;
+ *   thành công → game:update (+ game:end nếu ván kết thúc). Đề nghị hòa → thêm game:draw-offered,
+ *   bị từ chối → thêm game:draw-rejected, để FE bật popup / toast.
+ * - Chưa có: mất kết nối giữ ván 60s (XQA-93), đồng hồ (XQA-141).
  */
 @WebSocketGateway()
 export class GameGateway implements OnGatewayInit {
@@ -131,6 +134,59 @@ export class GameGateway implements OnGatewayInit {
         to: body.to,
         expectedPly: body.expectedPly,
       });
+      await this.broadcast(state);
+      return { ok: true, data: state };
+    } catch (error) {
+      return { ok: false, error: this.toError(error) };
+    }
+  }
+
+  @SubscribeMessage('game:resign')
+  resign(@ConnectedSocket() socket: GameSocket, @MessageBody() body: unknown): Promise<WsAck<GameStateView>> {
+    return this.matchAction(socket, body, (matchId, userId) => this.gameService.resign(matchId, userId));
+  }
+
+  @SubscribeMessage('game:draw-offer')
+  offerDraw(@ConnectedSocket() socket: GameSocket, @MessageBody() body: unknown): Promise<WsAck<GameStateView>> {
+    return this.matchAction(socket, body, async (matchId, userId) => {
+      const state = await this.gameService.offerDraw(matchId, userId);
+      if (state.drawOffer) {
+        this.server.to(matchRoom(matchId)).emit('game:draw-offered', { matchId, ...state.drawOffer });
+      }
+      return state;
+    });
+  }
+
+  @SubscribeMessage('game:draw-accept')
+  acceptDraw(@ConnectedSocket() socket: GameSocket, @MessageBody() body: unknown): Promise<WsAck<GameStateView>> {
+    return this.matchAction(socket, body, (matchId, userId) =>
+      this.gameService.respondDraw(matchId, userId, true),
+    );
+  }
+
+  @SubscribeMessage('game:draw-reject')
+  rejectDraw(@ConnectedSocket() socket: GameSocket, @MessageBody() body: unknown): Promise<WsAck<GameStateView>> {
+    return this.matchAction(socket, body, async (matchId, userId) => {
+      const state = await this.gameService.respondDraw(matchId, userId, false);
+      this.server.to(matchRoom(matchId)).emit('game:draw-rejected', { matchId, by: state.yourColor });
+      return state;
+    });
+  }
+
+  /** Khung chung cho event chỉ mang { matchId }: kiểm payload, đã join, gọi service, phát state. */
+  private async matchAction(
+    socket: GameSocket,
+    body: unknown,
+    action: (matchId: string, userId: string) => Promise<GameStateView>,
+  ): Promise<WsAck<GameStateView>> {
+    try {
+      if (!isRecord(body) || typeof body.matchId !== 'string' || !DIGITS.test(body.matchId)) {
+        return this.fail('VALIDATION_ERROR', 'Payload must be { matchId }');
+      }
+      if (!socket.rooms.has(matchRoom(body.matchId))) {
+        return this.fail('GAME_NOT_JOINED', 'Join the match with game:join first');
+      }
+      const state = await action(body.matchId, socket.data.userId);
       await this.broadcast(state);
       return { ok: true, data: state };
     } catch (error) {
