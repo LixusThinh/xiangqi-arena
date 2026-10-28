@@ -10,7 +10,7 @@
 
 ## 0. Căn cứ và giả định (đọc trước khi chạy)
 
-- Ticket ghi "TC cho FR-23..29 **từ SRS v2.1**". SRS v2.1 (XQA-104) **chưa có** tại 28/10, nên TC soạn từ `Xiangqi_Arena_Requirements.md` (SRS hiện hành). Khi SRS v2.1 ra, QA đối chiếu lại.
+- Ticket ghi "TC cho FR-23..29 **từ SRS v2.1**". SRS v2.1 (XQA-104) đang ở bản nháp (PR #42), nên TC soạn từ `Xiangqi_Arena_Requirements.md` + AC trên Jira của Story XQA-29…35. Khi SRS v2.1 được duyệt, QA đối chiếu lại.
 - Tên endpoint / event trong cột *Bước* là **dự kiến** (chưa có contract). Ví dụ `chat:send`, `POST /reports`, `GET /admin/users`. Khi có contract thì thay tên, giữ nguyên Expected.
 - **Rate limit chat**: FR-23 không ghi ngưỡng. TC-CHAT-08 dùng tham số `N tin / T giây`. **Chờ BA chốt trong SRS v2.1**, QA không tự đặt số.
 - Tài khoản: **A**, **B** = người chơi trong cùng ván; **C** = người chơi khác; **ADM** = tài khoản role `ADMIN` (seed `admin`).
@@ -50,8 +50,8 @@
 | TC-REP-02 | FR-24 | Như trên | Lặp TC-REP-01 với từng lý do còn lại | `HARASSMENT`, `SPAM`, `OTHER` | Mỗi lý do lưu đúng enum | | Not Run | XQA-30 |
 | TC-REP-03 | FR-24 | Như trên | Gửi report với lý do ngoài danh sách (gọi thẳng API) | reason = `ABC` | `400` validation, không lưu | | Not Run | XQA-30 |
 | TC-REP-04 | FR-24 | C không chơi ván X | C report B theo ván X | reason = `SPAM` | Bị từ chối (chỉ người chơi của ván report đối thủ của mình). Không lưu | | Not Run | XQA-30 |
-| TC-REP-05 | FR-24, NFR-04 | Report có ô mô tả (nếu SRS v2.1 có) | A gửi mô tả chứa script | `<script>alert(1)</script>` | Lưu được; khi ADM xem ở trang Admin hiện dạng text, không chạy script | | Not Run | XQA-30, XQA-104 |
-| TC-REP-06 | FR-24 | A đã report B ở ván X | A report B ở ván X lần nữa | reason = `SPAM` | Theo SRS v2.1 (chặn trùng hay cho phép). **Chờ BA chốt** | | Not Run | XQA-104 |
+| TC-REP-05 | FR-24, NFR-04 | Report có ô mô tả (AC Story XQA-30) | A gửi mô tả chứa script | `<script>alert(1)</script>` | Lưu được; khi ADM xem ở trang Admin hiện dạng text, không chạy script. **Lưu ý:** bảng `reports` hiện chưa có cột mô tả (SRS v2.1 M4) | | Not Run | XQA-30 |
+| TC-REP-06 | FR-24 | A đã report B ở ván X | A report B ở ván X lần nữa | reason = `SPAM` | Bị từ chối (AC Story XQA-30: "1 ván chỉ report 1 lần"), không lưu dòng mới. Mã lỗi chờ chốt (SRS v2.1 Q4) | | Not Run | XQA-30 |
 
 ## 4. Admin – FR-25…FR-29
 
@@ -77,6 +77,6 @@
 
 1. Ngưỡng rate limit chat (TC-CHAT-08).
 2. Có cho chat sau khi ván kết thúc không (TC-CHAT-09).
-3. Report có ô mô tả tự do không; có chặn report trùng không (TC-REP-05, 06).
+3. ~~Report có mô tả / chặn trùng~~ – đã có trong AC Story XQA-30 (có mô tả, 1 ván report 1 lần). Còn mở: bảng `reports` thiếu cột mô tả, mã lỗi report trùng (SRS v2.1 M4, Q4).
 4. Khóa tài khoản: Auth contract đã ghi "phiên bị thu hồi" — BA xác nhận áp dụng cho khóa từ Admin, và socket đang mở có bị ngắt không (TC-ADM-07).
 5. "Online Users" trên Dashboard đếm theo socket hay theo đăng nhập trong N phút (TC-ADM-15, FR-21).
