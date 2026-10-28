@@ -17,5 +17,6 @@
 - [Risk Register v2](./project/XQA-56-risk-register-v2.md) — 27 rủi ro, cập nhật 26/10.
 - [Sprint 1 Review + Issue log](./project/XQA-82-sprint1-review.md) — XQA-82.
 - [Screen flow](./project/xqa-61-screen-flow.md) — XQA-61.
+- [SRS v2.1 – AC release 1.2–1.4](./project/XQA-104-srs-v2.1-ac-release-1.2-1.4.md) — AC Cho/Khi/Thì cho Story Sprint 4–5, 9 câu hỏi chờ PM chốt (XQA-104, bản nháp).
 
 Tài liệu đi kèm code:
