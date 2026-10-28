@@ -19,3 +19,8 @@
 - [Screen flow](./project/xqa-61-screen-flow.md) — XQA-61.
 
 Tài liệu đi kèm code:
+
+## Kiểm thử (QA)
+
+- [Test case Lịch sử ván – FR-17](./qa/XQA-99-test-cases-lich-su.md) — 17 TC API + giao diện (XQA-99).
+- [Test case Chat, Report, Admin – FR-23…29](./qa/XQA-112-test-cases-chat-report-admin.md) — 30 TC, có XSS, rate limit, 403 admin (XQA-112).
