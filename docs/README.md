@@ -19,7 +19,3 @@
 - [Screen flow](./project/xqa-61-screen-flow.md) — XQA-61.
 
 Tài liệu đi kèm code:
-
-## Kiểm thử (QA)
-
-- [Bộ 10 thế cờ mẫu (FEN)](./qa/XQA-113-bo-10-the-co-mau.md) — demo + test, có spec load từng FEN (XQA-113).
