@@ -36,6 +36,7 @@ Luật và mã lỗi của xin thua / xin hòa: `docs/api/socket.md` mục `game
   "lastMove": { "ply": 3, "from": "h0", "to": "g2", "piece": "n", "captured": null, "isCheck": false },
   "moves": [ ... ],
   "drawOffer": null,                  // { "by": "RED", "atPly": 3 } khi có đề nghị hòa chờ (XQA-91)
+  "disconnected": [],                 // [{ "color": "BLACK", "deadline": "<ISO>" }] khi có người mất kết nối (XQA-93)
   "redTimeLeftMs": 600000, "blackTimeLeftMs": 600000,   // chưa trừ giờ (XQA-141)
   "startedAt": "...", "endedAt": null
 }
@@ -60,9 +61,10 @@ Sau nước đi: hết nước hợp lệ cho bên kia → kết thúc (`CHECKMA
 | Lặp nước | theo RepetitionJudge | `REPETITION` (+ `endRule`) | Điều 23 |
 | Xin thua | đối thủ thắng | `RESIGNATION` | FR-14 |
 | Hai bên đồng ý hòa | `DRAW` | `DRAW_AGREEMENT` | FR-15 |
+| Mất kết nối quá hạn | đối thủ thắng (cả hai vắng → `ABORTED`, BR-RECON-01) | `DISCONNECT` | FR-22, XQA-93 |
 
 - Kết quả do server tính và ghi vào `matches` (`status`, `result`, `end_reason`, `ended_at`) trong cùng transaction với nước cuối / thao tác cuối. Không endpoint hay event nào nhận `result` từ client; field lạ trong body bị ValidationPipe bỏ (FR-13, BR-05).
 - Chỉ ván `ACTIVE` mới được chốt (`updateMany ... where status = ACTIVE`). Hai thao tác kết thúc cùng lúc (ví dụ xin thua và nước chiếu bí) → cái đến sau nhận `409` (`GAME_NOT_ACTIVE`, hoặc `GAME_STALE_STATE` nếu là nước đi), kết quả đầu giữ nguyên.
 - Sau khi chốt: phòng → `FINISHED`, đề nghị hòa còn chờ → `EXPIRED`.
 
-Chưa có: trừ đồng hồ / hết giờ `TIMEOUT` (XQA-141, Sprint 5), mất kết nối `DISCONNECT` (XQA-93), cập nhật Elo (Sprint 6).
+Chưa có: trừ đồng hồ / hết giờ `TIMEOUT` (XQA-141, Sprint 5), cập nhật Elo (Sprint 6).
