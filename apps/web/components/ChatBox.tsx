@@ -10,12 +10,24 @@ export interface ChatMessage {
   time: string;
 }
 
+/** FR-23: mỗi tin 1–300 ký tự (đếm theo ký tự Unicode, emoji = 1, khớp VARCHAR(300) của bảng chats). */
+export const CHAT_MAX_LENGTH = 300;
+
+export function chatLength(text: string): number {
+  return Array.from(text).length;
+}
+
 export interface ChatBoxProps {
   messages: ChatMessage[];
   onSendMessage: (text: string) => void;
   className?: string;
 }
 
+/**
+ * Khung chat trong màn ván (XQA-106, dữ liệu giả): danh sách tin, câu chat nhanh, ô nhập có bộ đếm 300 ký tự.
+ * Tin vượt 300 ký tự không gửi được (nút Gửi khóa + báo lỗi). Nối socket ở task sau (XQA-29).
+ * Nội dung tin hiện dạng text (React tự escape), không render HTML – chống XSS (NFR-04).
+ */
 const QUICK_CHIPS = ['Xin chào!', 'Nước cờ hay!', 'Chúc may mắn!', 'Cảm ơn!'];
 
 export default function ChatBox({
@@ -36,10 +48,14 @@ export default function ChatBox({
     scrollToBottom();
   }, [messages]);
 
+  const trimmed = inputText.trim();
+  const length = chatLength(trimmed);
+  const tooLong = length > CHAT_MAX_LENGTH;
+  const canSend = length > 0 && !tooLong;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = inputText.trim();
-    if (!trimmed) return;
+    if (!canSend) return;
     onSendMessage(trimmed);
     setInputText('');
   };
@@ -111,21 +127,36 @@ export default function ChatBox({
       </div>
 
       {/* Input form */}
-      <form onSubmit={handleSubmit} className="p-2.5 border-t border-slate-700 flex gap-2">
-        <input
-          type="text"
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          placeholder="Nhập tin nhắn..."
-          className="flex-1 bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
-        />
-        <button
-          type="submit"
-          disabled={!inputText.trim()}
-          className="bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs transition-all shadow-sm"
-        >
-          Gửi
-        </button>
+      <form onSubmit={handleSubmit} className="p-2.5 border-t border-slate-700 flex flex-col gap-1">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder="Nhập tin nhắn..."
+            aria-label="Tin nhắn"
+            aria-invalid={tooLong}
+            aria-describedby="chat-counter"
+            className={`flex-1 bg-slate-900/90 border rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none transition-colors ${
+              tooLong ? 'border-rose-500 focus:border-rose-400' : 'border-slate-700 focus:border-amber-500'
+            }`}
+          />
+          <button
+            type="submit"
+            disabled={!canSend}
+            className="bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs transition-all shadow-sm"
+          >
+            Gửi
+          </button>
+        </div>
+        <div className="flex items-center justify-between px-1 text-[10px]">
+          <span role={tooLong ? 'alert' : undefined} className="text-rose-400">
+            {tooLong ? `Tin nhắn tối đa ${CHAT_MAX_LENGTH} ký tự.` : ''}
+          </span>
+          <span id="chat-counter" data-testid="chat-counter" className={tooLong ? 'font-bold text-rose-400' : 'text-slate-500'}>
+            {length}/{CHAT_MAX_LENGTH}
+          </span>
+        </div>
       </form>
     </div>
   );
