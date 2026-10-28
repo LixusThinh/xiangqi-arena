@@ -1,10 +1,9 @@
 /**
- * XQA-108 – E2E luồng MVP: đăng ký → tạo phòng → 2 trình duyệt chơi → xin thua → xem lịch sử.
+ * XQA-108 – E2E luồng MVP: đăng ký → Sảnh tạo phòng / vào phòng → 2 trình duyệt chơi → xin thua → xem lịch sử.
  * Ô cờ theo xiangqi-core: index = hàng * 9 + cột, hàng 0 = đáy bên Đen; Board gắn data-testid piece-<ô>, cell-<ô>.
  */
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
-const API = process.env.E2E_API_URL ?? 'http://localhost:3000';
 const PASSWORD = 'E2e-pass-2026!';
 const sq = (name: string) => (name.charCodeAt(1) - 48) * 9 + (name.charCodeAt(0) - 97);
 
@@ -32,15 +31,14 @@ async function register(browser: Browser, tag: string): Promise<Player> {
   return { page, username, displayName };
 }
 
-/** Chưa có màn Sảnh (XQA-70) để bấm "Tạo phòng" → tạo phòng bằng REST với token của chính người chơi. */
-async function createRoom(host: Player): Promise<string> {
-  const token = await host.page.evaluate(() => localStorage.getItem('xiangqi-arena.accessToken'));
-  const res = await host.page.request.post(`${API}/rooms`, {
-    headers: { Authorization: `Bearer ${token}` },
-    data: { hostColorPref: 'RED', name: 'Phòng E2E' },
-  });
-  expect(res.status()).toBe(201);
-  return ((await res.json()) as { code: string }).code;
+/** XQA-70: chủ phòng tạo phòng ở màn Sảnh (cầm Đỏ), sang Phòng chờ; trả về mã phòng lấy từ URL. */
+async function createRoomInLobby(host: Player, name: string): Promise<string> {
+  await host.page.goto('/lobby');
+  await host.page.getByLabel('Tên phòng').fill(name);
+  await host.page.getByText('Đỏ (đi trước)').click();
+  await host.page.getByRole('button', { name: 'Tạo phòng' }).click();
+  await expect(host.page).toHaveURL(/\/room\/[A-Z0-9]+$/);
+  return new URL(host.page.url()).pathname.split('/').pop()!;
 }
 
 async function move(page: Page, from: string, to: string) {
@@ -56,10 +54,11 @@ test.describe('MVP: đăng ký → phòng → chơi online', () => {
   test.beforeEach(async ({ browser }) => {
     red = await register(browser, 'red');
     black = await register(browser, 'black');
-    code = await createRoom(red);
-    // Chủ phòng vào phòng chờ, khách mở link mời → tự vào phòng → đủ 2 người → cả hai sang màn ván
-    await red.page.goto(`/room/${code}`);
-    await black.page.goto(`/room/${code}`);
+    const roomName = `Phòng E2E ${Date.now().toString(36)}`;
+    code = await createRoomInLobby(red, roomName);
+    // Khách mở Sảnh → thấy phòng trong danh sách → bấm Vào → đủ 2 người → cả hai sang màn ván
+    await black.page.goto('/lobby');
+    await black.page.getByRole('button', { name: `Vào phòng ${roomName}` }).click();
     await expect(red.page).toHaveURL(new RegExp(`/room/${code}/play`), { timeout: 20_000 });
     await expect(black.page).toHaveURL(new RegExp(`/room/${code}/play`), { timeout: 20_000 });
     await expect(red.page.getByRole('status')).toContainText('Đến lượt bạn (Đỏ)');

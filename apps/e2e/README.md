@@ -17,9 +17,9 @@ corepack pnpm --filter @xiangqi-arena/e2e exec playwright install chromium   # l
 corepack pnpm --filter @xiangqi-arena/e2e e2e
 ```
 
-Biến môi trường: `E2E_WEB_URL` (mặc định `http://localhost:3001`), `E2E_API_URL` (mặc định `http://localhost:3000`).
+Biến môi trường: `E2E_WEB_URL` (mặc định `http://localhost:3001`).
 
 ## Giới hạn hiện tại
 
-- Chưa có màn Sảnh (XQA-70) nên phòng được tạo bằng REST `POST /rooms` với token của người chơi; khách vào bằng link mời `/room/<mã>`.
+- Phòng được tạo qua màn Sảnh `/lobby` (XQA-70): chủ phòng điền tên, chọn Đỏ, bấm "Tạo phòng"; khách mở Sảnh và bấm "Vào" ở phòng đó.
 - Ca "xin thua → lịch sử" đã bật (XQA-92, XQA-98 có trong develop).
