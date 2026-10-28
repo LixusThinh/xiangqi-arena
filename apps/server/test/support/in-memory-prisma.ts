@@ -3,7 +3,7 @@
  *
  * Vì sao không dùng PostgreSQL thật: job CI chỉ có DATABASE_URL giả, không có service Postgres.
  * Bộ giả lập này chỉ cài ĐÚNG các truy vấn mà AuthService / AuthJwtGuard / RoomService / GameService /
- * HistoryService đang dùng,
+ * HistoryService đang dùng (GameService gồm cả DrawOffer – XQA-91),
  * với ngữ nghĩa giống Prisma (unique constraint → lỗi P2002, select lồng quan hệ, updateMany trả count).
  * Thêm truy vấn mới vào service thì phải bổ sung ở đây, nếu không test sẽ báo "not implemented".
  */
@@ -62,6 +62,7 @@ export class InMemoryPrisma {
   readonly match: ModelDelegate;
   readonly move: ModelDelegate;
   readonly ratingHistory: ModelDelegate;
+  readonly drawOffer: ModelDelegate;
 
   constructor() {
     const now = (): Date => new Date();
@@ -127,6 +128,14 @@ export class InMemoryPrisma {
           redPlayer: { table: 'user', kind: 'one', localKey: 'redPlayerId', foreignKey: 'id' },
           blackPlayer: { table: 'user', kind: 'one', localKey: 'blackPlayerId', foreignKey: 'id' },
           moves: { table: 'move', kind: 'many', localKey: 'id', foreignKey: 'matchId' },
+          drawOffers: { table: 'drawOffer', kind: 'many', localKey: 'id', foreignKey: 'matchId' },
+        },
+      },
+      drawOffer: {
+        unique: [],
+        defaults: () => ({ status: 'PENDING', createdAt: now() }),
+        relations: {
+          match: { table: 'match', kind: 'one', localKey: 'matchId', foreignKey: 'id' },
         },
       },
       move: {
@@ -173,6 +182,7 @@ export class InMemoryPrisma {
     this.match = new ModelDelegate(this, 'match');
     this.move = new ModelDelegate(this, 'move');
     this.ratingHistory = new ModelDelegate(this, 'ratingHistory');
+    this.drawOffer = new ModelDelegate(this, 'drawOffer');
   }
 
   /**

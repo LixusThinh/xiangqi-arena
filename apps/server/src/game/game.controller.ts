@@ -37,4 +37,31 @@ export class GameController {
   ): Promise<GameStateView> {
     return this.gameService.makeMove(id, req.user.sub, dto);
   }
+
+  // XQA-91: bản REST dự phòng của game:resign / game:draw-*. Không nhận body: kết quả do server tính.
+  // REST không phát game:update cho đối thủ; FE dùng socket, REST để test và gọi tay.
+
+  @Post('matches/:id/resign')
+  @HttpCode(HttpStatus.OK)
+  resign(@Req() req: AuthenticatedRequest, @Param('id') id: string): Promise<GameStateView> {
+    return this.gameService.resign(id, req.user.sub);
+  }
+
+  @Post('matches/:id/draw-offer')
+  @HttpCode(HttpStatus.OK)
+  offerDraw(@Req() req: AuthenticatedRequest, @Param('id') id: string): Promise<GameStateView> {
+    return this.gameService.offerDraw(id, req.user.sub);
+  }
+
+  @Post('matches/:id/draw-accept')
+  @HttpCode(HttpStatus.OK)
+  acceptDraw(@Req() req: AuthenticatedRequest, @Param('id') id: string): Promise<GameStateView> {
+    return this.gameService.respondDraw(id, req.user.sub, true);
+  }
+
+  @Post('matches/:id/draw-reject')
+  @HttpCode(HttpStatus.OK)
+  rejectDraw(@Req() req: AuthenticatedRequest, @Param('id') id: string): Promise<GameStateView> {
+    return this.gameService.respondDraw(id, req.user.sub, false);
+  }
 }

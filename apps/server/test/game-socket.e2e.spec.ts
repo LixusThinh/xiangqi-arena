@@ -238,4 +238,70 @@ describe('XQA-75 Socket game events (e2e)', () => {
     const after = await emit(r, 'game:move', { matchId, from: 'h9', to: 'g7', expectedPly: ply });
     expect(after).toMatchObject({ ok: false, error: { code: 'GAME_NOT_ACTIVE' } });
   });
+
+  describe('XQA-91: xin thua / xin hòa qua socket', () => {
+    it('game:resign → cả 2 client nhận game:update + game:end (RESIGNATION, đối thủ thắng)', async () => {
+      const r = await joinedPlayer(red);
+      const b = await joinedPlayer(black);
+      const ends = [next<Record<string, unknown>>(r, 'game:end'), next<Record<string, unknown>>(b, 'game:end')];
+      const blackUpdate = next<StateBody & { result: string }>(b, 'game:update');
+      const ack = await emit(r, 'game:resign', { matchId });
+      expect(ack).toMatchObject({ ok: true, data: { status: 'FINISHED' } });
+      expect(await blackUpdate).toMatchObject({ status: 'FINISHED', result: 'BLACK_WIN', yourColor: 'BLACK' });
+      for (const end of await Promise.all(ends)) {
+        expect(end).toMatchObject({ matchId, result: 'BLACK_WIN', endReason: 'RESIGNATION' });
+      }
+    });
+
+    it('AC1: đề nghị hòa → đối thủ nhận game:draw-offered; đồng ý → game:end DRAW_AGREEMENT', async () => {
+      const r = await joinedPlayer(red);
+      const b = await joinedPlayer(black);
+      const offered = next<Record<string, unknown>>(b, 'game:draw-offered');
+      const offerAck = await emit(r, 'game:draw-offer', { matchId });
+      expect(offerAck).toMatchObject({ ok: true, data: { drawOffer: { by: 'RED', atPly: 0 } } });
+      expect(await offered).toEqual({ matchId, by: 'RED', atPly: 0 });
+
+      const ends = [next<Record<string, unknown>>(r, 'game:end'), next<Record<string, unknown>>(b, 'game:end')];
+      const accept = await emit(b, 'game:draw-accept', { matchId });
+      expect(accept).toMatchObject({ ok: true, data: { status: 'FINISHED' } });
+      for (const end of await Promise.all(ends)) {
+        expect(end).toMatchObject({ matchId, result: 'DRAW', endReason: 'DRAW_AGREEMENT' });
+      }
+    });
+
+    it('từ chối hòa → người đề nghị nhận game:draw-rejected, ván tiếp tục, không có game:end', async () => {
+      const r = await joinedPlayer(red);
+      const b = await joinedPlayer(black);
+      await emit(r, 'game:draw-offer', { matchId });
+      let ended = false;
+      r.on('game:end', () => (ended = true));
+      const rejected = next<Record<string, unknown>>(r, 'game:draw-rejected');
+      const ack = await emit(b, 'game:draw-reject', { matchId });
+      expect(ack).toMatchObject({ ok: true, data: { status: 'ACTIVE', drawOffer: null } });
+      expect(await rejected).toEqual({ matchId, by: 'BLACK' });
+      const moved = await emit(r, 'game:move', { matchId, from: 'h7', to: 'e7', expectedPly: 0 });
+      expect(moved.ok).toBe(true);
+      expect(ended).toBe(false);
+    });
+
+    it('người ngoài / chưa join gửi game:resign, game:draw-* → GAME_NOT_JOINED, ván không đổi', async () => {
+      const o = connect(outsider);
+      await connected(o);
+      for (const event of ['game:resign', 'game:draw-offer', 'game:draw-accept', 'game:draw-reject']) {
+        const ack = await emit(o, event, { matchId });
+        expect(ack).toMatchObject({ ok: false, error: { code: 'GAME_NOT_JOINED' } });
+      }
+      expect(t.prisma.rows('match')[0]).toMatchObject({ result: null, endReason: null });
+      expect(t.prisma.rows('match')[0].status).not.toBe('FINISHED');
+      expect(t.prisma.rows('drawOffer')).toHaveLength(0);
+    });
+
+    it('payload sai → VALIDATION_ERROR; tự đồng ý đề nghị của mình → GAME_DRAW_OFFER_OWN', async () => {
+      const r = await joinedPlayer(red);
+      expect(await emit(r, 'game:resign', {})).toMatchObject({ ok: false, error: { code: 'VALIDATION_ERROR' } });
+      await emit(r, 'game:draw-offer', { matchId });
+      const own = await emit(r, 'game:draw-accept', { matchId });
+      expect(own).toMatchObject({ ok: false, error: { code: 'GAME_DRAW_OFFER_OWN' } });
+    });
+  });
 });

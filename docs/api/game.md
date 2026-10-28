@@ -1,4 +1,4 @@
-# Contract Game v0.1 (XQA-74)
+# Contract Game v0.2 (XQA-74, XQA-90, XQA-91)
 
 GameService là authority của ván cờ (BR-03, NFR-06). REST dưới đây dùng để tải trạng thái (tải lại trang – NFR-07) và đi quân dự phòng; realtime đi qua Socket.IO (`docs/api/socket.md`, XQA-75), gateway gọi cùng GameService nên luật kiểm tra giống hệt.
 
@@ -9,6 +9,12 @@ Mọi endpoint cần `Authorization: Bearer <accessToken>`.
 | GET | `/matches/:id` | Trạng thái ván. Ván `WAITING` (vừa đủ 2 người) được bắt đầu khi một người chơi mở lần đầu |
 | GET | `/rooms/:code/match` | Như trên, tìm theo mã phòng |
 | POST | `/matches/:id/moves` | Đi một nước. Body `{ "from": "h7", "to": "e7", "expectedPly": 0 }` → `200` + trạng thái mới |
+| POST | `/matches/:id/resign` | Xin thua (XQA-91). Không body → `200` + trạng thái mới |
+| POST | `/matches/:id/draw-offer` | Đề nghị hòa |
+| POST | `/matches/:id/draw-accept` | Đồng ý đề nghị hòa của đối thủ |
+| POST | `/matches/:id/draw-reject` | Từ chối đề nghị hòa của đối thủ |
+
+Luật và mã lỗi của xin thua / xin hòa: `docs/api/socket.md` mục `game:resign`, `game:draw-*`.
 
 Ô theo ký hiệu xiangqi-core: cột `a`–`i` từ trái sang phải nhìn từ phía Đỏ, hàng `0` là hàng đáy bên Đen, hàng `9` là hàng đáy bên Đỏ.
 
@@ -22,13 +28,14 @@ Mọi endpoint cần `Authorization: Bearer <accessToken>`.
   "turn": "BLACK",                    // null khi ván kết thúc
   "inCheck": false,
   "result": null,                     // RED_WIN | BLACK_WIN | DRAW
-  "endReason": null,                  // CHECKMATE | STALEMATE (hết nước – Điều 7.1b) | REPETITION | ...
+  "endReason": null,                  // CHECKMATE | STALEMATE (hết nước – Điều 7.1b) | REPETITION | RESIGNATION | DRAW_AGREEMENT
   "endRule": null,                    // căn cứ Điều 23 khi endReason = REPETITION
   "red": { "id": "1", "username": "...", "displayName": "...", "rating": 1200 },
   "black": { ... },
   "yourColor": "RED",                 // null nếu không phải người chơi
   "lastMove": { "ply": 3, "from": "h0", "to": "g2", "piece": "n", "captured": null, "isCheck": false },
   "moves": [ ... ],
+  "drawOffer": null,                  // { "by": "RED", "atPly": 3 } khi có đề nghị hòa chờ (XQA-91)
   "redTimeLeftMs": 600000, "blackTimeLeftMs": 600000,   // chưa trừ giờ (XQA-141)
   "startedAt": "...", "endedAt": null
 }
@@ -44,4 +51,18 @@ Mọi endpoint cần `Authorization: Bearer <accessToken>`.
 
 Sau nước đi: hết nước hợp lệ cho bên kia → kết thúc (`CHECKMATE` hoặc `STALEMATE` theo Điều 7.1, bên hết nước thua); RepetitionJudge xử lặp nước (Điều 23) → `REPETITION`. Ván kết thúc thì phòng chuyển `FINISHED`.
 
-Chưa có: trừ đồng hồ / hết giờ (XQA-141), xin thua / xin hòa (XQA-91), mất kết nối (XQA-93), cập nhật Elo.
+## Kết thúc ván và lưu kết quả (XQA-90)
+
+| Cách kết thúc | `result` | `endReason` | Nguồn |
+|---|---|---|---|
+| Chiếu bí | bên chiếu thắng | `CHECKMATE` | Điều 7.1 |
+| Hết nước đi | bên còn nước thắng | `STALEMATE` | Điều 7.1b |
+| Lặp nước | theo RepetitionJudge | `REPETITION` (+ `endRule`) | Điều 23 |
+| Xin thua | đối thủ thắng | `RESIGNATION` | FR-14 |
+| Hai bên đồng ý hòa | `DRAW` | `DRAW_AGREEMENT` | FR-15 |
+
+- Kết quả do server tính và ghi vào `matches` (`status`, `result`, `end_reason`, `ended_at`) trong cùng transaction với nước cuối / thao tác cuối. Không endpoint hay event nào nhận `result` từ client; field lạ trong body bị ValidationPipe bỏ (FR-13, BR-05).
+- Chỉ ván `ACTIVE` mới được chốt (`updateMany ... where status = ACTIVE`). Hai thao tác kết thúc cùng lúc (ví dụ xin thua và nước chiếu bí) → cái đến sau nhận `409` (`GAME_NOT_ACTIVE`, hoặc `GAME_STALE_STATE` nếu là nước đi), kết quả đầu giữ nguyên.
+- Sau khi chốt: phòng → `FINISHED`, đề nghị hòa còn chờ → `EXPIRED`.
+
+Chưa có: trừ đồng hồ / hết giờ `TIMEOUT` (XQA-141, Sprint 5), mất kết nối `DISCONNECT` (XQA-93), cập nhật Elo (Sprint 6).

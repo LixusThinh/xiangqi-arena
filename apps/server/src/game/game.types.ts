@@ -19,6 +19,13 @@ export interface GameMoveView {
   isCheck: boolean;
 }
 
+/** Đề nghị hòa đang chờ đối thủ trả lời (XQA-91). */
+export interface DrawOfferView {
+  by: PlayerColor;
+  /** Ply lúc đề nghị. */
+  atPly: number;
+}
+
 /** Trạng thái ván gửi cho FE (REST và socket dùng chung). */
 export interface GameStateView {
   matchId: string;
@@ -39,6 +46,8 @@ export interface GameStateView {
   yourColor: PlayerColor | null;
   lastMove: GameMoveView | null;
   moves: GameMoveView[];
+  /** Đề nghị hòa đang chờ; null nếu không có hoặc ván đã kết thúc. */
+  drawOffer: DrawOfferView | null;
   redTimeLeftMs: number;
   blackTimeLeftMs: number;
   startedAt: Date | null;
