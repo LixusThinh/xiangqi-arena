@@ -8,9 +8,10 @@
     "build": "tsc -p tsconfig.build.json",
     "fixtures:generate": "node scripts/generate-fixtures.js",
     "test": "jest",
-    "test:harness": "node scripts/ci-rules-harness.js",
+    "test:harness": "node scripts/ci-rules-harness.js && node scripts/ci-repetition-harness.js",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "bench:ai": "node scripts/ai-benchmark.js --games 20 --a HARD --b EASY --min-win-rate 0.7"
+    "bench:ai": "node scripts/ai-benchmark.js --games 20 --a HARD --b EASY --min-win-rate 0.7",
+    "test:harness:dieu23": "node scripts/ci-repetition-harness.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.24.0",
