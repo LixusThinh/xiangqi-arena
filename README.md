@@ -1,6 +1,6 @@
 # Xiangqi Arena
 
-Nền tảng Cờ Tướng trực tuyến – đồ án môn Quản lý Dự án CNTT (HUTECH).
+Nền tảng Cờ Tướng trực tuyến – đồ án môn Quản lý Dự án CNTT.
 
 Stack (D-02): Next.js · NestJS · PostgreSQL · Socket.IO · TypeScript · pnpm workspaces.
 
