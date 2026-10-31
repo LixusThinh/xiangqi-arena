@@ -53,8 +53,13 @@ export interface GameState {
   drawOffer: DrawOffer | null;
   /** Người chơi đang mất kết nối (XQA-93); rỗng nếu cả hai đang kết nối. */
   disconnected: DisconnectedPlayer[];
+  /** Thời gian còn lại (ms) tại lúc server gửi (XQA-141). Chỉ để hiển thị – server tự xử hết giờ. */
   redTimeLeftMs: number;
   blackTimeLeftMs: number;
+  /** Bên đang chạy giờ; null khi ván chưa chạy / đã kết thúc. */
+  clockRunning: PlayerColor | null;
+  incrementMs: number;
+  serverTime: string;
   startedAt: string | null;
   endedAt: string | null;
 }

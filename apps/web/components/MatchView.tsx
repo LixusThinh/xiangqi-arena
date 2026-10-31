@@ -16,7 +16,9 @@ import {
   type GameConnection,
   type GameEnd,
   type GameState,
+  type PlayerColor,
 } from '@/lib/game-socket';
+import { formatClock, useDisplayClock, type ClockSnapshot } from '@/lib/game-clock';
 import { ROOM_ERROR_MESSAGES, roomApi, type RoomDetail, type RoomMember } from '@/lib/room-api';
 import { getAccessToken } from '@/lib/session';
 
@@ -130,6 +132,8 @@ export default function MatchView({
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, [opponentGone]);
+
+  const clock = useDisplayClock(game);
 
   const position = useMemo(() => (game ? Position.fromFen(game.fen) : Position.initial()), [game]);
   const myTurn =
@@ -245,6 +249,8 @@ export default function MatchView({
   const incomingOffer = offer !== null && !myOffer;
 
   // Lấy màu từ state socket (game.yourColor), cùng nguồn với statusText và orientation, không lấy room.members.
+  const opponentColor: PlayerColor | null =
+    game?.yourColor === 'RED' ? 'BLACK' : game?.yourColor === 'BLACK' ? 'RED' : null;
   const meToMove = active && game?.turn != null && game.turn === game.yourColor;
   const opponentToMove = active && game?.turn != null && game.yourColor != null && game.turn !== game.yourColor;
 
@@ -284,7 +290,7 @@ export default function MatchView({
 
           {/* Màn hẹp: cột thông tin lên trên bàn cờ để cảnh báo mất kết nối không bị khuất dưới bàn */}
           <aside className="order-first flex w-full max-w-[560px] flex-col gap-3 lg:order-none lg:w-80 lg:shrink-0 lg:self-stretch">
-            <PlayerBadge member={opponent} toMove={opponentToMove} />
+            <PlayerBadge member={opponent} toMove={opponentToMove} clockMs={clockFor(clock, opponentColor)} />
 
             <section className="rounded-3xl border border-slate-800 bg-slate-900/40 p-4">
               <p className="text-xs uppercase tracking-widest text-slate-500">Trạng thái ván</p>
@@ -350,7 +356,7 @@ export default function MatchView({
             )}
 
             <div className="lg:mt-auto">
-              <PlayerBadge member={me} isMe toMove={meToMove} />
+              <PlayerBadge member={me} isMe toMove={meToMove} clockMs={clockFor(clock, game?.yourColor ?? null)} />
             </div>
           </aside>
         </div>
@@ -402,14 +408,22 @@ function endMessage(end: Pick<GameEnd, 'result' | 'endReason' | 'endRule'>): str
   return [who, reason, end.endRule].filter(Boolean).join(' — ') + '.';
 }
 
+function clockFor(clock: ClockSnapshot | null, color: PlayerColor | null): number | null {
+  if (!clock || !color) return null;
+  return color === 'RED' ? clock.redMs : clock.blackMs;
+}
+
 function PlayerBadge({
   member,
   isMe = false,
   toMove = false,
+  clockMs = null,
 }: {
   member: RoomMember | null;
   isMe?: boolean;
   toMove?: boolean;
+  /** Thời gian còn lại để hiển thị (đếm theo số server gửi); null khi chưa có ván. */
+  clockMs?: number | null;
 }) {
   if (!member) return null;
   const red = member.color === 'RED';
@@ -439,7 +453,24 @@ function PlayerBadge({
           Quân {colorLabel} · Elo {member.rating}
         </p>
       </div>
-      {toMove && <span className="text-xs font-semibold text-amber-300">Đang đi</span>}
+      <div className="flex flex-col items-end gap-0.5">
+        {clockMs !== null && (
+          <span
+            data-testid={isMe ? 'clock-me' : 'clock-opponent'}
+            aria-label={`Thời gian còn lại ${formatClock(clockMs)}`}
+            className={`rounded-lg px-2 py-1 font-mono text-lg font-bold tabular-nums ${
+              clockMs < 30_000
+                ? 'bg-rose-500/15 text-rose-300'
+                : toMove
+                  ? 'bg-amber-400/15 text-amber-200'
+                  : 'bg-slate-800/80 text-slate-300'
+            }`}
+          >
+            {formatClock(clockMs)}
+          </span>
+        )}
+        {toMove && <span className="text-xs font-semibold text-amber-300">Đang đi</span>}
+      </div>
     </div>
   );
 }

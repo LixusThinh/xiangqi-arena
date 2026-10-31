@@ -10,6 +10,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { AuthJwtGuard } from '../auth/auth-jwt.guard';
+import { ClockService } from './clock.service';
 import { GameService } from './game.service';
 import { GameStateView, PlayerColor } from './game.types';
 import { PresenceService } from './presence.service';
@@ -58,7 +59,9 @@ export function viewFor(state: GameStateView, userId: string): GameStateView {
  * - Mất kết nối (XQA-93): socket cuối cùng của một người chơi rời ván ACTIVE → giữ ván
  *   RuleProfile.reconnectGraceSec (60s), phát player:disconnected { matchId, color, deadline, graceSec }.
  *   game:join lại trong hạn → player:reconnected; quá hạn → GameService.forfeitByDisconnect, phát game:update + game:end.
- * - Chưa có: đồng hồ (XQA-141).
+ * - Đồng hồ (XQA-141): sau mỗi lần phát state của ván ACTIVE, hẹn giờ đúng lúc bên tới lượt hết giờ;
+ *   chuông kêu → GameService.checkTimeout tự tính lại từ DB, hết giờ thật thì chốt TIMEOUT + game:update + game:end.
+ *   Server khởi động → hẹn lại cho mọi ván ACTIVE. Client không có event nào để báo hết giờ.
  */
 @WebSocketGateway()
 export class GameGateway implements OnGatewayInit, OnGatewayDisconnect {
@@ -71,9 +74,16 @@ export class GameGateway implements OnGatewayInit, OnGatewayDisconnect {
     private readonly gameService: GameService,
     private readonly authGuard: AuthJwtGuard,
     private readonly presence: PresenceService,
+    private readonly clock: ClockService,
   ) {}
 
   afterInit(server: Server): void {
+    // Server vừa khởi động (hoặc Render free vừa thức dậy): hẹn giờ lại cho các ván đang chơi
+    void this.gameService.activeClocks().then(
+      (clocks) => clocks.forEach(({ matchId, remainingMs }) => this.scheduleFlag(matchId, remainingMs)),
+      (error: unknown) =>
+        this.logger.error('restore match clocks failed', error instanceof Error ? error.stack : String(error)),
+    );
     // Middleware chạy trước khi socket được coi là connected → không có event nào lọt vào trước khi xác thực xong.
     server.use((socket, next) => {
       const token: unknown = isRecord(socket.handshake.auth) ? socket.handshake.auth.token : undefined;
@@ -118,6 +128,7 @@ export class GameGateway implements OnGatewayInit, OnGatewayDisconnect {
           state = await this.gameService.getState(matchId, userId);
         }
       }
+      this.syncClock(state);
       return { ok: true, data: state };
     } catch (error) {
       return { ok: false, error: this.toError(error) };
@@ -248,8 +259,38 @@ export class GameGateway implements OnGatewayInit, OnGatewayDisconnect {
     }
   }
 
+  /** Hẹn giờ theo đồng hồ đang chạy trong state; ván không còn chạy giờ thì bỏ hẹn. */
+  private syncClock(state: GameStateView): void {
+    if (state.status !== 'ACTIVE' || !state.clockRunning) {
+      this.clock.clear(state.matchId);
+      return;
+    }
+    const remainingMs = state.clockRunning === 'RED' ? state.redTimeLeftMs : state.blackTimeLeftMs;
+    this.scheduleFlag(state.matchId, remainingMs);
+  }
+
+  private scheduleFlag(matchId: string, remainingMs: number): void {
+    // +25ms để chuông kêu sau mốc hết giờ, tránh phải hẹn lại vì làm tròn
+    this.clock.schedule(matchId, remainingMs + 25, () => {
+      void this.flag(matchId);
+    });
+  }
+
+  /** Chuông hết giờ kêu: server tính lại, hết giờ thật thì phát kết quả, chưa thì hẹn lại. */
+  private async flag(matchId: string): Promise<void> {
+    try {
+      const outcome = await this.gameService.checkTimeout(matchId);
+      if (!outcome) return;
+      if ('ended' in outcome) await this.broadcast(outcome.ended);
+      else this.scheduleFlag(matchId, outcome.remainingMs);
+    } catch (error) {
+      this.logger.error(`clock check failed for match ${matchId}`, error instanceof Error ? error.stack : String(error));
+    }
+  }
+
   /** Phát trạng thái mới cho mọi socket trong phòng ván, mỗi socket nhận yourColor của chính nó. */
   private async broadcast(state: GameStateView): Promise<void> {
+    this.syncClock(state);
     const sockets = await this.server.in(matchRoom(state.matchId)).fetchSockets();
     for (const s of sockets) {
       s.emit('game:update', viewFor(state, (s.data as SocketData).userId));

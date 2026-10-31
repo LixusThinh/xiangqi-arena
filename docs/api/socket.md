@@ -2,7 +2,7 @@
 
 Kênh realtime cho ván cờ. Gateway chỉ là transport: mọi luật (đúng người, đúng lượt, `expectedPly`, luật đi quân, kết thúc ván) do `GameService` quyết — giống hệt REST `POST /matches/:id/moves` (`docs/api/game.md`, XQA-74).
 
-> Phạm vi v0.2: `game:join`, `game:move`, `game:resign`, `game:draw-offer` / `draw-accept` / `draw-reject`, `game:update`, `game:end`, `game:draw-offered`, `game:draw-rejected`. v0.3 thêm `player:disconnected`, `player:reconnected` và giữ ván khi mất kết nối (XQA-93). Chưa có: đồng hồ (XQA-141), `room:*`, `webrtc:*` (XQA-124).
+> Phạm vi v0.2: `game:join`, `game:move`, `game:resign`, `game:draw-offer` / `draw-accept` / `draw-reject`, `game:update`, `game:end`, `game:draw-offered`, `game:draw-rejected`. v0.3 thêm `player:disconnected`, `player:reconnected` và giữ ván khi mất kết nối (XQA-93). v0.4 thêm đồng hồ do server tính (XQA-141): `game:update` / ack mang `clockRunning`, `redTimeLeftMs`, `blackTimeLeftMs`, `serverTime`; hết giờ → server tự phát `game:update` + `game:end` với `endReason: "TIMEOUT"` (xem `docs/api/game.md`). Chưa có: `room:*`, `webrtc:*` (XQA-124).
 
 ## Kết nối
 
