@@ -98,7 +98,7 @@ export default function Board({
           height={BOARD_HEIGHT}
         />
 
-        {/* Layer 2: Highlight nước vừa đi (lastMove) */}
+        {/* Layer 2: Highlight nước vừa đi (lastMove). mask2-orange.png = mask2.png (hồng tím) tô lại màu cam cho hợp nền gỗ */}
         {lastMove && isValidSquare(lastMove.from) && isValidSquare(lastMove.to) && (
           <>
             {(() => {
@@ -106,12 +106,12 @@ export default function Board({
               return (
                 <image
                   data-testid="last-move-from"
-                  href="/ChessImage/mask2.png"
+                  href="/ChessImage/mask2-orange.png"
                   x={fromCoords.x}
                   y={fromCoords.y}
                   width={CELL_SIZE}
                   height={CELL_SIZE}
-                  className="pointer-events-none opacity-80"
+                  className="pointer-events-none opacity-90"
                 />
               );
             })()}
@@ -120,12 +120,12 @@ export default function Board({
               return (
                 <image
                   data-testid="last-move-to"
-                  href="/ChessImage/mask2.png"
+                  href="/ChessImage/mask2-orange.png"
                   x={toCoords.x}
                   y={toCoords.y}
                   width={CELL_SIZE}
                   height={CELL_SIZE}
-                  className="pointer-events-none opacity-80"
+                  className="pointer-events-none opacity-90"
                 />
               );
             })()}
@@ -139,7 +139,9 @@ export default function Board({
             return (
               <image
                 data-testid="selected-mask"
-                href="/ChessImage/mask.png"
+                // mask-white.png = mask.png (4 góc 4 màu) tô trắng đồng nhất.
+                // Tô sẵn trong ảnh vì Safari không áp CSS filter lên <image> trong SVG.
+                href="/ChessImage/mask-white.png"
                 x={coords.x}
                 y={coords.y}
                 width={CELL_SIZE}

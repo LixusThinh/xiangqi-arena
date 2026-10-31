@@ -85,7 +85,7 @@ describe('<Board />', () => {
     render(<Board fen={STARTING_FEN} selectedSquare={85} />);
     const mask = screen.getByTestId('selected-mask');
     expect(mask).toBeInTheDocument();
-    expect(mask).toHaveAttribute('href', '/ChessImage/mask.png');
+    expect(mask).toHaveAttribute('href', '/ChessImage/mask-white.png');
     expect(mask).toHaveAttribute('x', '330');
     expect(mask).toHaveAttribute('y', '730');
   });
@@ -96,9 +96,9 @@ describe('<Board />', () => {
     const toMask = screen.getByTestId('last-move-to');
 
     expect(fromMask).toBeInTheDocument();
-    expect(fromMask).toHaveAttribute('href', '/ChessImage/mask2.png');
+    expect(fromMask).toHaveAttribute('href', '/ChessImage/mask2-orange.png');
     expect(toMask).toBeInTheDocument();
-    expect(toMask).toHaveAttribute('href', '/ChessImage/mask2.png');
+    expect(toMask).toHaveAttribute('href', '/ChessImage/mask2-orange.png');
   });
 
   it('does not crash and does not render mask when selectedSquare is out of bounds', () => {

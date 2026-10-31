@@ -84,8 +84,9 @@ export default function AuthForm({ mode }: AuthFormProps) {
         clearSession();
         throw error;
       }
-      // Bị route guard đưa về /login?next=/room/ABC → đăng nhập xong quay lại đúng trang đó
-      router.push(safeNextPath(new URLSearchParams(window.location.search).get('next')));
+      // Bị route guard đưa về /login?next=/room/ABC → đăng nhập xong quay lại đúng trang đó.
+      // Không có ?next= → vào Sảnh (trang chủ / vẫn là màn bàn cờ dữ liệu giả).
+      router.push(safeNextPath(new URLSearchParams(window.location.search).get('next'), '/lobby'));
     } catch (error) {
       if (error instanceof AuthApiError && error.fields.length > 0) {
         // Backend trả 400 kèm details[] → đánh dấu đúng ô bị lỗi.
