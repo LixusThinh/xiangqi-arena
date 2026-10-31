@@ -117,7 +117,7 @@ describe('AuthForm', () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  it('registers with the backend, verifies /me, and navigates home', async () => {
+  it('registers with the backend, verifies /me, and navigates to the lobby', async () => {
     const fetchMock = global.fetch as jest.Mock;
     fetchMock
       .mockResolvedValueOnce(mockResponse(session, 201))

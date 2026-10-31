@@ -244,7 +244,9 @@ export default function MatchView({
   const myOffer = offer !== null && offer.by === game?.yourColor;
   const incomingOffer = offer !== null && !myOffer;
 
-  const turnColor = active ? game?.turn ?? null : null;
+  // Lấy màu từ state socket (game.yourColor), cùng nguồn với statusText và orientation, không lấy room.members.
+  const meToMove = active && game?.turn != null && game.turn === game.yourColor;
+  const opponentToMove = active && game?.turn != null && game.yourColor != null && game.turn !== game.yourColor;
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-4 text-slate-100">
@@ -268,7 +270,7 @@ export default function MatchView({
 
         <div className="mt-4 flex flex-col items-center gap-5 lg:flex-row lg:items-start lg:justify-center">
           {/* Bàn cờ co theo chiều cao màn hình để không phải cuộn (tỉ lệ ảnh bàn 741×821) */}
-          <div className="w-full max-w-[560px] lg:w-[min(560px,calc((100dvh-6.5rem)*741/821))]">
+          <div className="w-full max-w-[560px] lg:w-[clamp(20rem,calc((100dvh-6.5rem)*741/821),560px)]">
             <Board
               position={position}
               orientation={orientation}
@@ -280,8 +282,9 @@ export default function MatchView({
             />
           </div>
 
-          <aside className="flex w-full max-w-[560px] flex-col gap-3 lg:w-80 lg:shrink-0 lg:self-stretch">
-            <PlayerBadge member={opponent} toMove={turnColor !== null && turnColor === opponent?.color} />
+          {/* Màn hẹp: cột thông tin lên trên bàn cờ để cảnh báo mất kết nối không bị khuất dưới bàn */}
+          <aside className="order-first flex w-full max-w-[560px] flex-col gap-3 lg:order-none lg:w-80 lg:shrink-0 lg:self-stretch">
+            <PlayerBadge member={opponent} toMove={opponentToMove} />
 
             <section className="rounded-3xl border border-slate-800 bg-slate-900/40 p-4">
               <p className="text-xs uppercase tracking-widest text-slate-500">Trạng thái ván</p>
@@ -347,7 +350,7 @@ export default function MatchView({
             )}
 
             <div className="lg:mt-auto">
-              <PlayerBadge member={me} isMe toMove={turnColor !== null && turnColor === me?.color} />
+              <PlayerBadge member={me} isMe toMove={meToMove} />
             </div>
           </aside>
         </div>
@@ -410,7 +413,8 @@ function PlayerBadge({
 }) {
   if (!member) return null;
   const red = member.color === 'RED';
-  const colorLabel = red ? 'Đỏ' : member.color === 'BLACK' ? 'Đen' : '—';
+  const black = member.color === 'BLACK';
+  const colorLabel = red ? 'Đỏ' : black ? 'Đen' : '—';
   return (
     <div
       data-testid={isMe ? 'player-me' : 'player-opponent'}
@@ -424,7 +428,7 @@ function PlayerBadge({
           red ? 'border-rose-400/70 bg-rose-950 text-rose-300' : 'border-slate-500 bg-slate-800 text-slate-200'
         }`}
       >
-        {red ? '帥' : '將'}
+        {red ? '帥' : black ? '將' : '?'}
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold text-slate-100">

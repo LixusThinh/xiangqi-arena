@@ -11,7 +11,7 @@ describe('ChessImage Assets', () => {
   });
 
   it('contains mask images', () => {
-    ['mask.png', 'mask2.png'].forEach((file) => {
+    ['mask.png', 'mask2.png', 'mask-white.png', 'mask2-orange.png'].forEach((file) => {
       const filePath = path.join(assetDir, file);
       expect(fs.existsSync(filePath)).toBe(true);
       expect(fs.statSync(filePath).size).toBeGreaterThan(0);
