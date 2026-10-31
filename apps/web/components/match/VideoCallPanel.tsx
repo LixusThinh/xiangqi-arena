@@ -22,6 +22,8 @@ export interface VideoCallPanelProps {
   onAccept?: () => void;
   onDecline?: () => void;
   className?: string;
+  /** Class kích thước khung video lớn (mặc định 16:9 theo bề ngang cột). */
+  videoClassName?: string;
 }
 
 const STATUS_LABEL: Record<CallStatus, string> = {
@@ -49,6 +51,7 @@ function VideoTile({
   muted,
   testId,
   small = false,
+  sizeClassName = 'aspect-video w-full',
 }: {
   name: string;
   stream?: MediaStream | null;
@@ -56,6 +59,7 @@ function VideoTile({
   muted: boolean;
   testId: string;
   small?: boolean;
+  sizeClassName?: string;
 }) {
   const ref = useRef<HTMLVideoElement | null>(null);
   const showVideo = !!stream && camOn;
@@ -66,7 +70,7 @@ function VideoTile({
   return (
     <div
       data-testid={testId}
-      className={`relative overflow-hidden rounded-xl bg-slate-800 ${small ? 'h-full w-full' : 'aspect-video w-full'}`}
+      className={`relative overflow-hidden rounded-xl bg-slate-800 ${small ? 'h-full w-full' : sizeClassName}`}
     >
       {/* Luôn giữ thẻ video khi có stream để tiếng của đối thủ vẫn phát lúc họ tắt cam */}
       {stream && (
@@ -117,6 +121,7 @@ export default function VideoCallPanel({
   onAccept,
   onDecline,
   className = '',
+  videoClassName,
 }: VideoCallPanelProps) {
   const inCall = status === 'calling' || status === 'connecting' || status === 'connected';
   const control =
@@ -134,7 +139,14 @@ export default function VideoCallPanel({
       </div>
 
       <div className="relative">
-        <VideoTile name={opponentName} stream={opponentStream} camOn testId="video-opponent" muted={false} />
+        <VideoTile
+          name={opponentName}
+          stream={opponentStream}
+          camOn
+          testId="video-opponent"
+          muted={false}
+          sizeClassName={videoClassName}
+        />
         <div className="absolute bottom-2 right-2 h-[30%] w-[32%] rounded-xl ring-2 ring-slate-950">
           <VideoTile name={selfName} stream={localStream} camOn={camOn} testId="video-self" muted small />
         </div>
