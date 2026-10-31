@@ -98,7 +98,7 @@ export default function Board({
           height={BOARD_HEIGHT}
         />
 
-        {/* Layer 2: Highlight nước vừa đi (lastMove) */}
+        {/* Layer 2: Highlight nước vừa đi (lastMove). mask2.png màu hồng tím → xoay hue sang vàng hổ phách cho hợp nền gỗ */}
         {lastMove && isValidSquare(lastMove.from) && isValidSquare(lastMove.to) && (
           <>
             {(() => {
@@ -111,7 +111,7 @@ export default function Board({
                   y={fromCoords.y}
                   width={CELL_SIZE}
                   height={CELL_SIZE}
-                  className="pointer-events-none opacity-80"
+                  className="pointer-events-none opacity-90 [filter:hue-rotate(102deg)]"
                 />
               );
             })()}
@@ -125,7 +125,7 @@ export default function Board({
                   y={toCoords.y}
                   width={CELL_SIZE}
                   height={CELL_SIZE}
-                  className="pointer-events-none opacity-80"
+                  className="pointer-events-none opacity-90 [filter:hue-rotate(102deg)]"
                 />
               );
             })()}
@@ -144,7 +144,8 @@ export default function Board({
                 y={coords.y}
                 width={CELL_SIZE}
                 height={CELL_SIZE}
-                className="pointer-events-none"
+                // mask.png có 4 góc 4 màu → tô trắng đồng nhất
+                className="pointer-events-none [filter:brightness(0)_invert(1)]"
               />
             );
           })()

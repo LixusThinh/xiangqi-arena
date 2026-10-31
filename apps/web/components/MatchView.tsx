@@ -244,73 +244,113 @@ export default function MatchView({
   const myOffer = offer !== null && offer.by === game?.yourColor;
   const incomingOffer = offer !== null && !myOffer;
 
+  const turnColor = active ? game?.turn ?? null : null;
+
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-6 text-slate-100">
-      <div className="mx-auto flex max-w-3xl flex-col items-center gap-4">
-        <header className="text-center">
-          <h1 className="text-xl font-extrabold text-amber-300">{room.name}</h1>
-          <p className="text-xs text-slate-400">Phòng {room.code}</p>
-        </header>
-        {!connected && (
-          <p role="alert" className="w-full max-w-[560px] rounded-lg bg-amber-900/60 px-3 py-2 text-center text-sm text-amber-100">
-            Mất kết nối máy chủ, đang thử kết nối lại… Vào lại trong 60 giây để không bị xử thua.
-          </p>
-        )}
-        {opponentGone && (
-          <p
-            data-testid="opponent-disconnected"
-            aria-live="polite"
-            className="w-full max-w-[560px] rounded-lg bg-sky-950/80 px-3 py-2 text-center text-sm text-sky-100"
-          >
-            Đối thủ mất kết nối. Nếu không vào lại sau{' '}
-            <strong>{Math.max(0, Math.ceil((Date.parse(opponentGone.deadline) - now) / 1000))} giây</strong>, bạn được xử thắng.
-          </p>
-        )}
-        <PlayerBadge member={opponent} />
-        <Board
-          position={position}
-          orientation={orientation}
-          selectedSquare={selected}
-          validMoves={validMoves}
-          lastMove={lastMove}
-          onSquareClick={handleSquareClick}
-          className="w-full max-w-[560px]"
-        />
-        <PlayerBadge member={me} isMe />
-        <p role="status" className="text-sm text-slate-300">
-          {statusText(game, me)}
-          {me?.color ? ` · Bạn cầm quân ${me.color === 'RED' ? 'Đỏ' : 'Đen'}` : ''}
-        </p>
-        {notice && (
-          <p data-testid="move-notice" className="text-sm text-rose-300">
-            {notice}
-          </p>
-        )}
-        {active && (
-          <div className="flex w-full max-w-[560px] items-center justify-end gap-2">
-            {myOffer && (
-              <span data-testid="draw-offer-sent" className="mr-auto text-xs text-slate-400">
-                Đã gửi đề nghị hòa, chờ đối thủ trả lời…
-              </span>
-            )}
-            <button
-              type="button"
-              disabled={pending || offer !== null}
-              onClick={() => void runAction((conn, id) => conn.offerDraw(id))}
-              className="rounded-lg border border-slate-600 bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              🤝 Xin hòa
-            </button>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => setConfirmResign(true)}
-              className="rounded-lg border border-red-800/50 bg-red-950/60 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-900/80 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              🏳️ Xin thua
-            </button>
+    <main className="min-h-screen bg-slate-950 px-4 py-4 text-slate-100">
+      <div className="mx-auto w-full max-w-6xl lg:w-fit">
+        <header className="flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs uppercase tracking-widest text-slate-400">Xiangqi Arena · Phòng {room.code}</p>
+            <h1 className="truncate text-2xl font-extrabold text-amber-300">{room.name}</h1>
           </div>
-        )}
+          {!active && (
+            <nav className="flex gap-4 text-sm">
+              <Link href="/lobby" className="text-slate-300 underline hover:text-amber-200">
+                Về Sảnh
+              </Link>
+              <Link href="/history" className="text-slate-300 underline hover:text-amber-200">
+                Lịch sử ván
+              </Link>
+            </nav>
+          )}
+        </header>
+
+        <div className="mt-4 flex flex-col items-center gap-5 lg:flex-row lg:items-start lg:justify-center">
+          {/* Bàn cờ co theo chiều cao màn hình để không phải cuộn (tỉ lệ ảnh bàn 741×821) */}
+          <div className="w-full max-w-[560px] lg:w-[min(560px,calc((100dvh-6.5rem)*741/821))]">
+            <Board
+              position={position}
+              orientation={orientation}
+              selectedSquare={selected}
+              validMoves={validMoves}
+              lastMove={lastMove}
+              onSquareClick={handleSquareClick}
+              className="w-full"
+            />
+          </div>
+
+          <aside className="flex w-full max-w-[560px] flex-col gap-3 lg:w-80 lg:shrink-0 lg:self-stretch">
+            <PlayerBadge member={opponent} toMove={turnColor !== null && turnColor === opponent?.color} />
+
+            <section className="rounded-3xl border border-slate-800 bg-slate-900/40 p-4">
+              <p className="text-xs uppercase tracking-widest text-slate-500">Trạng thái ván</p>
+              <div role="status" className="mt-1">
+                <span className={`block text-base font-semibold ${game?.inCheck && active ? 'text-rose-300' : 'text-slate-100'}`}>
+                  {statusText(game, me)}
+                </span>
+                <span className="mt-1 block text-xs text-slate-400">
+                  {me?.color ? `Bạn cầm quân ${me.color === 'RED' ? 'Đỏ' : 'Đen'}` : ''}
+                  {me?.color && game ? ' · ' : ''}
+                  {game ? `Đã đi ${game.ply} nửa nước` : ''}
+                </span>
+              </div>
+              {notice && (
+                <p data-testid="move-notice" className="mt-3 rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-300">
+                  {notice}
+                </p>
+              )}
+            </section>
+
+            {!connected && (
+              <p role="alert" className="rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                Mất kết nối máy chủ, đang thử kết nối lại… Vào lại trong 60 giây để không bị xử thua.
+              </p>
+            )}
+            {opponentGone && (
+              <p
+                data-testid="opponent-disconnected"
+                aria-live="polite"
+                className="rounded-2xl border border-sky-400/40 bg-sky-400/10 px-4 py-3 text-sm text-sky-100"
+              >
+                Đối thủ mất kết nối. Nếu không vào lại sau{' '}
+                <strong>{Math.max(0, Math.ceil((Date.parse(opponentGone.deadline) - now) / 1000))} giây</strong>, bạn được xử thắng.
+              </p>
+            )}
+
+            {active && (
+              <div className="flex flex-col gap-2">
+                {myOffer && (
+                  <span data-testid="draw-offer-sent" className="text-xs text-slate-400">
+                    Đã gửi đề nghị hòa, chờ đối thủ trả lời…
+                  </span>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={pending || offer !== null}
+                    onClick={() => void runAction((conn, id) => conn.offerDraw(id))}
+                    className="rounded-xl border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-200 hover:border-amber-400/60 hover:text-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    🤝 Xin hòa
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => setConfirmResign(true)}
+                    className="rounded-xl border border-rose-500/40 px-3 py-2 text-sm font-semibold text-rose-300 hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    🏳️ Xin thua
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="lg:mt-auto">
+              <PlayerBadge member={me} isMe toMove={turnColor !== null && turnColor === me?.color} />
+            </div>
+          </aside>
+        </div>
       </div>
       <Modal
         isOpen={active && confirmResign}
@@ -359,21 +399,43 @@ function endMessage(end: Pick<GameEnd, 'result' | 'endReason' | 'endRule'>): str
   return [who, reason, end.endRule].filter(Boolean).join(' — ') + '.';
 }
 
-function PlayerBadge({ member, isMe = false }: { member: RoomMember | null; isMe?: boolean }) {
+function PlayerBadge({
+  member,
+  isMe = false,
+  toMove = false,
+}: {
+  member: RoomMember | null;
+  isMe?: boolean;
+  toMove?: boolean;
+}) {
   if (!member) return null;
-  const colorLabel = member.color === 'RED' ? 'Đỏ' : member.color === 'BLACK' ? 'Đen' : '—';
+  const red = member.color === 'RED';
+  const colorLabel = red ? 'Đỏ' : member.color === 'BLACK' ? 'Đen' : '—';
   return (
     <div
       data-testid={isMe ? 'player-me' : 'player-opponent'}
-      className={`flex w-full max-w-[560px] items-center justify-between rounded-xl px-4 py-2 ${
-        member.color === 'RED' ? 'bg-rose-900/40' : 'bg-slate-800/80'
+      className={`flex items-center gap-3 rounded-2xl border p-3 transition-colors ${
+        toMove ? 'border-amber-400/70 bg-amber-400/10' : 'border-slate-800 bg-slate-900/40'
       }`}
     >
-      <span className="font-semibold">
-        {member.displayName}
-        {isMe ? ' (bạn)' : ''}
+      <span
+        aria-hidden
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-lg font-bold ${
+          red ? 'border-rose-400/70 bg-rose-950 text-rose-300' : 'border-slate-500 bg-slate-800 text-slate-200'
+        }`}
+      >
+        {red ? '帥' : '將'}
       </span>
-      <span className="text-sm text-slate-300">Quân {colorLabel} · Elo {member.rating}</span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-semibold text-slate-100">
+          {member.displayName}
+          {isMe ? ' (bạn)' : ''}
+        </p>
+        <p className="text-xs text-slate-400">
+          Quân {colorLabel} · Elo {member.rating}
+        </p>
+      </div>
+      {toMove && <span className="text-xs font-semibold text-amber-300">Đang đi</span>}
     </div>
   );
 }

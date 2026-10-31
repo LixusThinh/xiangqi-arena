@@ -137,14 +137,14 @@ describe('AuthForm', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Tạo tài khoản' }));
 
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/'));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/lobby'));
     expect(fetchMock.mock.calls[0][0]).toBe(
       'http://localhost:3000/auth/register',
     );
     expect(localStorage.getItem(ACCESS_TOKEN_KEY)).toBe(session.accessToken);
   });
 
-  it('stores the token, verifies /me, and navigates home after login', async () => {
+  it('stores the token, verifies /me, and navigates to the lobby after login', async () => {
     const fetchMock = global.fetch as jest.Mock;
     fetchMock
       .mockResolvedValueOnce(mockResponse(session))
@@ -158,7 +158,7 @@ describe('AuthForm', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Đăng nhập' }));
 
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/'));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/lobby'));
     expect(localStorage.getItem(ACCESS_TOKEN_KEY)).toBe(session.accessToken);
     expect(JSON.parse(localStorage.getItem(CURRENT_USER_KEY) ?? 'null')).toEqual(
       user,
@@ -212,7 +212,7 @@ describe('AuthForm', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Đăng nhập' }));
 
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/'));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/lobby'));
     window.history.replaceState(null, '', '/');
   });
 
