@@ -141,6 +141,16 @@ export const END_REASON_LABELS: Record<string, string> = {
 };
 
 /** Kết nối realtime tới một ván. MatchView chỉ dùng interface này → test thay bằng bản giả. */
+/** Tín hiệu WebRTC chuyển qua server (XQA-124). Server chỉ chuyển tiếp cho đối thủ, không đọc nội dung. */
+export type WebrtcSignalKind = 'call' | 'accept' | 'decline' | 'offer' | 'answer' | 'ice' | 'hangup';
+
+export interface WebrtcSignal {
+  matchId: string;
+  from: PlayerColor;
+  kind: WebrtcSignalKind;
+  data: unknown;
+}
+
 export interface GameConnection {
   /** Vào ván theo mã phòng; tự vào lại khi socket kết nối lại. */
   join(roomCode: string): Promise<GameState>;
@@ -157,6 +167,9 @@ export interface GameConnection {
   onPlayerDisconnected(listener: (info: PlayerDisconnected) => void): void;
   onPlayerReconnected(listener: (info: PlayerReconnected) => void): void;
   onConnectionChange(listener: (connected: boolean) => void): void;
+  /** XQA-124: gửi tín hiệu WebRTC cho đối thủ; `delivered` = 0 nghĩa là đối thủ chưa mở màn ván. */
+  signal(matchId: string, kind: WebrtcSignalKind, data?: unknown): Promise<{ delivered: number }>;
+  onSignal(listener: (signal: WebrtcSignal) => void): void;
   close(): void;
 }
 
@@ -256,6 +269,12 @@ export const connectGame: ConnectGame = (token) => {
     onConnectionChange(listener) {
       socket.on('connect', () => listener(true));
       socket.on('disconnect', () => listener(false));
+    },
+    signal(matchId, kind, data) {
+      return request<{ delivered: number }>(socket, 'webrtc:signal', { matchId, kind, data });
+    },
+    onSignal(listener) {
+      socket.on('webrtc:signal', listener);
     },
     close() {
       socket.removeAllListeners();

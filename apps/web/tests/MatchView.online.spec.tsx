@@ -14,6 +14,7 @@ import {
   type GameConnection,
   type GameEnd,
   type GameState,
+  type WebrtcSignal,
   type MoveRequest,
 } from '../lib/game-socket';
 import type { RoomDetail, RoomMember } from '../lib/room-api';
@@ -142,6 +143,11 @@ class FakeConnection implements GameConnection {
   }
   onConnectionChange(l: (c: boolean) => void) {
     this.conn.push(l);
+  }
+  signals: Array<(s: WebrtcSignal) => void> = [];
+  signal = jest.fn(async () => ({ delivered: 1 }));
+  onSignal(l: (s: WebrtcSignal) => void) {
+    this.signals.push(l);
   }
   close() {
     this.closed = true;

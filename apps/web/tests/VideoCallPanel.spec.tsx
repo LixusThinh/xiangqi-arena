@@ -62,4 +62,23 @@ describe('<VideoCallPanel /> (XQA-107)', () => {
     expect(panel.className).not.toMatch(/\bfixed\b/);
     expect(panel.className).not.toMatch(/\babsolute\b/);
   });
+  it('XQA-124: cuộc gọi đến → nút Nhận / Từ chối gọi đúng callback, ẩn nút mic/cam', () => {
+    const onAccept = jest.fn();
+    const onDecline = jest.fn();
+    setup({ status: 'incoming', onAccept, onDecline });
+    expect(screen.getByTestId('call-status')).toHaveTextContent('Đối thủ đang gọi');
+    expect(screen.queryByRole('button', { name: 'Tắt mic' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Nhận cuộc gọi' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Từ chối' }));
+    expect(onAccept).toHaveBeenCalledTimes(1);
+    expect(onDecline).toHaveBeenCalledTimes(1);
+  });
+
+  it('XQA-124: đang kết nối vẫn kết thúc được; có lỗi thì hiện thông báo', () => {
+    const props = setup({ status: 'connecting', error: 'Đối thủ đã từ chối cuộc gọi.' });
+    expect(screen.getByTestId('call-status')).toHaveTextContent('Đang kết nối…');
+    expect(screen.getByRole('alert')).toHaveTextContent('Đối thủ đã từ chối cuộc gọi.');
+    fireEvent.click(screen.getByRole('button', { name: 'Kết thúc' }));
+    expect(props.onEndCall).toHaveBeenCalledTimes(1);
+  });
 });
