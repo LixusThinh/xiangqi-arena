@@ -1,4 +1,4 @@
-import { iceServersFromEnv } from '@/lib/use-video-call';
+import { hasTurnServer, iceServersFromEnv } from '@/lib/use-video-call';
 
 describe('XQA-124/125 cấu hình STUN/TURN (NEXT_PUBLIC_ICE_SERVERS)', () => {
   const google = [{ urls: 'stun:stun.l.google.com:19302' }];
@@ -19,5 +19,13 @@ describe('XQA-124/125 cấu hình STUN/TURN (NEXT_PUBLIC_ICE_SERVERS)', () => {
   it('JSON sai / mảng rỗng → quay về mặc định thay vì làm hỏng cuộc gọi', () => {
     expect(iceServersFromEnv('{not json')).toEqual(google);
     expect(iceServersFromEnv('[]')).toEqual(google);
+  });
+});
+
+describe('hasTurnServer – chọn thông báo lỗi khi cuộc gọi không nối được', () => {
+  it('chỉ STUN → false; có turn: / turns: → true', () => {
+    expect(hasTurnServer([{ urls: 'stun:stun.l.google.com:19302' }])).toBe(false);
+    expect(hasTurnServer([{ urls: ['stun:a', 'turn:relay.example.com:80'] }])).toBe(true);
+    expect(hasTurnServer([{ urls: 'turns:relay.example.com:443?transport=tcp' }])).toBe(true);
   });
 });

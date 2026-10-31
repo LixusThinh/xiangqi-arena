@@ -30,12 +30,19 @@ export function iceServersFromEnv(raw = process.env.NEXT_PUBLIC_ICE_SERVERS): RT
   }
 }
 
+/** Có cấu hình máy chủ TURN (chuyển tiếp) hay chỉ có STUN. */
+export function hasTurnServer(servers: RTCIceServer[] = iceServersFromEnv()): boolean {
+  return servers.some((s) => (Array.isArray(s.urls) ? s.urls : [s.urls]).some((u) => /^turns?:/i.test(u)));
+}
+
 export const CALL_ERROR_MESSAGES = {
   media: 'Không mở được camera / micro. Hãy cho phép trình duyệt dùng camera và micro rồi thử lại.',
   unsupported: 'Trình duyệt này không hỗ trợ gọi video.',
   opponentAway: 'Đối thủ chưa mở màn ván nên chưa gọi được.',
   declined: 'Đối thủ đã từ chối cuộc gọi.',
   failed: 'Không kết nối được cuộc gọi (mạng có thể chặn kết nối trực tiếp).',
+  failedNoTurn:
+    'Không tìm được đường kết nối giữa 2 máy: mạng hoặc tường lửa đang chặn kết nối trực tiếp. Cần cấu hình máy chủ TURN (NEXT_PUBLIC_ICE_SERVERS).',
   signal: 'Mất kết nối máy chủ, không gửi được tín hiệu gọi.',
 } as const;
 
@@ -142,7 +149,9 @@ export function useVideoCall(
       pc.onconnectionstatechange = () => {
         if (pc !== pcRef.current) return;
         if (pc.connectionState === 'connected') go('connected');
-        if (pc.connectionState === 'failed') end(CALL_ERROR_MESSAGES.failed);
+        if (pc.connectionState === 'failed') {
+          end(hasTurnServer() ? CALL_ERROR_MESSAGES.failed : CALL_ERROR_MESSAGES.failedNoTurn);
+        }
       };
       pcRef.current = pc;
       return pc;
