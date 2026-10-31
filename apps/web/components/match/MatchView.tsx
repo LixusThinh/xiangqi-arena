@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { algebraicToSquare, Position, squareToAlgebraic } from '@xiangqi-arena/xiangqi-core';
-import Board from '@/components/Board';
-import Modal from '@/components/Modal';
+import Board from '@/components/board/Board';
+import Modal from '@/components/common/Modal';
 import { AuthApiError, getStoredSession } from '@/lib/auth-api';
 import {
   connectGame,
@@ -18,8 +18,9 @@ import {
   type GameState,
   type PlayerColor,
 } from '@/lib/game-socket';
-import VideoCallPanel from '@/components/VideoCallPanel';
-import { formatClock, useDisplayClock, type ClockSnapshot } from '@/lib/game-clock';
+import VideoCallPanel from '@/components/match/VideoCallPanel';
+import { useDisplayClock } from '@/lib/game-clock';
+import PlayerBadge, { clockFor } from '@/components/match/PlayerBadge';
 import { useVideoCall } from '@/lib/use-video-call';
 import { ROOM_ERROR_MESSAGES, roomApi, type RoomDetail, type RoomMember } from '@/lib/room-api';
 import { getAccessToken } from '@/lib/session';
@@ -270,20 +271,44 @@ export default function MatchView({
             <h1 className="truncate text-2xl font-extrabold text-amber-300">{room.name}</h1>
           </div>
           {!active && (
-            <nav className="flex gap-4 text-sm">
-              <Link href="/lobby" className="text-slate-300 underline hover:text-amber-200">
+            <nav className="flex items-center gap-4 text-sm">
+              <Link href="/lobby" className="flex min-h-[40px] sm:min-h-0 items-center text-slate-300 underline hover:text-amber-200">
                 Về Sảnh
               </Link>
-              <Link href="/history" className="text-slate-300 underline hover:text-amber-200">
+              <Link href="/history" className="flex min-h-[40px] sm:min-h-0 items-center text-slate-300 underline hover:text-amber-200">
                 Lịch sử ván
               </Link>
             </nav>
           )}
         </header>
 
-        <div className="mt-4 flex flex-col items-center gap-5 lg:flex-row lg:items-start lg:justify-center">
+        {/*
+          Điện thoại: đối thủ → bàn cờ → mình → trạng thái, nút, gọi video (giống app cờ: bàn cờ ở giữa 2 người).
+          Laptop (lg): bàn cờ bên trái chiếm 2 hàng; cột phải: đối thủ ở trên, phần còn lại bên dưới, mình ở đáy.
+        */}
+        <div className="mx-auto mt-4 grid w-full max-w-[560px] gap-3 lg:max-w-none lg:grid-cols-[auto_20rem] lg:grid-rows-[auto_1fr] lg:gap-x-5">
+          <div className="flex flex-col gap-3 lg:col-start-2 lg:row-start-1">
+            <PlayerBadge member={opponent} toMove={opponentToMove} clockMs={clockFor(clock, opponentColor)} />
+              {!connected && (
+                <p role="alert" className="fixed inset-x-3 top-3 z-40 rounded-2xl lg:static border border-amber-400/50 bg-amber-950/95 px-4 py-3 text-sm text-amber-100 shadow-lg">
+                  Mất kết nối máy chủ, đang thử kết nối lại… Vào lại trong 60 giây để không bị xử thua.
+                </p>
+              )}
+              {opponentGone && (
+                <p
+                  data-testid="opponent-disconnected"
+                  aria-live="polite"
+                  className="fixed inset-x-3 top-3 z-40 rounded-2xl lg:static border border-sky-400/40 bg-sky-950/95 px-4 py-3 text-sm text-sky-100 shadow-lg"
+                >
+                  Đối thủ mất kết nối. Nếu không vào lại sau{' '}
+                  <strong>{Math.max(0, Math.ceil((Date.parse(opponentGone.deadline) - now) / 1000))} giây</strong>, bạn được xử thắng.
+                </p>
+              )}
+
+          </div>
+
           {/* Bàn cờ co theo chiều cao màn hình để không phải cuộn (tỉ lệ ảnh bàn 741×821) */}
-          <div className="w-full max-w-[560px] lg:w-[clamp(20rem,calc((100dvh-6.5rem)*741/821),560px)]">
+          <div className="w-full lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:w-[clamp(20rem,calc((100dvh-6.5rem)*741/821),560px)]">
             <Board
               position={position}
               orientation={orientation}
@@ -295,10 +320,10 @@ export default function MatchView({
             />
           </div>
 
-          {/* Màn hẹp: cột thông tin lên trên bàn cờ để cảnh báo mất kết nối không bị khuất dưới bàn */}
-          <aside className="order-first flex w-full max-w-[560px] flex-col gap-3 lg:order-none lg:w-80 lg:shrink-0 lg:self-stretch">
-            <PlayerBadge member={opponent} toMove={opponentToMove} clockMs={clockFor(clock, opponentColor)} />
-
+          <div className="flex flex-col gap-3 lg:col-start-2 lg:row-start-2">
+            <div className="order-first lg:order-last lg:mt-auto">
+              <PlayerBadge member={me} isMe toMove={meToMove} clockMs={clockFor(clock, game?.yourColor ?? null)} />
+            </div>
             <section className="rounded-3xl border border-slate-800 bg-slate-900/40 p-4">
               <p className="text-xs uppercase tracking-widest text-slate-500">Trạng thái ván</p>
               <div role="status" className="mt-1">
@@ -318,73 +343,59 @@ export default function MatchView({
               )}
             </section>
 
-            {!connected && (
-              <p role="alert" className="rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-                Mất kết nối máy chủ, đang thử kết nối lại… Vào lại trong 60 giây để không bị xử thua.
-              </p>
-            )}
-            {opponentGone && (
-              <p
-                data-testid="opponent-disconnected"
-                aria-live="polite"
-                className="rounded-2xl border border-sky-400/40 bg-sky-400/10 px-4 py-3 text-sm text-sky-100"
-              >
-                Đối thủ mất kết nối. Nếu không vào lại sau{' '}
-                <strong>{Math.max(0, Math.ceil((Date.parse(opponentGone.deadline) - now) / 1000))} giây</strong>, bạn được xử thắng.
-              </p>
-            )}
-
-            {game && (
-              <VideoCallPanel
-                opponentName={opponent?.displayName ?? 'Đối thủ'}
-                selfName={me?.displayName ?? 'Bạn'}
-                status={call.phase}
-                micOn={call.micOn}
-                camOn={call.camOn}
-                opponentStream={call.remoteStream}
-                localStream={call.localStream}
-                error={call.error}
-                onToggleMic={call.toggleMic}
-                onToggleCam={call.toggleCam}
-                onEndCall={call.hangup}
-                onStartCall={() => void call.start()}
-                onAccept={() => void call.accept()}
-                onDecline={call.decline}
-              />
-            )}
-
-            {active && (
-              <div className="flex flex-col gap-2">
-                {myOffer && (
-                  <span data-testid="draw-offer-sent" className="text-xs text-slate-400">
-                    Đã gửi đề nghị hòa, chờ đối thủ trả lời…
-                  </span>
-                )}
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    disabled={pending || offer !== null}
-                    onClick={() => void runAction((conn, id) => conn.offerDraw(id))}
-                    className="rounded-xl border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-200 hover:border-amber-400/60 hover:text-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    🤝 Xin hòa
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => setConfirmResign(true)}
-                    className="rounded-xl border border-rose-500/40 px-3 py-2 text-sm font-semibold text-rose-300 hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    🏳️ Xin thua
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="lg:mt-auto">
-              <PlayerBadge member={me} isMe toMove={meToMove} clockMs={clockFor(clock, game?.yourColor ?? null)} />
+            <div className="order-2 lg:order-none">
+              {game && (
+                <VideoCallPanel
+                  opponentName={opponent?.displayName ?? 'Đối thủ'}
+                  selfName={me?.displayName ?? 'Bạn'}
+                  status={call.phase}
+                  micOn={call.micOn}
+                  camOn={call.camOn}
+                  opponentStream={call.remoteStream}
+                  localStream={call.localStream}
+                  error={call.error}
+                  onToggleMic={call.toggleMic}
+                  onToggleCam={call.toggleCam}
+                  onEndCall={call.hangup}
+                  onStartCall={() => void call.start()}
+                  onAccept={() => void call.accept()}
+                  onDecline={call.decline}
+                  // Màn lớn: khung video co theo chiều cao cửa sổ để cả cột vừa 1366×650 không phải cuộn
+                  videoClassName="aspect-video w-full lg:aspect-auto lg:h-[clamp(6rem,calc(100dvh-34rem),11rem)]"
+                />
+              )}
             </div>
-          </aside>
+
+            <div className="order-1 lg:order-none">
+              {active && (
+                <div className="flex flex-col gap-2">
+                  {myOffer && (
+                    <span data-testid="draw-offer-sent" className="text-xs text-slate-400">
+                      Đã gửi đề nghị hòa, chờ đối thủ trả lời…
+                    </span>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={pending || offer !== null}
+                      onClick={() => void runAction((conn, id) => conn.offerDraw(id))}
+                      className="flex min-h-[40px] items-center justify-center rounded-xl border border-slate-700 px-3 py-2.5 sm:py-2 text-sm font-semibold text-slate-200 hover:border-amber-400/60 hover:text-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      🤝 Xin hòa
+                    </button>
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => setConfirmResign(true)}
+                      className="flex min-h-[40px] items-center justify-center rounded-xl border border-rose-500/40 px-3 py-2.5 sm:py-2 text-sm font-semibold text-rose-300 hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      🏳️ Xin thua
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
       <Modal
@@ -432,71 +443,4 @@ function endMessage(end: Pick<GameEnd, 'result' | 'endReason' | 'endRule'>): str
     end.result === 'RED_WIN' ? 'Đỏ thắng' : end.result === 'BLACK_WIN' ? 'Đen thắng' : end.result === 'DRAW' ? 'Hòa' : 'Ván kết thúc';
   const reason = end.endReason ? (END_REASON_LABELS[end.endReason] ?? end.endReason) : null;
   return [who, reason, end.endRule].filter(Boolean).join(' — ') + '.';
-}
-
-function clockFor(clock: ClockSnapshot | null, color: PlayerColor | null): number | null {
-  if (!clock || !color) return null;
-  return color === 'RED' ? clock.redMs : clock.blackMs;
-}
-
-function PlayerBadge({
-  member,
-  isMe = false,
-  toMove = false,
-  clockMs = null,
-}: {
-  member: RoomMember | null;
-  isMe?: boolean;
-  toMove?: boolean;
-  /** Thời gian còn lại để hiển thị (đếm theo số server gửi); null khi chưa có ván. */
-  clockMs?: number | null;
-}) {
-  if (!member) return null;
-  const red = member.color === 'RED';
-  const black = member.color === 'BLACK';
-  const colorLabel = red ? 'Đỏ' : black ? 'Đen' : '—';
-  return (
-    <div
-      data-testid={isMe ? 'player-me' : 'player-opponent'}
-      className={`flex items-center gap-3 rounded-2xl border p-3 transition-colors ${
-        toMove ? 'border-amber-400/70 bg-amber-400/10' : 'border-slate-800 bg-slate-900/40'
-      }`}
-    >
-      <span
-        aria-hidden
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-lg font-bold ${
-          red ? 'border-rose-400/70 bg-rose-950 text-rose-300' : 'border-slate-500 bg-slate-800 text-slate-200'
-        }`}
-      >
-        {red ? '帥' : black ? '將' : '?'}
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold text-slate-100">
-          {member.displayName}
-          {isMe ? ' (bạn)' : ''}
-        </p>
-        <p className="text-xs text-slate-400">
-          Quân {colorLabel} · Elo {member.rating}
-        </p>
-      </div>
-      <div className="flex flex-col items-end gap-0.5">
-        {clockMs !== null && (
-          <span
-            data-testid={isMe ? 'clock-me' : 'clock-opponent'}
-            aria-label={`Thời gian còn lại ${formatClock(clockMs)}`}
-            className={`rounded-lg px-2 py-1 font-mono text-lg font-bold tabular-nums ${
-              clockMs < 30_000
-                ? 'bg-rose-500/15 text-rose-300'
-                : toMove
-                  ? 'bg-amber-400/15 text-amber-200'
-                  : 'bg-slate-800/80 text-slate-300'
-            }`}
-          >
-            {formatClock(clockMs)}
-          </span>
-        )}
-        {toMove && <span className="text-xs font-semibold text-amber-300">Đang đi</span>}
-      </div>
-    </div>
-  );
 }

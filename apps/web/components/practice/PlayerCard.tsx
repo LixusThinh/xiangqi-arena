@@ -7,7 +7,8 @@ export interface PlayerCardProps {
   name: string;
   title: string;
   side: Side;
-  timeRemaining: number;
+  /** Giây còn lại để hiển thị. Không truyền → ẩn ô thời gian (chế độ không tính giờ). */
+  timeRemaining?: number;
   isActive: boolean;
   isLocalPlayer?: boolean;
   className?: string;
@@ -91,13 +92,12 @@ export default function PlayerCard({
     }
   }, [isCameraOn]);
 
-  const formattedTime =
-    timeRemaining <= 0
-      ? '00:00'
-      : `00:${timeRemaining.toString().padStart(2, '0')}`;
+  const hasTimer = timeRemaining !== undefined;
+  const seconds = timeRemaining ?? 0;
+  const formattedTime = seconds <= 0 ? '00:00' : `00:${seconds.toString().padStart(2, '0')}`;
 
-  const isLowTime = timeRemaining <= 10 && timeRemaining > 0;
-  const isTimeOut = timeRemaining <= 0;
+  const isLowTime = hasTimer && seconds <= 10 && seconds > 0;
+  const isTimeOut = hasTimer && seconds <= 0;
 
   return (
     <div
@@ -134,7 +134,7 @@ export default function PlayerCard({
             type="button"
             onClick={toggleCamera}
             disabled={isCameraLoading}
-            className={`absolute bottom-2 right-2 px-2.5 py-1 rounded-md text-[10px] font-semibold tracking-wide transition-all backdrop-blur disabled:opacity-50 disabled:cursor-not-allowed ${
+            className={`absolute bottom-2 right-2 min-h-[40px] sm:min-h-0 flex items-center justify-center px-2.5 py-2 sm:py-1 rounded-md text-[10px] font-semibold tracking-wide transition-all backdrop-blur disabled:opacity-50 disabled:cursor-not-allowed ${
               isCameraOn
                 ? 'bg-red-600/80 hover:bg-red-500 text-white'
                 : 'bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-600'
@@ -162,7 +162,8 @@ export default function PlayerCard({
           </span>
         </div>
 
-        {/* Đồng hồ số */}
+        {/* Đồng hồ số (chỉ khi có truyền thời gian) */}
+        {hasTimer && (
         <div className="flex flex-col items-end">
           <div
             className={`px-3 py-1 rounded-lg font-mono font-bold text-sm tracking-wider border transition-all ${
@@ -183,6 +184,7 @@ export default function PlayerCard({
             </span>
           )}
         </div>
+        )}
       </div>
     </div>
   );

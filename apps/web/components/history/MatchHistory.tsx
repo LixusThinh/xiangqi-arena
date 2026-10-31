@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { AuthApiError } from '@/lib/auth-api';
 import {
@@ -61,19 +60,13 @@ export default function MatchHistory() {
   const totalPages = Math.max(1, data?.totalPages ?? 1);
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-10 text-slate-100">
-      <div className="mx-auto w-full max-w-5xl">
+    <main className="py-8 text-slate-100">
+      <div className="mx-auto w-full max-w-6xl px-4">
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-widest text-slate-400">Xiangqi Arena</p>
-            <h1 className="mt-1 text-3xl font-extrabold text-amber-300">Lịch sử thi đấu</h1>
-            <p className="mt-2 text-sm text-slate-400">Các ván bạn đã chơi xong, ván kết thúc gần nhất ở trên cùng.</p>
+            <h1 className="text-3xl font-extrabold text-amber-300">Lịch sử thi đấu</h1>
+            <p className="mt-1 text-sm text-slate-400">Các ván bạn đã chơi xong, ván kết thúc gần nhất ở trên cùng.</p>
           </div>
-          <nav className="flex gap-4 text-sm">
-            <Link href="/lobby" className="text-slate-300 underline hover:text-amber-200">
-              ← Về Sảnh
-            </Link>
-          </nav>
         </header>
 
         <div className="mt-6 inline-flex flex-col rounded-2xl border border-slate-800 bg-slate-900/40 px-5 py-3">
@@ -95,62 +88,64 @@ export default function MatchHistory() {
               {data.total === 0 ? 'Bạn chưa chơi xong ván nào.' : 'Trang này không có ván nào.'}
             </p>
           ) : (
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-800 text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-5 py-3 font-semibold">Thời gian</th>
-                  <th className="px-5 py-3 font-semibold">Đối thủ</th>
-                  <th className="px-5 py-3 font-semibold">Kết quả</th>
-                  <th className="px-5 py-3 font-semibold">Số nước</th>
-                  <th className="px-5 py-3 font-semibold">Thời lượng</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {data?.items.map((m) => (
-                  <tr key={m.matchId} data-testid={`history-row-${m.matchId}`} className="hover:bg-slate-800/30">
-                    <td className="px-5 py-4 text-xs text-slate-400">{formatEndedAt(m.endedAt)}</td>
-                    <td className="px-5 py-4">
-                      <span className="font-semibold text-slate-100">{m.opponent.displayName}</span>
-                      <span className="block text-xs text-slate-500">
-                        Bạn cầm {m.yourColor === 'RED' ? 'Đỏ' : 'Đen'} · Elo đối thủ {m.opponent.rating}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${OUTCOME_STYLE[m.outcome]}`}>
-                        {OUTCOME_LABEL[m.outcome]}
-                      </span>
-                      {m.endReason && (
-                        <span className="block pt-1.5 text-xs text-slate-500">
-                          {HISTORY_END_REASON_LABELS[m.endReason] ?? m.endReason}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-5 py-4 text-slate-300">{moveCount(m.plyCount)}</td>
-                    <td className="px-5 py-4 text-slate-300">{formatDuration(m.durationSec)}</td>
+            <div className="overflow-x-auto">
+              <table className="min-w-[620px] w-full text-left text-sm">
+                <thead className="border-b border-slate-800 text-xs uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-4 sm:px-5 py-3 font-semibold">Thời gian</th>
+                    <th className="px-4 sm:px-5 py-3 font-semibold">Đối thủ</th>
+                    <th className="px-4 sm:px-5 py-3 font-semibold">Kết quả</th>
+                    <th className="px-4 sm:px-5 py-3 font-semibold">Số nước</th>
+                    <th className="px-4 sm:px-5 py-3 font-semibold">Thời lượng</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {data?.items.map((m) => (
+                    <tr key={m.matchId} data-testid={`history-row-${m.matchId}`} className="hover:bg-slate-800/30">
+                      <td className="px-4 sm:px-5 py-4 text-xs text-slate-400 whitespace-nowrap">{formatEndedAt(m.endedAt)}</td>
+                      <td className="px-4 sm:px-5 py-4">
+                        <span className="font-semibold text-slate-100">{m.opponent.displayName}</span>
+                        <span className="block text-xs text-slate-500">
+                          Bạn cầm {m.yourColor === 'RED' ? 'Đỏ' : 'Đen'} · Elo đối thủ {m.opponent.rating}
+                        </span>
+                      </td>
+                      <td className="px-4 sm:px-5 py-4">
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${OUTCOME_STYLE[m.outcome]}`}>
+                          {OUTCOME_LABEL[m.outcome]}
+                        </span>
+                        {m.endReason && (
+                          <span className="block pt-1.5 text-xs text-slate-500">
+                            {HISTORY_END_REASON_LABELS[m.endReason] ?? m.endReason}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 sm:px-5 py-4 text-slate-300">{moveCount(m.plyCount)}</td>
+                      <td className="px-4 sm:px-5 py-4 text-slate-300">{formatDuration(m.durationSec)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </section>
 
-        <nav aria-label="Phân trang" className="mt-4 flex items-center justify-end gap-3 text-sm text-slate-300">
+        <nav aria-label="Phân trang" className="mt-4 flex flex-wrap items-center justify-between sm:justify-end gap-3 text-sm text-slate-300">
           <button
             type="button"
             disabled={page <= 1 || loading}
             onClick={() => setPage((p) => p - 1)}
-            className="rounded-xl border border-slate-700 px-3 py-1.5 font-semibold text-slate-200 hover:border-amber-400/60 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex min-h-[40px] items-center justify-center rounded-xl border border-slate-700 px-4 py-2 font-semibold text-slate-200 hover:border-amber-400/60 disabled:cursor-not-allowed disabled:opacity-40"
           >
             ← Trang trước
           </button>
-          <span data-testid="history-page">
+          <span data-testid="history-page" className="py-2">
             Trang {data?.page ?? page}/{totalPages}
           </span>
           <button
             type="button"
             disabled={page >= totalPages || loading}
             onClick={() => setPage((p) => p + 1)}
-            className="rounded-xl border border-slate-700 px-3 py-1.5 font-semibold text-slate-200 hover:border-amber-400/60 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex min-h-[40px] items-center justify-center rounded-xl border border-slate-700 px-4 py-2 font-semibold text-slate-200 hover:border-amber-400/60 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Trang sau →
           </button>

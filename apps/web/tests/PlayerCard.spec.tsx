@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import PlayerCard from '../components/PlayerCard';
+import PlayerCard from '../components/practice/PlayerCard';
 
 describe('<PlayerCard />', () => {
   it('renders player name, title, side badge, and formatted time', () => {

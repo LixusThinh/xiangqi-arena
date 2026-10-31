@@ -119,7 +119,7 @@ export default function ChatBox({
             key={chip}
             type="button"
             onClick={() => onSendMessage(chip)}
-            className="whitespace-nowrap px-2.5 py-1 rounded-full text-[10px] font-medium bg-slate-900/80 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
+            className="whitespace-nowrap min-h-[40px] sm:min-h-0 flex items-center px-3 py-2 sm:py-1 rounded-full text-xs sm:text-[10px] font-medium bg-slate-900/80 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
           >
             {chip}
           </button>
@@ -137,14 +137,14 @@ export default function ChatBox({
             aria-label="Tin nhắn"
             aria-invalid={tooLong}
             aria-describedby="chat-counter"
-            className={`flex-1 bg-slate-900/90 border rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none transition-colors ${
+            className={`flex-1 bg-slate-900/90 border rounded-lg px-3 py-2 sm:py-1.5 min-h-[40px] sm:min-h-0 text-xs text-slate-200 placeholder-slate-500 focus:outline-none transition-colors ${
               tooLong ? 'border-rose-500 focus:border-rose-400' : 'border-slate-700 focus:border-amber-500'
             }`}
           />
           <button
             type="submit"
             disabled={!canSend}
-            className="bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs transition-all shadow-sm"
+            className="min-h-[40px] sm:min-h-0 flex items-center justify-center bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-bold px-3.5 py-2 sm:py-1.5 rounded-lg text-xs transition-all shadow-sm"
           >
             Gửi
           </button>

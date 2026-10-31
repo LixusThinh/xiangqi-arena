@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import ChatBox, { ChatMessage, chatLength } from '../components/ChatBox';
+import ChatBox, { ChatMessage, chatLength } from '../components/practice/ChatBox';
 
 describe('<ChatBox />', () => {
   const initialMessages: ChatMessage[] = [

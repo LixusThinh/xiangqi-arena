@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import GameStatusPanel from '../components/GameStatusPanel';
+import GameStatusPanel from '../components/practice/GameStatusPanel';
 
 describe('<GameStatusPanel />', () => {
   it('renders the turn and check warning directly from its props', () => {

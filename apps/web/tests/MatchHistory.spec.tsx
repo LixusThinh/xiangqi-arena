@@ -3,7 +3,7 @@
  * thời lượng; phân trang). API: docs/api/history.md (XQA-97).
  */
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import MatchHistory from '../components/MatchHistory';
+import MatchHistory from '../components/history/MatchHistory';
 import { saveSession } from '../lib/auth-api';
 import { formatDuration, moveCount, type MatchHistoryItem, type MatchHistoryPage } from '../lib/history-api';
 

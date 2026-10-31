@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import MatchControls from '../components/MatchControls';
+import MatchControls from '../components/practice/MatchControls';
 
 describe('<MatchControls />', () => {
   it('renders side selector buttons and action buttons', () => {

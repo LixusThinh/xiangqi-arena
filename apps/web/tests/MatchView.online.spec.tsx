@@ -4,7 +4,7 @@
  * Socket thật được thay bằng GameConnection giả (contract docs/api/socket.md).
  */
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import MatchView from '../components/MatchView';
+import MatchView from '../components/match/MatchView';
 import { saveSession } from '../lib/auth-api';
 import {
   GameSocketError,

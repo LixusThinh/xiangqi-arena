@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import AuthForm from '../components/AuthForm';
+import AuthForm from '../components/auth/AuthForm';
 import {
   ACCESS_TOKEN_KEY,
   CURRENT_USER_KEY,
