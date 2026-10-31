@@ -303,34 +303,34 @@ export default function ArenaPage({ searchParams }: ArenaPageProps) {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center">
       {/* Top Header */}
-      <header className="w-full border-b border-slate-800/80 bg-slate-900/60 backdrop-blur px-6 py-3.5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-bold text-base shadow-sm">
+      <header className="w-full border-b border-slate-800/80 bg-slate-900/60 backdrop-blur px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-8 h-8 shrink-0 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-bold text-base shadow-sm">
             象棋
           </div>
-          <div>
-            <h1 className="text-base font-extrabold text-amber-400 tracking-tight">
+          <div className="min-w-0">
+            <h1 className="text-base font-extrabold text-amber-400 tracking-tight truncate">
               Xiangqi Arena — Chơi thử
             </h1>
-            <p className="text-[11px] text-slate-400">
+            <p className="hidden text-[11px] text-slate-400 sm:block">
               2 người trên 1 máy · không tính giờ, không lưu ván · muốn tính giờ và lưu lịch sử hãy vào Sảnh chơi online
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {currentUser ? (
             <>
-              <span className="text-xs text-slate-300">{currentUser.displayName}</span>
+              <span className="hidden text-xs text-slate-300 md:inline">{currentUser.displayName}</span>
               <Link
                 href="/lobby"
-                className="rounded-lg bg-amber-400 px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-amber-300"
+                className="flex min-h-[40px] sm:min-h-0 items-center justify-center rounded-lg bg-amber-400 px-3 py-2 sm:py-1.5 text-xs font-bold text-slate-950 transition hover:bg-amber-300"
               >
                 Chơi online
               </Link>
               <button
                 type="button"
-                className="mr-1 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-amber-400 hover:text-amber-300"
+                className="mr-1 flex min-h-[40px] sm:min-h-0 items-center justify-center rounded-lg border border-slate-700 px-3 py-2 sm:py-1.5 text-xs font-semibold text-slate-200 transition hover:border-amber-400 hover:text-amber-300"
                 onClick={() => {
                   void logout();
                 }}
@@ -341,16 +341,16 @@ export default function ArenaPage({ searchParams }: ArenaPageProps) {
           ) : (
             <Link
               href="/login"
-              className="mr-1 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-amber-400 hover:text-amber-300"
+              className="mr-1 flex min-h-[40px] sm:min-h-0 items-center justify-center rounded-lg border border-slate-700 px-3 py-2 sm:py-1.5 text-xs font-semibold text-slate-200 transition hover:border-amber-400 hover:text-amber-300"
             >
               Đăng nhập
             </Link>
           )}
-          <div className="px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs font-medium text-slate-300 flex items-center gap-2 shadow-inner">
+          <div className="px-3 py-1.5 sm:py-1 rounded-full bg-slate-900 border border-slate-800 text-xs font-medium text-slate-300 flex items-center gap-2 shadow-inner">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             Lượt: <span className="font-bold text-amber-300">{sideToMove === 'r' ? 'Đỏ (Đi trước)' : 'Đen'}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-2">
             <span className="flex h-2.5 w-2.5 relative">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />

@@ -60,7 +60,7 @@ export default function HomePage() {
             {signedIn ? (
               <Link
                 href="/lobby"
-                className="rounded-xl bg-amber-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-amber-300"
+                className="flex min-h-[40px] items-center justify-center rounded-xl bg-amber-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-amber-300"
               >
                 Vào Sảnh chơi online
               </Link>
@@ -68,13 +68,13 @@ export default function HomePage() {
               <>
                 <Link
                   href="/register"
-                  className="rounded-xl bg-amber-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-amber-300"
+                  className="flex min-h-[40px] items-center justify-center rounded-xl bg-amber-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-amber-300"
                 >
                   Tạo tài khoản
                 </Link>
                 <Link
                   href="/login"
-                  className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-100 transition hover:border-amber-400/60 hover:text-amber-200"
+                  className="flex min-h-[40px] items-center justify-center rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-100 transition hover:border-amber-400/60 hover:text-amber-200"
                 >
                   Đăng nhập
                 </Link>
@@ -82,7 +82,7 @@ export default function HomePage() {
             )}
             <Link
               href="/practice"
-              className="rounded-xl px-5 py-3 text-sm font-semibold text-slate-300 underline-offset-4 transition hover:text-amber-200 hover:underline"
+              className="flex min-h-[40px] items-center rounded-xl px-5 py-3 text-sm font-semibold text-slate-300 underline-offset-4 transition hover:text-amber-200 hover:underline"
             >
               Chơi thử 2 người 1 máy →
             </Link>

@@ -271,11 +271,11 @@ export default function MatchView({
             <h1 className="truncate text-2xl font-extrabold text-amber-300">{room.name}</h1>
           </div>
           {!active && (
-            <nav className="flex gap-4 text-sm">
-              <Link href="/lobby" className="text-slate-300 underline hover:text-amber-200">
+            <nav className="flex items-center gap-4 text-sm">
+              <Link href="/lobby" className="flex min-h-[40px] sm:min-h-0 items-center text-slate-300 underline hover:text-amber-200">
                 Về Sảnh
               </Link>
-              <Link href="/history" className="text-slate-300 underline hover:text-amber-200">
+              <Link href="/history" className="flex min-h-[40px] sm:min-h-0 items-center text-slate-300 underline hover:text-amber-200">
                 Lịch sử ván
               </Link>
             </nav>
@@ -320,7 +320,7 @@ export default function MatchView({
             </section>
 
             {!connected && (
-              <p role="alert" className="rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+              <p role="alert" className="sticky top-2 z-20 rounded-2xl border border-amber-400/50 bg-amber-400/10 px-4 py-3 text-sm text-amber-100 backdrop-blur shadow-lg">
                 Mất kết nối máy chủ, đang thử kết nối lại… Vào lại trong 60 giây để không bị xử thua.
               </p>
             )}
@@ -328,7 +328,7 @@ export default function MatchView({
               <p
                 data-testid="opponent-disconnected"
                 aria-live="polite"
-                className="rounded-2xl border border-sky-400/40 bg-sky-400/10 px-4 py-3 text-sm text-sky-100"
+                className="sticky top-2 z-20 rounded-2xl border border-sky-400/40 bg-sky-400/10 px-4 py-3 text-sm text-sky-100 backdrop-blur shadow-lg"
               >
                 Đối thủ mất kết nối. Nếu không vào lại sau{' '}
                 <strong>{Math.max(0, Math.ceil((Date.parse(opponentGone.deadline) - now) / 1000))} giây</strong>, bạn được xử thắng.
@@ -366,7 +366,7 @@ export default function MatchView({
                     type="button"
                     disabled={pending || offer !== null}
                     onClick={() => void runAction((conn, id) => conn.offerDraw(id))}
-                    className="rounded-xl border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-200 hover:border-amber-400/60 hover:text-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex min-h-[40px] items-center justify-center rounded-xl border border-slate-700 px-3 py-2.5 sm:py-2 text-sm font-semibold text-slate-200 hover:border-amber-400/60 hover:text-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     🤝 Xin hòa
                   </button>
@@ -374,7 +374,7 @@ export default function MatchView({
                     type="button"
                     disabled={pending}
                     onClick={() => setConfirmResign(true)}
-                    className="rounded-xl border border-rose-500/40 px-3 py-2 text-sm font-semibold text-rose-300 hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex min-h-[40px] items-center justify-center rounded-xl border border-rose-500/40 px-3 py-2.5 sm:py-2 text-sm font-semibold text-rose-300 hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     🏳️ Xin thua
                   </button>

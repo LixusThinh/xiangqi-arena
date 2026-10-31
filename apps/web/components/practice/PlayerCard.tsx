@@ -134,7 +134,7 @@ export default function PlayerCard({
             type="button"
             onClick={toggleCamera}
             disabled={isCameraLoading}
-            className={`absolute bottom-2 right-2 px-2.5 py-1 rounded-md text-[10px] font-semibold tracking-wide transition-all backdrop-blur disabled:opacity-50 disabled:cursor-not-allowed ${
+            className={`absolute bottom-2 right-2 min-h-[40px] sm:min-h-0 flex items-center justify-center px-2.5 py-2 sm:py-1 rounded-md text-[10px] font-semibold tracking-wide transition-all backdrop-blur disabled:opacity-50 disabled:cursor-not-allowed ${
               isCameraOn
                 ? 'bg-red-600/80 hover:bg-red-500 text-white'
                 : 'bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-600'

@@ -188,7 +188,7 @@ export default function WaitingRoom({ code, pollIntervalMs = 2000 }: WaitingRoom
         <Seat label="Đối thủ" member={opponent} />
       </section>
 
-      <dl className="mt-6 grid grid-cols-2 gap-3 text-sm">
+      <dl className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
         <div className="rounded-xl bg-slate-900/70 p-3">
           <dt className="text-slate-400">Thời gian</dt>
           <dd className="font-semibold text-slate-100">{timeLabel}</dd>
@@ -218,7 +218,7 @@ export default function WaitingRoom({ code, pollIntervalMs = 2000 }: WaitingRoom
             <button
               type="button"
               onClick={copyInvite}
-              className="rounded-xl border border-amber-400/60 px-4 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-400/10"
+              className="flex min-h-[40px] w-full sm:w-auto items-center justify-center rounded-xl border border-amber-400/60 px-4 py-2.5 sm:py-2 text-sm font-semibold text-amber-200 hover:bg-amber-400/10"
             >
               {copied ? 'Đã sao chép link mời' : 'Sao chép link mời'}
             </button>
@@ -226,14 +226,14 @@ export default function WaitingRoom({ code, pollIntervalMs = 2000 }: WaitingRoom
               type="button"
               onClick={leave}
               disabled={leaving}
-              className="rounded-xl border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-rose-400 hover:text-rose-200 disabled:opacity-50"
+              className="flex min-h-[40px] w-full sm:w-auto items-center justify-center rounded-xl border border-slate-600 px-4 py-2.5 sm:py-2 text-sm font-semibold text-slate-200 hover:border-rose-400 hover:text-rose-200 disabled:opacity-50"
             >
               {leaving ? 'Đang rời phòng…' : 'Rời phòng'}
             </button>
           </>
         )}
         {(room.status === 'CANCELLED' || room.status === 'FINISHED') && (
-          <Link href="/lobby" className="rounded-xl bg-amber-400 px-4 py-2 text-sm font-bold text-slate-950">
+          <Link href="/lobby" className="flex min-h-[40px] w-full sm:w-auto items-center justify-center rounded-xl bg-amber-400 px-4 py-2.5 sm:py-2 text-sm font-bold text-slate-950">
             Về Sảnh
           </Link>
         )}
@@ -265,8 +265,8 @@ function Seat({ label, member }: { label: string; member: RoomMember | null }) {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4 py-10 text-slate-100">
-      <div className="w-full max-w-xl rounded-3xl border border-slate-800 bg-slate-900/40 p-6 shadow-2xl">
+    <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4 py-8 sm:py-10 text-slate-100">
+      <div className="w-full max-w-xl rounded-3xl border border-slate-800 bg-slate-900/40 p-5 sm:p-6 shadow-2xl">
         {children}
       </div>
     </main>

@@ -50,7 +50,7 @@ export default function AppHeader() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/90 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4">
+      <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 sm:gap-4 px-3 sm:px-4">
         <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="Xiangqi Arena – về trang chủ">
           <span className="grid h-8 w-8 place-items-center rounded-lg border border-amber-500/40 bg-amber-500/15 text-sm font-bold text-amber-300">
             象
@@ -58,7 +58,7 @@ export default function AppHeader() {
           <span className="hidden text-base font-extrabold tracking-tight text-amber-300 sm:inline">Xiangqi Arena</span>
         </Link>
 
-        <nav aria-label="Điều hướng chính" className="-mx-1 flex min-w-0 flex-1 gap-1 overflow-x-auto">
+        <nav aria-label="Điều hướng chính" className="-mx-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {NAV_ITEMS.map((item) => {
             const active = item.match(current);
             return (
@@ -66,7 +66,7 @@ export default function AppHeader() {
                 key={item.href}
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
-                className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                className={`shrink-0 rounded-lg px-2.5 sm:px-3 py-2 sm:py-1.5 min-h-[40px] sm:min-h-0 inline-flex items-center text-sm font-medium transition ${
                   active ? 'bg-slate-800 text-amber-200' : 'text-slate-300 hover:bg-slate-900 hover:text-slate-100'
                 }`}
               >
@@ -76,7 +76,7 @@ export default function AppHeader() {
           })}
         </nav>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           {user ? (
             <>
               <span className="hidden max-w-[10rem] truncate text-sm text-slate-300 md:inline" title={user.displayName}>
@@ -87,7 +87,7 @@ export default function AppHeader() {
                 onClick={() => {
                   void logout().then(() => router.push('/'));
                 }}
-                className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-200 transition hover:border-amber-400/60 hover:text-amber-200"
+                className="flex min-h-[40px] sm:min-h-0 items-center justify-center rounded-lg border border-slate-700 px-3 py-2 sm:py-1.5 text-sm font-medium text-slate-200 transition hover:border-amber-400/60 hover:text-amber-200"
               >
                 Đăng xuất
               </button>
@@ -96,13 +96,13 @@ export default function AppHeader() {
             <>
               <Link
                 href="/login"
-                className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-200 transition hover:text-amber-200"
+                className="flex min-h-[40px] sm:min-h-0 items-center justify-center rounded-lg px-2.5 sm:px-3 py-2 sm:py-1.5 text-sm font-medium text-slate-200 transition hover:text-amber-200"
               >
                 Đăng nhập
               </Link>
               <Link
                 href="/register"
-                className="rounded-lg bg-amber-400 px-3 py-1.5 text-sm font-bold text-slate-950 transition hover:bg-amber-300"
+                className="flex min-h-[40px] sm:min-h-0 items-center justify-center rounded-lg bg-amber-400 px-2.5 sm:px-3 py-2 sm:py-1.5 text-sm font-bold text-slate-950 transition hover:bg-amber-300"
               >
                 Đăng ký
               </Link>

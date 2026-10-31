@@ -120,7 +120,7 @@ export default function VideoCallPanel({
 }: VideoCallPanelProps) {
   const inCall = status === 'calling' || status === 'connecting' || status === 'connected';
   const control =
-    'rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40';
+    'min-h-[40px] sm:min-h-0 inline-flex items-center justify-center rounded-full px-3.5 py-2 sm:py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40';
   return (
     <section aria-label="Gọi video" className={`rounded-2xl border border-slate-800 bg-slate-900/40 p-3 ${className}`}>
       <div className="mb-2 flex items-center justify-between">

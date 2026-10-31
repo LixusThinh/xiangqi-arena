@@ -153,7 +153,7 @@ export default function Lobby({ pollIntervalMs = 3000 }: LobbyProps) {
             </p>
             <Link
               href={roomPath(current.code)}
-              className="rounded-xl bg-amber-400 px-4 py-2 text-sm font-bold text-slate-950"
+              className="flex min-h-[40px] items-center justify-center rounded-xl bg-amber-400 px-4 py-2 text-sm font-bold text-slate-950"
             >
               Quay lại phòng
             </Link>
@@ -201,7 +201,7 @@ export default function Lobby({ pollIntervalMs = 3000 }: LobbyProps) {
                       {mine ? (
                         <Link
                           href={roomPath(room.code)}
-                          className="rounded-xl border border-amber-400/60 px-3 py-1.5 text-sm font-semibold text-amber-200"
+                          className="flex min-h-[40px] sm:min-h-0 items-center justify-center rounded-xl border border-amber-400/60 px-3.5 py-2 sm:py-1.5 text-sm font-semibold text-amber-200"
                         >
                           Phòng của bạn
                         </Link>
@@ -211,7 +211,7 @@ export default function Lobby({ pollIntervalMs = 3000 }: LobbyProps) {
                           disabled={inOtherRoom}
                           onClick={() => router.push(roomPath(room.code))}
                           aria-label={`Vào phòng ${room.name}`}
-                          className="rounded-xl bg-emerald-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="flex min-h-[40px] sm:min-h-0 items-center justify-center rounded-xl bg-emerald-600 px-3.5 py-2 sm:py-1.5 text-sm font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           Vào
                         </button>
@@ -240,7 +240,7 @@ export default function Lobby({ pollIntervalMs = 3000 }: LobbyProps) {
                   onChange={(e) => setName(e.target.value)}
                   maxLength={80}
                   placeholder="Bỏ trống để dùng tên mặc định"
-                  className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-amber-400"
+                  className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 sm:py-2 min-h-[40px] sm:min-h-0 text-slate-100 outline-none focus:border-amber-400"
                 />
               </label>
 
@@ -250,7 +250,7 @@ export default function Lobby({ pollIntervalMs = 3000 }: LobbyProps) {
                   {COLOR_OPTIONS.map((opt) => (
                     <label
                       key={opt.value}
-                      className={`cursor-pointer rounded-xl border px-3 py-1.5 text-sm ${
+                      className={`cursor-pointer rounded-xl border px-3 py-2 sm:py-1.5 min-h-[40px] sm:min-h-0 inline-flex items-center text-sm ${
                         color === opt.value
                           ? 'border-amber-400 bg-amber-400/10 text-amber-200'
                           : 'border-slate-700 text-slate-300'
@@ -275,7 +275,7 @@ export default function Lobby({ pollIntervalMs = 3000 }: LobbyProps) {
                 <select
                   value={ruleProfileCode}
                   onChange={(e) => setRuleProfileCode(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100"
+                  className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 sm:py-2 min-h-[40px] sm:min-h-0 text-slate-100"
                 >
                   {TIME_OPTIONS.map((opt) => (
                     <option key={opt.code} value={opt.code}>
@@ -285,7 +285,7 @@ export default function Lobby({ pollIntervalMs = 3000 }: LobbyProps) {
                 </select>
               </label>
 
-              <label className="mt-4 flex items-center gap-2 text-sm text-slate-300">
+              <label className="mt-4 flex min-h-[40px] sm:min-h-0 items-center gap-2 text-sm text-slate-300 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={visibility === 'PRIVATE'}
@@ -303,7 +303,7 @@ export default function Lobby({ pollIntervalMs = 3000 }: LobbyProps) {
               <button
                 type="submit"
                 disabled={creating || inOtherRoom}
-                className="mt-5 w-full rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-5 flex min-h-[40px] w-full items-center justify-center rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {creating ? 'Đang tạo…' : 'Tạo phòng'}
               </button>
@@ -323,12 +323,12 @@ export default function Lobby({ pollIntervalMs = 3000 }: LobbyProps) {
                   onChange={(e) => setJoinCode(e.target.value)}
                   aria-label="Mã phòng"
                   placeholder="VD: K7MPQ2XA"
-                  className="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 font-mono uppercase text-slate-100 outline-none focus:border-amber-400"
+                  className="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 sm:py-2 min-h-[40px] sm:min-h-0 font-mono uppercase text-slate-100 outline-none focus:border-amber-400"
                 />
                 <button
                   type="submit"
                   disabled={!joinCode.trim() || inOtherRoom}
-                  className="rounded-xl border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-200 disabled:opacity-40"
+                  className="flex min-h-[40px] sm:min-h-0 items-center justify-center rounded-xl border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-200 disabled:opacity-40"
                 >
                   Vào
                 </button>
