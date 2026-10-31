@@ -265,7 +265,7 @@ function Seat({ label, member }: { label: string; member: RoomMember | null }) {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-10 text-slate-100">
+    <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4 py-10 text-slate-100">
       <div className="w-full max-w-xl rounded-3xl border border-slate-800 bg-slate-900/40 p-6 shadow-2xl">
         {children}
       </div>

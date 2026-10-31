@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Side } from '@xiangqi-arena/xiangqi-core';
-import Modal from './Modal';
+import Modal from '@/components/common/Modal';
 
 export interface GameResult {
   winner: Side;

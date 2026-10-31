@@ -3,8 +3,8 @@
  * AC1: rời phòng được khi chưa bắt đầu. AC2: đủ 2 người, cả 2 vào ván.
  */
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import WaitingRoom from '../components/WaitingRoom';
-import MatchView from '../components/MatchView';
+import WaitingRoom from '../components/room/WaitingRoom';
+import MatchView from '../components/match/MatchView';
 import { saveSession } from '../lib/auth-api';
 import type { RoomDetail, RoomMember } from '../lib/room-api';
 

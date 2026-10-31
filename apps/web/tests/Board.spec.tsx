@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import Board from '../components/Board';
-import { FEN_PRESETS } from '../components/fen-presets';
+import Board from '../components/board/Board';
+import { FEN_PRESETS } from '../components/board/fen-presets';
 import { Position, STARTING_FEN } from '@xiangqi-arena/xiangqi-core';
 
 describe('<Board />', () => {

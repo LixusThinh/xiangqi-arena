@@ -2,10 +2,10 @@
 
 import { useState, type ReactNode } from 'react';
 import { Position } from '@xiangqi-arena/xiangqi-core';
-import Board from '@/components/Board';
-import ChatBox, { ChatMessage } from '@/components/ChatBox';
-import PlayerCard from '@/components/PlayerCard';
-import VideoCallPanel, { type CallStatus } from '@/components/VideoCallPanel';
+import Board from '@/components/board/Board';
+import ChatBox, { ChatMessage } from '@/components/practice/ChatBox';
+import PlayerCard from '@/components/practice/PlayerCard';
+import VideoCallPanel, { type CallStatus } from '@/components/match/VideoCallPanel';
 
 type FlowScreen =
   | 'login'

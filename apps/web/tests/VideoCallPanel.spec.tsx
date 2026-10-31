@@ -3,7 +3,7 @@
  * (AC2 kiểm bằng ảnh chụp Playwright – xem mô tả PR; jsdom không tính layout).
  */
 import { fireEvent, render, screen } from '@testing-library/react';
-import VideoCallPanel, { type VideoCallPanelProps } from '../components/VideoCallPanel';
+import VideoCallPanel, { type VideoCallPanelProps } from '../components/match/VideoCallPanel';
 
 function setup(overrides: Partial<VideoCallPanelProps> = {}) {
   const props: VideoCallPanelProps = {

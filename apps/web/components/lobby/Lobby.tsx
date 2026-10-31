@@ -135,18 +135,11 @@ export default function Lobby({ pollIntervalMs = 3000 }: LobbyProps) {
   const inOtherRoom = current !== null;
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-10 text-slate-100">
-      <div className="mx-auto w-full max-w-5xl">
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-widest text-slate-400">Xiangqi Arena</p>
-            <h1 className="mt-1 text-3xl font-extrabold text-amber-300">Sảnh</h1>
-          </div>
-          <nav className="flex gap-4 text-sm">
-            <Link href="/history" className="text-slate-300 underline hover:text-amber-200">
-              Lịch sử ván
-            </Link>
-          </nav>
+    <main className="py-8 text-slate-100">
+      <div className="mx-auto w-full max-w-6xl px-4">
+        <header>
+          <h1 className="text-3xl font-extrabold text-amber-300">Sảnh</h1>
+          <p className="mt-1 text-sm text-slate-400">Vào một phòng đang chờ, tạo phòng mới hoặc nhập mã phòng bạn được mời.</p>
         </header>
 
         {current && (
@@ -177,8 +170,8 @@ export default function Lobby({ pollIntervalMs = 3000 }: LobbyProps) {
             </div>
 
             {listError && (
-              <p role="alert" className="mt-4 text-sm text-rose-300">
-                {listError}
+              <p role="alert" className="mt-4 rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-300">
+                {listError} <span className="text-rose-200/80">Trang tự thử lại mỗi vài giây.</span>
               </p>
             )}
 

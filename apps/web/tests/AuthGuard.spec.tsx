@@ -2,7 +2,7 @@
  * XQA-67 AC1: chưa đăng nhập vào /lobby bị đưa về /login.
  */
 import { act, render, screen } from '@testing-library/react';
-import AuthGuard, { isProtectedPath } from '../components/AuthGuard';
+import AuthGuard, { isProtectedPath } from '../components/auth/AuthGuard';
 import { clearSession, saveSession } from '../lib/auth-api';
 
 const mockReplace = jest.fn();

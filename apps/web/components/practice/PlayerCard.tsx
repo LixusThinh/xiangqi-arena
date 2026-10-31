@@ -7,7 +7,8 @@ export interface PlayerCardProps {
   name: string;
   title: string;
   side: Side;
-  timeRemaining: number;
+  /** Giây còn lại để hiển thị. Không truyền → ẩn ô thời gian (chế độ không tính giờ). */
+  timeRemaining?: number;
   isActive: boolean;
   isLocalPlayer?: boolean;
   className?: string;
@@ -91,13 +92,12 @@ export default function PlayerCard({
     }
   }, [isCameraOn]);
 
-  const formattedTime =
-    timeRemaining <= 0
-      ? '00:00'
-      : `00:${timeRemaining.toString().padStart(2, '0')}`;
+  const hasTimer = timeRemaining !== undefined;
+  const seconds = timeRemaining ?? 0;
+  const formattedTime = seconds <= 0 ? '00:00' : `00:${seconds.toString().padStart(2, '0')}`;
 
-  const isLowTime = timeRemaining <= 10 && timeRemaining > 0;
-  const isTimeOut = timeRemaining <= 0;
+  const isLowTime = hasTimer && seconds <= 10 && seconds > 0;
+  const isTimeOut = hasTimer && seconds <= 0;
 
   return (
     <div
@@ -162,7 +162,8 @@ export default function PlayerCard({
           </span>
         </div>
 
-        {/* Đồng hồ số */}
+        {/* Đồng hồ số (chỉ khi có truyền thời gian) */}
+        {hasTimer && (
         <div className="flex flex-col items-end">
           <div
             className={`px-3 py-1 rounded-lg font-mono font-bold text-sm tracking-wider border transition-all ${
@@ -183,6 +184,7 @@ export default function PlayerCard({
             </span>
           )}
         </div>
+        )}
       </div>
     </div>
   );

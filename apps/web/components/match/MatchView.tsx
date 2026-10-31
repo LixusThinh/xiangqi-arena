@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { algebraicToSquare, Position, squareToAlgebraic } from '@xiangqi-arena/xiangqi-core';
-import Board from '@/components/Board';
-import Modal from '@/components/Modal';
+import Board from '@/components/board/Board';
+import Modal from '@/components/common/Modal';
 import { AuthApiError, getStoredSession } from '@/lib/auth-api';
 import {
   connectGame,
@@ -18,8 +18,9 @@ import {
   type GameState,
   type PlayerColor,
 } from '@/lib/game-socket';
-import VideoCallPanel from '@/components/VideoCallPanel';
-import { formatClock, useDisplayClock, type ClockSnapshot } from '@/lib/game-clock';
+import VideoCallPanel from '@/components/match/VideoCallPanel';
+import { useDisplayClock } from '@/lib/game-clock';
+import PlayerBadge, { clockFor } from '@/components/match/PlayerBadge';
 import { useVideoCall } from '@/lib/use-video-call';
 import { ROOM_ERROR_MESSAGES, roomApi, type RoomDetail, type RoomMember } from '@/lib/room-api';
 import { getAccessToken } from '@/lib/session';
@@ -432,71 +433,4 @@ function endMessage(end: Pick<GameEnd, 'result' | 'endReason' | 'endRule'>): str
     end.result === 'RED_WIN' ? 'Đỏ thắng' : end.result === 'BLACK_WIN' ? 'Đen thắng' : end.result === 'DRAW' ? 'Hòa' : 'Ván kết thúc';
   const reason = end.endReason ? (END_REASON_LABELS[end.endReason] ?? end.endReason) : null;
   return [who, reason, end.endRule].filter(Boolean).join(' — ') + '.';
-}
-
-function clockFor(clock: ClockSnapshot | null, color: PlayerColor | null): number | null {
-  if (!clock || !color) return null;
-  return color === 'RED' ? clock.redMs : clock.blackMs;
-}
-
-function PlayerBadge({
-  member,
-  isMe = false,
-  toMove = false,
-  clockMs = null,
-}: {
-  member: RoomMember | null;
-  isMe?: boolean;
-  toMove?: boolean;
-  /** Thời gian còn lại để hiển thị (đếm theo số server gửi); null khi chưa có ván. */
-  clockMs?: number | null;
-}) {
-  if (!member) return null;
-  const red = member.color === 'RED';
-  const black = member.color === 'BLACK';
-  const colorLabel = red ? 'Đỏ' : black ? 'Đen' : '—';
-  return (
-    <div
-      data-testid={isMe ? 'player-me' : 'player-opponent'}
-      className={`flex items-center gap-3 rounded-2xl border p-3 transition-colors ${
-        toMove ? 'border-amber-400/70 bg-amber-400/10' : 'border-slate-800 bg-slate-900/40'
-      }`}
-    >
-      <span
-        aria-hidden
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-lg font-bold ${
-          red ? 'border-rose-400/70 bg-rose-950 text-rose-300' : 'border-slate-500 bg-slate-800 text-slate-200'
-        }`}
-      >
-        {red ? '帥' : black ? '將' : '?'}
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold text-slate-100">
-          {member.displayName}
-          {isMe ? ' (bạn)' : ''}
-        </p>
-        <p className="text-xs text-slate-400">
-          Quân {colorLabel} · Elo {member.rating}
-        </p>
-      </div>
-      <div className="flex flex-col items-end gap-0.5">
-        {clockMs !== null && (
-          <span
-            data-testid={isMe ? 'clock-me' : 'clock-opponent'}
-            aria-label={`Thời gian còn lại ${formatClock(clockMs)}`}
-            className={`rounded-lg px-2 py-1 font-mono text-lg font-bold tabular-nums ${
-              clockMs < 30_000
-                ? 'bg-rose-500/15 text-rose-300'
-                : toMove
-                  ? 'bg-amber-400/15 text-amber-200'
-                  : 'bg-slate-800/80 text-slate-300'
-            }`}
-          >
-            {formatClock(clockMs)}
-          </span>
-        )}
-        {toMove && <span className="text-xs font-semibold text-amber-300">Đang đi</span>}
-      </div>
-    </div>
-  );
 }
