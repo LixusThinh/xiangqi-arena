@@ -18,7 +18,9 @@ import {
   type GameState,
   type PlayerColor,
 } from '@/lib/game-socket';
+import VideoCallPanel from '@/components/VideoCallPanel';
 import { formatClock, useDisplayClock, type ClockSnapshot } from '@/lib/game-clock';
+import { useVideoCall } from '@/lib/use-video-call';
 import { ROOM_ERROR_MESSAGES, roomApi, type RoomDetail, type RoomMember } from '@/lib/room-api';
 import { getAccessToken } from '@/lib/session';
 
@@ -53,6 +55,8 @@ export default function MatchView({
   const [confirmResign, setConfirmResign] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const connRef = useRef<GameConnection | null>(null);
+  // Bản state của kết nối để hook video call đăng ký nhận tín hiệu khi kết nối sẵn sàng
+  const [connection, setConnection] = useState<GameConnection | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,6 +99,7 @@ export default function MatchView({
       }
       conn = connect(token);
       connRef.current = conn;
+      setConnection(conn);
       conn.onUpdate((state) => {
         setGame(state);
         setSelected(null);
@@ -120,6 +125,7 @@ export default function MatchView({
       cancelled = true;
       conn?.close();
       connRef.current = null;
+      setConnection(null);
     };
   }, [room, connect]);
 
@@ -134,6 +140,7 @@ export default function MatchView({
   }, [opponentGone]);
 
   const clock = useDisplayClock(game);
+  const call = useVideoCall(connection, game?.matchId ?? null, game?.yourColor ?? null);
 
   const position = useMemo(() => (game ? Position.fromFen(game.fen) : Position.initial()), [game]);
   const myTurn =
@@ -325,6 +332,25 @@ export default function MatchView({
                 Đối thủ mất kết nối. Nếu không vào lại sau{' '}
                 <strong>{Math.max(0, Math.ceil((Date.parse(opponentGone.deadline) - now) / 1000))} giây</strong>, bạn được xử thắng.
               </p>
+            )}
+
+            {game && (
+              <VideoCallPanel
+                opponentName={opponent?.displayName ?? 'Đối thủ'}
+                selfName={me?.displayName ?? 'Bạn'}
+                status={call.phase}
+                micOn={call.micOn}
+                camOn={call.camOn}
+                opponentStream={call.remoteStream}
+                localStream={call.localStream}
+                error={call.error}
+                onToggleMic={call.toggleMic}
+                onToggleCam={call.toggleCam}
+                onEndCall={call.hangup}
+                onStartCall={() => void call.start()}
+                onAccept={() => void call.accept()}
+                onDecline={call.decline}
+              />
             )}
 
             {active && (

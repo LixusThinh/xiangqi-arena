@@ -2,7 +2,7 @@
 
 Kênh realtime cho ván cờ. Gateway chỉ là transport: mọi luật (đúng người, đúng lượt, `expectedPly`, luật đi quân, kết thúc ván) do `GameService` quyết — giống hệt REST `POST /matches/:id/moves` (`docs/api/game.md`, XQA-74).
 
-> Phạm vi v0.2: `game:join`, `game:move`, `game:resign`, `game:draw-offer` / `draw-accept` / `draw-reject`, `game:update`, `game:end`, `game:draw-offered`, `game:draw-rejected`. v0.3 thêm `player:disconnected`, `player:reconnected` và giữ ván khi mất kết nối (XQA-93). v0.4 thêm đồng hồ do server tính (XQA-141): `game:update` / ack mang `clockRunning`, `redTimeLeftMs`, `blackTimeLeftMs`, `serverTime`; hết giờ → server tự phát `game:update` + `game:end` với `endReason: "TIMEOUT"` (xem `docs/api/game.md`). Chưa có: `room:*`, `webrtc:*` (XQA-124).
+> Phạm vi v0.2: `game:join`, `game:move`, `game:resign`, `game:draw-offer` / `draw-accept` / `draw-reject`, `game:update`, `game:end`, `game:draw-offered`, `game:draw-rejected`. v0.3 thêm `player:disconnected`, `player:reconnected` và giữ ván khi mất kết nối (XQA-93). v0.4 thêm đồng hồ do server tính (XQA-141): `game:update` / ack mang `clockRunning`, `redTimeLeftMs`, `blackTimeLeftMs`, `serverTime`; hết giờ → server tự phát `game:update` + `game:end` với `endReason: "TIMEOUT"` (xem `docs/api/game.md`). v0.5 thêm `webrtc:signal` cho video call (XQA-124, mục bên dưới). Chưa có: `room:*`.
 
 ## Kết nối
 
@@ -135,6 +135,28 @@ Quy tắc khác:
 - Ván đã `FINISHED`/`ABORTED`: rời đi không giữ ván.
 
 **Giới hạn:** trạng thái chờ nằm trong RAM của một tiến trình server (`PresenceService`). Server khởi động lại thì mất đồng hồ chờ, ván vẫn `ACTIVE` và người chơi vào lại chơi tiếp được. Chạy nhiều instance cần Redis adapter + lưu presence vào Redis (ngoài phạm vi đồ án).
+
+## Video call – signaling WebRTC (XQA-124)
+
+Server chỉ **chuyển tiếp** tín hiệu giữa 2 người chơi của cùng ván; không đọc / lưu SDP, ICE. Hình + tiếng đi thẳng giữa 2 trình duyệt.
+
+### Client → server: `webrtc:signal` — `{ matchId, kind, data? }`
+
+- `kind` ∈ `call` · `accept` · `decline` · `offer` · `answer` · `ice` · `hangup`. `data`: SDP (`offer` / `answer`) hoặc ICE candidate (`ice`), tối đa 32 KB JSON.
+- Phải `game:join` ván trước (chỉ người chơi join được) → nếu chưa: `GAME_NOT_JOINED`. Sai `kind` / quá lớn: `VALIDATION_ERROR`.
+- Ack: `{ ok: true, data: { delivered } }` – số socket của đối thủ đã nhận. `delivered = 0` → đối thủ chưa mở màn ván.
+
+### Server → client: `webrtc:signal` — `{ matchId, from: "RED" | "BLACK", kind, data }`
+
+Chỉ gửi cho socket của người kia (tab khác của chính người gửi không nhận).
+
+### Luồng (web `lib/use-video-call.ts`)
+
+1. A bấm **Gọi** → mở camera/micro → gửi `call`. B thấy "Đối thủ đang gọi" → **Nhận** (gửi `accept`) hoặc **Từ chối** (`decline`).
+2. A nhận `accept` → tạo `offer`; B trả `answer`; 2 bên gửi `ice` khi có candidate. Chỉ người gọi tạo offer; 2 bên cùng bấm Gọi thì Đỏ là người gọi.
+3. Bên nào bấm **Kết thúc** / rời màn ván → `hangup`.
+
+STUN/TURN cấu hình ở web: `NEXT_PUBLIC_ICE_SERVERS` = JSON mảng `RTCIceServer`. Mặc định chỉ STUN Google: chạy khi 2 máy cùng mạng / mạng nhà; mạng chặn kết nối thẳng (wifi trường, 4G) cần thêm TURN (XQA-125).
 
 ## Gợi ý luồng FE (XQA-76)
 
