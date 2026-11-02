@@ -39,6 +39,7 @@ describe('<AppHeader /> – điều hướng chung', () => {
     const nav = screen.getByRole('navigation', { name: 'Điều hướng chính' });
     expect(nav).toHaveTextContent('Trang chủ');
     expect(nav).toHaveTextContent('Sảnh');
+    expect(nav).toHaveTextContent('Chơi với máy');
     expect(nav).toHaveTextContent('Xếp hạng');
     expect(nav).toHaveTextContent('Chơi thử');
     expect(screen.getByRole('link', { name: 'Lịch sử' })).toHaveAttribute('aria-current', 'page');
@@ -75,7 +76,7 @@ describe('<AppHeader /> – điều hướng chung', () => {
     expect(screen.getByRole('link', { name: 'Sảnh' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('chưa đăng nhập → nút Đăng nhập / Đăng ký; đã đăng nhập → tên + Đăng xuất', () => {
+  it('chưa đăng nhập → nút Đăng nhập / Đăng ký; đã đăng nhập → tên + Đăng xuất + Hồ sơ', () => {
     const { unmount } = render(<AppHeader />);
     expect(screen.getByRole('link', { name: 'Đăng nhập' })).toHaveAttribute('href', '/login');
     expect(screen.getByRole('link', { name: 'Đăng ký' })).toHaveAttribute('href', '/register');
@@ -83,6 +84,7 @@ describe('<AppHeader /> – điều hướng chung', () => {
     signIn();
     render(<AppHeader />);
     expect(screen.getByText('Kỳ Thủ Một')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Hồ sơ' })).toHaveAttribute('href', '/profile');
     expect(screen.getByRole('button', { name: 'Đăng xuất' })).toBeInTheDocument();
   });
 

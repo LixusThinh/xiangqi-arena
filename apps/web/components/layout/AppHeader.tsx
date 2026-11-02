@@ -10,6 +10,7 @@ import { logout } from '@/lib/session';
 export const NAV_ITEMS = [
   { href: '/', label: 'Trang chủ', match: (p: string) => p === '/' },
   { href: '/lobby', label: 'Sảnh', match: (p: string) => p.startsWith('/lobby') || p.startsWith('/room') },
+  { href: '/play-ai', label: 'Chơi với máy', match: (p: string) => p.startsWith('/play-ai') },
   { href: '/leaderboard', label: 'Xếp hạng', match: (p: string) => p.startsWith('/leaderboard') },
   { href: '/history', label: 'Lịch sử', match: (p: string) => p.startsWith('/history') },
   { href: '/practice', label: 'Chơi thử', match: (p: string) => p.startsWith('/practice') },
@@ -91,9 +92,19 @@ export default function AppHeader() {
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           {user ? (
             <>
-              <span className="hidden max-w-[10rem] truncate text-sm text-slate-300 md:inline" title={user.displayName}>
+              <Link
+                href="/profile"
+                className="hidden max-w-[10rem] truncate text-sm text-slate-300 transition hover:text-amber-200 md:inline"
+                title={user.displayName}
+              >
                 {user.displayName}
-              </span>
+              </Link>
+              <Link
+                href="/profile"
+                className="flex min-h-[40px] sm:min-h-0 items-center justify-center rounded-lg border border-slate-700 px-3 py-2 sm:py-1.5 text-sm font-medium text-slate-200 transition hover:border-amber-400/60 hover:text-amber-200"
+              >
+                Hồ sơ
+              </Link>
               <button
                 type="button"
                 onClick={() => {

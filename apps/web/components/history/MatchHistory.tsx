@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { AuthApiError } from '@/lib/auth-api';
 import {
@@ -97,6 +98,7 @@ export default function MatchHistory() {
                     <th className="px-4 sm:px-5 py-3 font-semibold">Kết quả</th>
                     <th className="px-4 sm:px-5 py-3 font-semibold">Số nước</th>
                     <th className="px-4 sm:px-5 py-3 font-semibold">Thời lượng</th>
+                    <th className="px-4 sm:px-5 py-3 font-semibold text-right">Xem lại</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
@@ -121,6 +123,14 @@ export default function MatchHistory() {
                       </td>
                       <td className="px-4 sm:px-5 py-4 text-slate-300">{moveCount(m.plyCount)}</td>
                       <td className="px-4 sm:px-5 py-4 text-slate-300">{formatDuration(m.durationSec)}</td>
+                      <td className="px-4 sm:px-5 py-4 text-right whitespace-nowrap">
+                        <Link
+                          href={`/history/${m.matchId}`}
+                          className="inline-flex min-h-[36px] items-center justify-center rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-amber-200 transition hover:border-amber-400 hover:bg-slate-800"
+                        >
+                          Xem lại
+                        </Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
