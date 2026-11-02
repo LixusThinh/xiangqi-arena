@@ -151,13 +151,14 @@ describe('XQA-93 mất kết nối / vào lại ván (e2e)', () => {
     expect(matchRow().status).toBe('ACTIVE');
   });
 
-  it('BR-RECON-01: cả hai cùng mất kết nối quá hạn → ván ABORTED, không ai thắng', async () => {
+  it('BR-RECON-01 / XQA-217: cả hai cùng mất kết nối quá hạn → tự hoãn (ADJOURNED), không ai bị xử thua', async () => {
     const r = await joinedPlayer(red);
     const b = await joinedPlayer(black);
     r.disconnect();
     b.disconnect();
     await sleep(GRACE_SEC * 1000 + 600);
-    expect(matchRow()).toMatchObject({ status: 'ABORTED', result: null, endReason: 'DISCONNECT' });
+    expect(matchRow()).toMatchObject({ status: 'ADJOURNED', result: null, endReason: null });
+    expect(matchRow().adjournedAt).not.toBeNull();
   });
 
   it('ván đã kết thúc thì rời đi không bị giữ ván / không xử lại', async () => {

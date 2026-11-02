@@ -7,7 +7,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { HostColorPref, Prisma, RoomStatus, RoomVisibility } from '@prisma/client';
+import { HostColorPref, MatchStatus, Prisma, RoomStatus, RoomVisibility } from '@prisma/client';
 import { randomInt } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRoomDto } from './room.dto';
@@ -252,7 +252,19 @@ export class RoomService {
 
   private findActiveMembership(userId: bigint) {
     return this.prisma.roomMember.findFirst({
-      where: { userId, room: { status: { in: ACTIVE_STATUSES } } },
+      where: {
+        userId,
+        room: {
+          status: { in: ACTIVE_STATUSES },
+          NOT: {
+            matches: {
+              some: {
+                status: MatchStatus.ADJOURNED,
+              },
+            },
+          },
+        },
+      },
       select: { room: { select: { roomCode: true } } },
     });
   }

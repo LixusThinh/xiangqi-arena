@@ -140,6 +140,12 @@ export class GameGateway implements OnGatewayInit, OnGatewayDisconnect {
           state = await this.gameService.getState(matchId, userId);
         }
       }
+      if (state.status === 'ADJOURNED') {
+        if (this.presence.hasBothPlayersConnected(matchId, state.red.id, state.black.id)) {
+          state = await this.gameService.resumeAdjourned(matchId, userId);
+          await this.broadcast(state);
+        }
+      }
       this.syncClock(state);
       return { ok: true, data: state };
     } catch (error) {
@@ -211,6 +217,11 @@ export class GameGateway implements OnGatewayInit, OnGatewayDisconnect {
       this.server.to(matchRoom(matchId)).emit('game:draw-rejected', { matchId, by: state.yourColor });
       return state;
     });
+  }
+
+  @SubscribeMessage('game:adjourn')
+  adjourn(@ConnectedSocket() socket: GameSocket, @MessageBody() body: unknown): Promise<WsAck<GameStateView>> {
+    return this.matchAction(socket, body, (matchId, userId) => this.gameService.adjourn(matchId, userId));
   }
 
   /**
@@ -315,6 +326,10 @@ export class GameGateway implements OnGatewayInit, OnGatewayDisconnect {
             deadline: info.deadline.toISOString(),
             graceSec: Math.round(target.graceMs / 1000),
           });
+          if (target.opponentId && this.presence.isDisconnected(matchId, target.opponentId)) {
+            const state = await this.gameService.adjourn(matchId);
+            await this.broadcast(state);
+          }
         }
       } catch (error) {
         this.logger.error(`disconnect handling failed for match ${matchId}`, error instanceof Error ? error.stack : String(error));

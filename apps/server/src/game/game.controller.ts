@@ -3,7 +3,7 @@ import { AuthJwtGuard } from '../auth/auth-jwt.guard';
 import { AuthenticatedRequest } from '../auth/auth.types';
 import { CreateReportDto, MoveDto } from './game.dto';
 import { GameService } from './game.service';
-import { ChatMessageView, GameStateView, ReportView } from './game.types';
+import { AdjournedMatchItem, ChatMessageView, GameStateView, ReportView } from './game.types';
 
 /**
  * REST cho ván cờ: đọc trạng thái (tải lại trang – NFR-07) và đi quân dự phòng.
@@ -13,6 +13,11 @@ import { ChatMessageView, GameStateView, ReportView } from './game.types';
 @UseGuards(AuthJwtGuard)
 export class GameController {
   constructor(private readonly gameService: GameService) {}
+
+  @Get('me/adjourned-matches')
+  adjournedMatches(@Req() req: AuthenticatedRequest): Promise<AdjournedMatchItem[]> {
+    return this.gameService.listAdjournedMatches(req.user.sub);
+  }
 
   @Get('matches/:id')
   state(@Req() req: AuthenticatedRequest, @Param('id') id: string): Promise<GameStateView> {

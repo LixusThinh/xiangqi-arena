@@ -100,6 +100,24 @@ export interface GameStateView {
   serverTime: string;
   startedAt: Date | null;
   endedAt: Date | null;
+  adjournedAt?: Date | null;
+}
+
+export interface AdjournedMatchOpponent {
+  id: string;
+  username: string;
+  displayName: string;
+  rating: number;
+  avatarUrl: string | null;
+}
+
+export interface AdjournedMatchItem {
+  matchId: string;
+  roomCode: string;
+  opponent: AdjournedMatchOpponent;
+  myColor: PlayerColor;
+  plyCount: number;
+  adjournedAt: Date | null;
 }
 
 export interface MoveInput {

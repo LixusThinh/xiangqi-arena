@@ -23,7 +23,7 @@ Luật và mã lỗi của xin thua / xin hòa: `docs/api/socket.md` mục `game
 ```jsonc
 {
   "matchId": "1", "roomCode": "K7MPQ2XA",
-  "status": "ACTIVE",                 // WAITING | ACTIVE | FINISHED | ABORTED
+  "status": "ACTIVE",                 // WAITING | ACTIVE | FINISHED | ABORTED | ADJOURNED
   "fen": "<FEN sau nước cuối>", "ply": 3,
   "turn": "BLACK",                    // null khi ván kết thúc
   "inCheck": false,
@@ -39,7 +39,7 @@ Luật và mã lỗi của xin thua / xin hòa: `docs/api/socket.md` mục `game
   "disconnected": [],                 // [{ "color": "BLACK", "deadline": "<ISO>" }] khi có người mất kết nối (XQA-93)
   "redTimeLeftMs": 598400, "blackTimeLeftMs": 600000,   // còn lại tại serverTime (XQA-141)
   "clockRunning": "RED", "incrementMs": 0, "serverTime": "2026-10-31T08:00:01.600Z",
-  "startedAt": "...", "endedAt": null
+  "startedAt": "...", "endedAt": null, "adjournedAt": null
 }
 ```
 
@@ -62,11 +62,19 @@ Sau nước đi: hết nước hợp lệ cho bên kia → kết thúc (`CHECKMA
 | Lặp nước | theo RepetitionJudge | `REPETITION` (+ `endRule`) | Điều 23 |
 | Xin thua | đối thủ thắng | `RESIGNATION` | FR-14 |
 | Hai bên đồng ý hòa | `DRAW` | `DRAW_AGREEMENT` | FR-15 |
-| Mất kết nối quá hạn | đối thủ thắng (cả hai vắng → `ABORTED`, BR-RECON-01) | `DISCONNECT` | FR-22, XQA-93 |
+| Mất kết nối quá hạn | đối thủ thắng (cả hai vắng → tự hoãn `ADJOURNED`) | `DISCONNECT` | FR-22, XQA-93, XQA-217 |
 
 - Kết quả do server tính và ghi vào `matches` (`status`, `result`, `end_reason`, `ended_at`) trong cùng transaction với nước cuối / thao tác cuối. Không endpoint hay event nào nhận `result` từ client; field lạ trong body bị ValidationPipe bỏ (FR-13, BR-05).
 - Chỉ ván `ACTIVE` mới được chốt (`updateMany ... where status = ACTIVE`). Hai thao tác kết thúc cùng lúc (ví dụ xin thua và nước chiếu bí) → cái đến sau nhận `409` (`GAME_NOT_ACTIVE`, hoặc `GAME_STALE_STATE` nếu là nước đi), kết quả đầu giữ nguyên.
 - Sau khi chốt: phòng → `FINISHED`, đề nghị hòa còn chờ → `EXPIRED`.
+
+## Hoãn ván online (ADJOURNED)
+
+- Khi đối thủ đang mất kết nối, người chơi có thể gửi socket `game:adjourn` để hoãn ván. Nếu cả hai cùng mất kết nối trong hạn, server tự hoãn ván.
+- Trừ thời gian đã dùng của bên tới lượt vào `*TimeLeftMs`, đặt `turnStartedAt = null`, `status = ADJOURNED`, `adjournedAt = now`. Huỷ hẹn giờ đồng hồ và mất kết nối. Đề nghị hòa đang chờ → `EXPIRED`. Không đổi Elo.
+- `GET /me/adjourned-matches`: trả về danh sách các ván hoãn của người chơi (matchId, roomCode, đối thủ, màu của mình, plyCount, adjournedAt).
+- Chơi tiếp: khi cả 2 người cùng vào phòng ván đấu, ván chuyển sang `ACTIVE`, `turnStartedAt = now`, đồng hồ tiếp tục chạy.
+- Ván `ADJOURNED` vẫn có thể xin thua (`game:resign` hoặc `POST /matches/:id/resign`).
 
 ## Đồng hồ (XQA-141) – chỉ server tính giờ
 

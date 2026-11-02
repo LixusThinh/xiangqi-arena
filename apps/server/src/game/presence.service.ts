@@ -87,6 +87,26 @@ export class PresenceService implements OnModuleDestroy {
     return userIds.size;
   }
 
+  /** Hoãn ván: hủy mọi hẹn giờ mất kết nối của ván nhưng vẫn giữ số socket đang mở. */
+  clearTimers(matchId: string): void {
+    const players = this.matches.get(matchId);
+    if (!players) return;
+    for (const entry of players.values()) {
+      if (entry.disconnect) {
+        clearTimeout(entry.disconnect.timer);
+        entry.disconnect = null;
+      }
+    }
+  }
+
+  hasBothPlayersConnected(matchId: string, redPlayerId: string, blackPlayerId: string): boolean {
+    const players = this.matches.get(matchId);
+    if (!players) return false;
+    const redSockets = players.get(redPlayerId)?.sockets ?? 0;
+    const blackSockets = players.get(blackPlayerId)?.sockets ?? 0;
+    return redSockets > 0 && blackSockets > 0;
+  }
+
   /** Ván kết thúc: hủy mọi đồng hồ chờ, quên ván. */
   clear(matchId: string): void {
     const players = this.matches.get(matchId);
