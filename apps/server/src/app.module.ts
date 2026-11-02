@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AdminModule } from './admin/admin.module';
+import { AiGameModule } from './ai-game/ai-game.module';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { GameModule } from './game/game.module';
@@ -21,6 +22,7 @@ import { UserModule } from './user/user.module';
     HistoryModule,
     LeaderboardModule,
     AdminModule,
+    AiGameModule,
   ],
   controllers: [AppController],
 })

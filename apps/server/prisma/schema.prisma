@@ -109,6 +109,7 @@ model User {
   receivedReports  Report[]        @relation("ReportReportedUser")
   handledReports   Report[]        @relation("ReportHandler")
   authSessions     AuthSession[]
+  aiGames          AiGame[]
 
   @@map("users")
 }
@@ -318,3 +319,34 @@ model Report {
   @@index([status])
   @@map("reports")
 }
+
+enum AiGameLevel {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum AiGameStatus {
+  IN_PROGRESS
+  FINISHED
+}
+
+model AiGame {
+  id          BigInt       @id @default(autoincrement()) @map("ai_game_id") @db.BigInt
+  userId      BigInt       @map("user_id") @db.BigInt
+  level       AiGameLevel
+  playerColor String       @map("player_color") @db.VarChar(1)
+  initialFen  String       @map("initial_fen") @db.Text
+  moves       Json         @default("[]")
+  currentFen  String       @map("current_fen") @db.Text
+  plyCount    Int          @default(0) @map("ply_count")
+  status      AiGameStatus @default(IN_PROGRESS)
+  result      String?      @db.Text
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, updatedAt])
+  @@map("ai_games")
+}
+
