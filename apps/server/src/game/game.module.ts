@@ -11,6 +11,6 @@ import { PresenceService } from './presence.service';
   imports: [AuthModule],
   controllers: [GameController],
   providers: [GameService, GameGateway, PresenceService, ClockService, ChatRateLimiter],
-  exports: [GameService, ChatRateLimiter],
+  exports: [GameService, ChatRateLimiter, PresenceService],
 })
 export class GameModule {}

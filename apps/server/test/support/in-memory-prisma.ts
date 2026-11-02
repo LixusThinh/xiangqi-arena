@@ -297,6 +297,16 @@ export class InMemoryPrisma {
               return (value as number | Date) > (operand as number | Date);
             case 'gte':
               return (value as number | Date) >= (operand as number | Date);
+            case 'contains': {
+              const strVal = String(value ?? '');
+              const target = String(operand ?? '');
+              const mode = (condition as { mode?: string }).mode;
+              return mode === 'insensitive'
+                ? strVal.toLowerCase().includes(target.toLowerCase())
+                : strVal.includes(target);
+            }
+            case 'mode':
+              return true;
             default:
               throw new Error(`InMemoryPrisma: operator "${op}" not implemented`);
           }
