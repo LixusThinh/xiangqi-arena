@@ -180,6 +180,10 @@ describe('MatchView: Hoãn ván và trạng thái ADJOURNED', () => {
 
     // Banner hoãn ván
     expect(await screen.findByText('Ván đang hoãn – chờ đối thủ vào để đánh tiếp')).toBeInTheDocument();
+    // Không được ghi "đã kết thúc" cho ván hoãn (người chơi sẽ tưởng mất ván)
+    expect(screen.getByRole('status')).toHaveTextContent('Ván đang hoãn');
+    expect(screen.queryByText('Ván đấu đã kết thúc')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Tin nhắn')).toHaveAttribute('placeholder', 'Ván đang hoãn');
 
     // Nút xin hòa bị disable
     const drawBtn = screen.getByRole('button', { name: /Xin hòa/ });

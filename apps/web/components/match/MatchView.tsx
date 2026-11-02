@@ -416,6 +416,7 @@ export default function MatchView({
                     <MatchChatBox
                       matchId={game.matchId}
                       isFinished={!active}
+                      lockedLabel={isAdjourned ? 'Ván đang hoãn' : undefined}
                       connection={connection}
                       currentUserId={myId}
                     />
@@ -539,6 +540,7 @@ export default function MatchView({
 
 function statusText(game: GameState | null, me: RoomMember | null): string {
   if (!game) return 'Đang kết nối ván…';
+  if (game.status === 'ADJOURNED') return 'Ván đang hoãn';
   if (game.status !== 'ACTIVE') return 'Ván đấu đã kết thúc';
   const turnName = game.turn === 'RED' ? 'Đỏ' : 'Đen';
   const check = game.inCheck ? ' · CHIẾU!' : '';
