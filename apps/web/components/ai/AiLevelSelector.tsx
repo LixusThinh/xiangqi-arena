@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { AiLevel } from '@xiangqi-arena/xiangqi-core';
+import type { AiGameSummary } from '@/lib/ai-game-api';
 
 export interface AiLevelSelectorProps {
   level: AiLevel;
@@ -9,6 +10,11 @@ export interface AiLevelSelectorProps {
   playerSide: 'r' | 'b';
   onSelectSide: (side: 'r' | 'b') => void;
   onStartGame: () => void;
+  isLoggedIn?: boolean;
+  savedGames?: AiGameSummary[];
+  loadingSavedGames?: boolean;
+  onResumeGame?: (game: AiGameSummary) => void;
+  onDeleteGame?: (game: AiGameSummary) => void;
 }
 
 export const AI_LEVEL_DESCRIPTIONS: Record<AiLevel, { label: string; desc: string }> = {
@@ -26,12 +32,28 @@ export const AI_LEVEL_DESCRIPTIONS: Record<AiLevel, { label: string; desc: strin
   },
 };
 
+function formatUpdatedAt(isoString: string): string {
+  try {
+    const d = new Date(isoString);
+    const time = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    const date = d.toLocaleDateString('vi-VN');
+    return `${time} ${date}`;
+  } catch {
+    return isoString;
+  }
+}
+
 export default function AiLevelSelector({
   level,
   onSelectLevel,
   playerSide,
   onSelectSide,
   onStartGame,
+  isLoggedIn = false,
+  savedGames = [],
+  loadingSavedGames = false,
+  onResumeGame,
+  onDeleteGame,
 }: AiLevelSelectorProps) {
   const levels: AiLevel[] = ['EASY', 'MEDIUM', 'HARD'];
 
@@ -130,6 +152,59 @@ export default function AiLevelSelector({
       >
         Vào ván đấu
       </button>
+
+      {/* Khối Ván đã lưu (chỉ hiện khi đã đăng nhập) */}
+      {isLoggedIn && (
+        <div className="mt-6 border-t border-slate-800 pt-5" data-testid="saved-games-section">
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-amber-200">
+            Ván đã lưu
+          </h2>
+          {loadingSavedGames ? (
+            <div className="text-center text-xs text-slate-400 py-3">
+              Đang tải danh sách ván đã lưu…
+            </div>
+          ) : savedGames.length === 0 ? (
+            <div className="text-center text-xs text-slate-500 py-3">
+              Chưa có ván cờ nào được lưu.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2.5 max-h-60 overflow-y-auto pr-1">
+              {savedGames.map((game) => (
+                <div
+                  key={game.id}
+                  data-testid={`saved-game-${game.id}`}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/60 p-3"
+                >
+                  <div className="flex flex-col gap-0.5 text-xs text-slate-300">
+                    <div className="font-semibold text-slate-200">
+                      Mức: {AI_LEVEL_DESCRIPTIONS[game.level]?.label ?? game.level} · Phe: {game.playerColor === 'r' ? 'Đỏ' : 'Đen'}
+                    </div>
+                    <div className="text-slate-400">
+                      {game.plyCount} nước · Cập nhật lúc {formatUpdatedAt(game.updatedAt)}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onResumeGame?.(game)}
+                      className="rounded-lg bg-amber-500/20 border border-amber-500/40 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-500/30 transition"
+                    >
+                      Tiếp tục
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDeleteGame?.(game)}
+                      className="rounded-lg bg-rose-500/10 border border-rose-500/30 px-3 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 transition"
+                    >
+                      Xoá
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

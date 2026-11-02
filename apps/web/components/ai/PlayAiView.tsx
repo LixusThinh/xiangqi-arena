@@ -1,9 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Link from 'next/link';
 import {
+  algebraicToSquare,
   Position,
   RepetitionJudge,
+  squareToAlgebraic,
   type AiLevel,
   type Move,
   type Piece,
@@ -12,7 +15,16 @@ import {
 import Board from '@/components/board/Board';
 import Modal from '@/components/common/Modal';
 import { createAiClient, type AiClient } from '@/lib/ai/ai-client';
+import {
+  createAiGame,
+  deleteAiGame,
+  getAiGame,
+  listSavedAiGames,
+  updateAiGame,
+  type AiGameSummary,
+} from '@/lib/ai-game-api';
 import { formatVietnameseMove } from '@/lib/ai/vietnamese-notation';
+import { getStoredSession, SESSION_CHANGED_EVENT } from '@/lib/auth-api';
 import AiLevelSelector, { AI_LEVEL_DESCRIPTIONS } from './AiLevelSelector';
 import AiMoveList, { type MoveHistoryItem } from './AiMoveList';
 
@@ -33,6 +45,12 @@ export interface PlayAiViewProps {
   initialLevel?: AiLevel;
   initialSide?: Side;
   aiClient?: AiClient;
+}
+
+function formatResult(res: AiGameResult | null, playerSide: Side): string | null {
+  if (!res) return null;
+  const outcome = res.winner === null ? 'DRAW' : res.winner === playerSide ? 'WIN' : 'LOSS';
+  return `${outcome}:${res.reason}`;
 }
 
 export default function PlayAiView({
@@ -58,6 +76,49 @@ export default function PlayAiView({
   const [confirmResign, setConfirmResign] = useState(false);
   const [confirmNewGame, setConfirmNewGame] = useState(false);
 
+  // Trạng thái đăng nhập & lưu ván
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [savedGames, setSavedGames] = useState<AiGameSummary[]>([]);
+  const [loadingSavedGames, setLoadingSavedGames] = useState(false);
+  const [gameToDelete, setGameToDelete] = useState<AiGameSummary | null>(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+
+  const activeGameIdRef = useRef<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const setGameId = useCallback((id: string | null) => {
+    activeGameIdRef.current = id;
+  }, []);
+
+  // Sync login status
+  useEffect(() => {
+    const sync = () => setIsLoggedIn(getStoredSession() !== null);
+    sync();
+    window.addEventListener(SESSION_CHANGED_EVENT, sync);
+    return () => window.removeEventListener(SESSION_CHANGED_EVENT, sync);
+  }, []);
+
+  // Tải danh sách ván đã lưu
+  const loadSavedGames = useCallback(async () => {
+    if (!isLoggedIn) return;
+    setLoadingSavedGames(true);
+    try {
+      const list = await listSavedAiGames('IN_PROGRESS');
+      setSavedGames(list);
+    } catch {
+      // non-blocking
+    } finally {
+      setLoadingSavedGames(false);
+    }
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (gameState === 'SELECTING' && isLoggedIn) {
+      loadSavedGames();
+    }
+  }, [gameState, isLoggedIn, loadSavedGames]);
+
   // Client Web Worker
   const clientRef = useRef<AiClient | null>(null);
   // Repetition judge ref
@@ -75,6 +136,42 @@ export default function PlayAiView({
   const isPlayerTurn = gameState === 'PLAYING' && !gameResult && position.sideToMove === playerSide;
   const isCheck = position.isCheck(position.sideToMove);
 
+  // Tự động lưu ván
+  const autoSave = useCallback(
+    async (
+      currentHistory: GameHistoryEntry[],
+      status?: 'IN_PROGRESS' | 'FINISHED',
+      result?: string | null,
+    ) => {
+      if (!isLoggedIn) return;
+      try {
+        let gId = activeGameIdRef.current;
+        if (!gId) {
+          const created = await createAiGame(level, playerSide);
+          gId = created.id;
+          setGameId(gId);
+        }
+        const moveDtos = currentHistory.map((h) => ({
+          from: squareToAlgebraic(h.move.from),
+          to: squareToAlgebraic(h.move.to),
+        }));
+        await updateAiGame(gId, {
+          moves: moveDtos,
+          status,
+          result,
+        });
+        setSaveError(null);
+        const now = new Date();
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        setSaveStatus(`Đã lưu lúc ${hh}:${mm}`);
+      } catch {
+        setSaveError('Chưa lưu được, sẽ thử lại');
+      }
+    },
+    [isLoggedIn, level, playerSide, setGameId],
+  );
+
   // Khởi động ván cờ mới
   const handleStartGame = useCallback(
     (selectedLevel = level, selectedSide = playerSide) => {
@@ -89,10 +186,24 @@ export default function PlayAiView({
       setIsResultModalOpen(false);
       setConfirmResign(false);
       setConfirmNewGame(false);
+      setSaveStatus(null);
+      setSaveError(null);
+      setGameId(null);
       setGameState('PLAYING');
 
       const judge = new RepetitionJudge(initialPos);
       judgeRef.current = judge;
+
+      // Nếu đã đăng nhập, tạo ván trên server ngay
+      if (isLoggedIn) {
+        createAiGame(selectedLevel, selectedSide)
+          .then((game) => {
+            setGameId(game.id);
+          })
+          .catch(() => {
+            // không chặn ván
+          });
+      }
 
       // Nếu người chơi chọn Đen thì máy (Đỏ) đi trước
       if (selectedSide === 'b') {
@@ -109,18 +220,23 @@ export default function PlayAiView({
             posCopy.applyMove(aiMove);
             judge.play(aiMove);
 
-            setPosition(posCopy);
-            setBoard([...posCopy.board]);
-            setLastMove(aiMove);
-            setHistory([
+            const nextHist: GameHistoryEntry[] = [
               {
                 ply: 1,
                 move: aiMove,
                 notation,
                 side: 'r',
               },
-            ]);
+            ];
+
+            setPosition(posCopy);
+            setBoard([...posCopy.board]);
+            setLastMove(aiMove);
+            setHistory(nextHist);
             setIsAiThinking(false);
+
+            // Tự lưu sau khi máy đi xong
+            autoSave(nextHist, 'IN_PROGRESS');
           })
           .catch(() => {
             setIsAiThinking(false);
@@ -129,27 +245,36 @@ export default function PlayAiView({
         setIsAiThinking(false);
       }
     },
-    [injectedAiClient, level, playerSide],
+    [autoSave, injectedAiClient, isLoggedIn, level, playerSide, setGameId],
   );
 
   // Máy suy nghĩ và đi nước cờ
   const triggerAiTurn = useCallback(
-    (currentPos: Position, currentHistory: GameHistoryEntry[]) => {
-      if (!clientRef.current) return;
+    (
+      currentPos: Position,
+      currentHistory: GameHistoryEntry[],
+      currentLevel = level,
+      currentPlayerSide = playerSide,
+    ) => {
+      const client = clientRef.current ?? injectedAiClient ?? createAiClient();
+      clientRef.current = client;
       setIsAiThinking(true);
 
-      clientRef.current
-        .computeMove(currentPos.toFen(), level)
+      const currentAiSide: Side = currentPlayerSide === 'r' ? 'b' : 'r';
+
+      client
+        .computeMove(currentPos.toFen(), currentLevel)
         .then((move) => {
           setIsAiThinking(false);
           if (!move) {
             // Máy không tìm được nước đi (hết nước)
             const result: AiGameResult = {
-              winner: playerSide,
+              winner: currentPlayerSide,
               reason: 'no_moves',
             };
             setGameResult(result);
             setIsResultModalOpen(true);
+            autoSave(currentHistory, 'FINISHED', formatResult(result, currentPlayerSide));
             return;
           }
 
@@ -168,7 +293,7 @@ export default function PlayAiView({
               ply: currentHistory.length + 1,
               move,
               notation,
-              side: aiSide,
+              side: currentAiSide,
             },
           ];
 
@@ -187,6 +312,7 @@ export default function PlayAiView({
               };
               setGameResult(res);
               setIsResultModalOpen(true);
+              autoSave(nextHistory, 'FINISHED', formatResult(res, currentPlayerSide));
               return;
             } else if (verdict.result.kind === 'draw') {
               const res: AiGameResult = {
@@ -196,6 +322,7 @@ export default function PlayAiView({
               };
               setGameResult(res);
               setIsResultModalOpen(true);
+              autoSave(nextHistory, 'FINISHED', formatResult(res, currentPlayerSide));
               return;
             }
           }
@@ -208,18 +335,92 @@ export default function PlayAiView({
             };
             setGameResult(res);
             setIsResultModalOpen(true);
+            autoSave(nextHistory, 'FINISHED', formatResult(res, currentPlayerSide));
+            return;
           }
+
+          // Ván tiếp tục: tự lưu sau mỗi lượt của máy
+          autoSave(nextHistory, 'IN_PROGRESS');
         })
         .catch(() => {
           setIsAiThinking(false);
         });
     },
-    [aiSide, level, playerSide],
+    [autoSave, injectedAiClient, level, playerSide],
   );
+
+  // Tiếp tục ván đã lưu
+  const handleResumeGame = useCallback(
+    async (gameSummary: AiGameSummary) => {
+      try {
+        const detail = await getAiGame(gameSummary.id);
+        const newPos = Position.fromFen(detail.initialFen);
+        const newJudge = new RepetitionJudge(Position.fromFen(detail.initialFen));
+        let newLastMove: { from: number; to: number } | null = null;
+        const reconstructedHistory: GameHistoryEntry[] = [];
+
+        for (const m of detail.moves) {
+          const move: Move = {
+            from: algebraicToSquare(m.from),
+            to: algebraicToSquare(m.to),
+          };
+          const notation = formatVietnameseMove(newPos, move);
+          const side = newPos.sideToMove;
+          newPos.applyMove(move);
+          newJudge.play(move);
+          newLastMove = move;
+          reconstructedHistory.push({
+            ply: reconstructedHistory.length + 1,
+            move,
+            notation,
+            side,
+          });
+        }
+
+        setLevel(detail.level);
+        setPlayerSide(detail.playerColor);
+        setGameId(detail.id);
+        setPosition(newPos);
+        setBoard([...newPos.board]);
+        setLastMove(newLastMove);
+        setSelectedSquare(null);
+        setValidMoves([]);
+        setHistory(reconstructedHistory);
+        setGameResult(null);
+        setIsResultModalOpen(false);
+        setConfirmResign(false);
+        setConfirmNewGame(false);
+        setSaveStatus(null);
+        setSaveError(null);
+        judgeRef.current = newJudge;
+        setGameState('PLAYING');
+
+        // Nếu tới lượt máy thì cho máy đi luôn
+        const aiColor: Side = detail.playerColor === 'r' ? 'b' : 'r';
+        if (newPos.sideToMove === aiColor) {
+          triggerAiTurn(newPos, reconstructedHistory, detail.level, detail.playerColor);
+        }
+      } catch {
+        // lỗi tải ván
+      }
+    },
+    [setGameId, triggerAiTurn],
+  );
+
+  // Xoá ván đã lưu
+  const handleConfirmDelete = useCallback(async () => {
+    if (!gameToDelete) return;
+    try {
+      await deleteAiGame(gameToDelete.id);
+      setGameToDelete(null);
+      await loadSavedGames();
+    } catch {
+      setGameToDelete(null);
+    }
+  }, [gameToDelete, loadSavedGames]);
 
   // Xử lý khi người chơi click trên bàn cờ
   const handleSquareClick = (sq: number) => {
-    // Không tới lượt hoặc máy đang nghĩ hoặc ván đã kết thúc: không làm gì
     if (!isPlayerTurn || isAiThinking || gameResult) return;
 
     const clickedPiece = position.board[sq];
@@ -287,6 +488,7 @@ export default function PlayAiView({
         };
         setGameResult(res);
         setIsResultModalOpen(true);
+        autoSave(nextHistory, 'FINISHED', formatResult(res, playerSide));
         return;
       } else if (verdict.result.kind === 'draw') {
         const res: AiGameResult = {
@@ -296,6 +498,7 @@ export default function PlayAiView({
         };
         setGameResult(res);
         setIsResultModalOpen(true);
+        autoSave(nextHistory, 'FINISHED', formatResult(res, playerSide));
         return;
       }
     }
@@ -308,6 +511,7 @@ export default function PlayAiView({
       };
       setGameResult(res);
       setIsResultModalOpen(true);
+      autoSave(nextHistory, 'FINISHED', formatResult(res, playerSide));
       return;
     }
 
@@ -320,7 +524,7 @@ export default function PlayAiView({
     gameState === 'PLAYING' &&
     !isAiThinking &&
     !gameResult &&
-    history.length >= (playerSide === 'r' ? 2 : 2) &&
+    history.length >= 2 &&
     position.sideToMove === playerSide;
 
   const handleUndo = () => {
@@ -347,6 +551,42 @@ export default function PlayAiView({
     setValidMoves([]);
     setHistory(nextHistory);
     judgeRef.current = newJudge;
+
+    // Tự lưu sau khi Đi lại
+    autoSave(nextHistory, 'IN_PROGRESS');
+  };
+
+  // Lưu ván thủ công
+  const handleManualSave = async () => {
+    if (!isLoggedIn) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    try {
+      let gId = activeGameIdRef.current;
+      if (!gId) {
+        const created = await createAiGame(level, playerSide);
+        gId = created.id;
+        setGameId(gId);
+      }
+      const moveDtos = history.map((h) => ({
+        from: squareToAlgebraic(h.move.from),
+        to: squareToAlgebraic(h.move.to),
+      }));
+      await updateAiGame(gId, {
+        moves: moveDtos,
+        status: gameResult ? 'FINISHED' : 'IN_PROGRESS',
+        result: gameResult ? formatResult(gameResult, playerSide) : null,
+      });
+      setSaveError(null);
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      setSaveStatus(`Đã lưu lúc ${hh}:${mm}`);
+    } catch {
+      setSaveError('Chưa lưu được, sẽ thử lại');
+    }
   };
 
   // Xác nhận đầu hàng
@@ -358,6 +598,7 @@ export default function PlayAiView({
     };
     setGameResult(res);
     setIsResultModalOpen(true);
+    autoSave(history, 'FINISHED', formatResult(res, playerSide));
   };
 
   // Thông báo kết thúc ván
@@ -400,6 +641,22 @@ export default function PlayAiView({
           playerSide={playerSide}
           onSelectSide={setPlayerSide}
           onStartGame={() => handleStartGame(level, playerSide)}
+          isLoggedIn={isLoggedIn}
+          savedGames={savedGames}
+          loadingSavedGames={loadingSavedGames}
+          onResumeGame={handleResumeGame}
+          onDeleteGame={(g) => setGameToDelete(g)}
+        />
+
+        {/* Modal xác nhận xoá ván cờ đã lưu */}
+        <Modal
+          isOpen={gameToDelete !== null}
+          title="Xoá ván đã lưu?"
+          message="Bạn chắc chắn muốn xoá ván chơi này? Hành động này không thể hoàn tác."
+          confirmText="Xoá"
+          cancelText="Huỷ"
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setGameToDelete(null)}
         />
       </main>
     );
@@ -497,7 +754,7 @@ export default function PlayAiView({
           <AiMoveList moves={moveHistoryItems} />
 
           {/* Các nút thao tác */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <button
               type="button"
               disabled={!canUndo}
@@ -505,6 +762,14 @@ export default function PlayAiView({
               className="flex min-h-[40px] items-center justify-center rounded-xl border border-slate-700 bg-slate-900/60 px-2 py-2 text-xs sm:text-sm font-semibold text-slate-200 transition hover:border-amber-400/60 hover:text-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
             >
               ↶ Đi lại
+            </button>
+
+            <button
+              type="button"
+              onClick={handleManualSave}
+              className="flex min-h-[40px] items-center justify-center rounded-xl border border-slate-700 bg-slate-900/60 px-2 py-2 text-xs sm:text-sm font-semibold text-slate-200 transition hover:border-amber-400/60 hover:text-amber-200"
+            >
+              💾 Lưu ván
             </button>
 
             <button
@@ -525,8 +790,56 @@ export default function PlayAiView({
               🏳️ Đầu hàng
             </button>
           </div>
+
+          {/* Trạng thái lưu */}
+          {(saveStatus || saveError) && (
+            <div className="flex items-center justify-between text-xs px-2 py-1 rounded bg-slate-900/40 border border-slate-800">
+              {saveStatus && (
+                <span className="text-emerald-400 font-medium" data-testid="save-status">
+                  {saveStatus}
+                </span>
+              )}
+              {saveError && (
+                <span className="text-amber-400 font-medium ml-auto" data-testid="save-error">
+                  {saveError}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Modal nhắc đăng nhập để lưu ván */}
+      {showLoginModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+        >
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-sm w-full p-6 text-slate-100 flex flex-col gap-4">
+            <h3 className="text-lg font-bold text-amber-400">Đăng nhập để lưu ván</h3>
+            <p className="text-sm text-slate-300 leading-relaxed">
+              Bạn cần đăng nhập để lưu ván cờ lên tài khoản và chơi tiếp sau trên mọi thiết bị.
+            </p>
+            <div className="flex justify-end gap-3 mt-2">
+              <button
+                type="button"
+                onClick={() => setShowLoginModal(false)}
+                className="flex min-h-[40px] items-center justify-center rounded-xl bg-slate-700 hover:bg-slate-600 px-4 py-2 text-xs font-semibold text-slate-300 transition"
+              >
+                Đóng
+              </button>
+              <Link
+                href="/login?next=%2Fplay-ai"
+                onClick={() => setShowLoginModal(false)}
+                className="flex min-h-[40px] items-center justify-center rounded-xl bg-amber-500 hover:bg-amber-400 px-4 py-2 text-xs font-bold text-slate-950 transition shadow-lg shadow-amber-500/20"
+              >
+                Đăng nhập
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal xác nhận đầu hàng */}
       <Modal
