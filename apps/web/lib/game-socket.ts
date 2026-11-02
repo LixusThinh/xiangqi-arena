@@ -2,7 +2,7 @@ import { io, type Socket } from 'socket.io-client';
 
 /** Kiểu dữ liệu theo contract docs/api/game.md (XQA-74, XQA-90) và docs/api/socket.md (XQA-75, XQA-91). */
 export type PlayerColor = 'RED' | 'BLACK';
-export type MatchStatus = 'WAITING' | 'ACTIVE' | 'FINISHED' | 'ABORTED';
+export type MatchStatus = 'WAITING' | 'ACTIVE' | 'FINISHED' | 'ABORTED' | 'ADJOURNED';
 export type MatchResult = 'RED_WIN' | 'BLACK_WIN' | 'DRAW';
 
 export interface GamePlayer {
@@ -63,6 +63,7 @@ export interface GameState {
   ratings?: MatchRatings | null;
   startedAt: string | null;
   endedAt: string | null;
+  adjournedAt?: string | null;
 }
 
 export interface PlayerRatingChange {
@@ -145,6 +146,7 @@ export const GAME_ERROR_MESSAGES: Record<string, string> = {
   GAME_DRAW_OFFER_TOO_SOON: 'Đề nghị hòa vừa bị từ chối. Đi thêm một nước rồi hãy đề nghị lại.',
   GAME_NO_DRAW_OFFER: 'Đề nghị hòa không còn hiệu lực.',
   GAME_DRAW_OFFER_OWN: 'Không thể tự trả lời đề nghị hòa của mình.',
+  OPPONENT_CONNECTED: 'Đối thủ vẫn đang kết nối.',
   AUTH_TOKEN_MISSING: 'Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.',
   AUTH_TOKEN_INVALID: 'Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.',
   AUTH_TOKEN_EXPIRED: 'Phiên đăng nhập đã hết hạn. Vui lòng tải lại trang.',
@@ -182,6 +184,7 @@ export interface GameConnection {
   resign(matchId: string): Promise<GameState>;
   offerDraw(matchId: string): Promise<GameState>;
   answerDraw(matchId: string, accept: boolean): Promise<GameState>;
+  adjourn(matchId: string): Promise<GameState>;
   onUpdate(listener: (state: GameState) => void): void;
   onEnd(listener: (end: GameEnd) => void): void;
   onDrawOffered(listener: (offer: DrawOffered) => void): void;
@@ -273,6 +276,9 @@ export const connectGame: ConnectGame = (token) => {
     },
     answerDraw(matchId, accept) {
       return request<GameState>(socket, accept ? 'game:draw-accept' : 'game:draw-reject', { matchId });
+    },
+    adjourn(matchId) {
+      return request<GameState>(socket, 'game:adjourn', { matchId });
     },
     onUpdate(listener) {
       updateListeners.push(listener);

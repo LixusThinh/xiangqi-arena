@@ -43,6 +43,23 @@ export interface CreateRoomInput {
   ruleProfileCode?: string;
 }
 
+export interface AdjournedMatchOpponent {
+  id: string;
+  username: string;
+  displayName: string;
+  rating: number;
+  avatarUrl?: string | null;
+}
+
+export interface AdjournedMatch {
+  matchId: string;
+  roomCode: string;
+  opponent: AdjournedMatchOpponent;
+  myColor: SeatColor;
+  plyCount: number;
+  adjournedAt: string | null;
+}
+
 /** Thông báo tiếng Việt cho mã lỗi Room (contract mục "Mã lỗi"). */
 export const ROOM_ERROR_MESSAGES: Record<string, string> = {
   ROOM_NOT_FOUND: 'Không tìm thấy phòng. Kiểm tra lại mã phòng hoặc link mời.',
@@ -73,5 +90,8 @@ export const roomApi = {
   },
   leave(code: string): Promise<void> {
     return authorizedRequest<void>(`${path(code)}/leave`, { method: 'POST' });
+  },
+  adjournedMatches(): Promise<AdjournedMatch[]> {
+    return authorizedRequest<AdjournedMatch[]>('/me/adjourned-matches', { method: 'GET' });
   },
 };
