@@ -19,6 +19,8 @@ import {
   type PlayerColor,
 } from '@/lib/game-socket';
 import VideoCallPanel from '@/components/match/VideoCallPanel';
+import MatchChatBox from '@/components/chat/MatchChatBox';
+import ReportModal from '@/components/report/ReportModal';
 import { useDisplayClock } from '@/lib/game-clock';
 import PlayerBadge, { clockFor } from '@/components/match/PlayerBadge';
 import { useVideoCall } from '@/lib/use-video-call';
@@ -58,6 +60,8 @@ export default function MatchView({
   const connRef = useRef<GameConnection | null>(null);
   // Bản state của kết nối để hook video call đăng ký nhận tín hiệu khi kết nối sẵn sàng
   const [connection, setConnection] = useState<GameConnection | null>(null);
+  const [sideTab, setSideTab] = useState<'chat' | 'video'>('chat');
+  const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -142,6 +146,12 @@ export default function MatchView({
 
   const clock = useDisplayClock(game);
   const call = useVideoCall(connection, game?.matchId ?? null, game?.yourColor ?? null);
+
+  useEffect(() => {
+    if (call.phase === 'incoming') {
+      setSideTab('video');
+    }
+  }, [call.phase]);
 
   const position = useMemo(() => (game ? Position.fromFen(game.fen) : Position.initial()), [game]);
   const myTurn =
@@ -278,6 +288,15 @@ export default function MatchView({
               <Link href="/history" className="flex min-h-[40px] sm:min-h-0 items-center text-slate-300 underline hover:text-amber-200">
                 Lịch sử ván
               </Link>
+              {game && (
+                <button
+                  type="button"
+                  onClick={() => setShowReportModal(true)}
+                  className="flex min-h-[40px] sm:min-h-0 items-center font-medium text-rose-300 hover:text-rose-200"
+                >
+                  🚩 Báo cáo đối thủ
+                </button>
+              )}
             </nav>
           )}
         </header>
@@ -343,26 +362,63 @@ export default function MatchView({
               )}
             </section>
 
-            <div className="order-2 lg:order-none">
+            <div className="order-2 flex flex-col gap-2 lg:order-none">
+              <div className="flex rounded-xl border border-slate-800 bg-slate-900/60 p-0.5 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setSideTab('chat')}
+                  className={`flex-1 rounded-lg py-1.5 transition ${
+                    sideTab === 'chat'
+                      ? 'bg-amber-500 font-bold text-slate-950 shadow'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  💬 Trò chuyện
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSideTab('video')}
+                  className={`flex-1 rounded-lg py-1.5 transition ${
+                    sideTab === 'video'
+                      ? 'bg-amber-500 font-bold text-slate-950 shadow'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  📹 Gọi video
+                </button>
+              </div>
+
               {game && (
-                <VideoCallPanel
-                  opponentName={opponent?.displayName ?? 'Đối thủ'}
-                  selfName={me?.displayName ?? 'Bạn'}
-                  status={call.phase}
-                  micOn={call.micOn}
-                  camOn={call.camOn}
-                  opponentStream={call.remoteStream}
-                  localStream={call.localStream}
-                  error={call.error}
-                  onToggleMic={call.toggleMic}
-                  onToggleCam={call.toggleCam}
-                  onEndCall={call.hangup}
-                  onStartCall={() => void call.start()}
-                  onAccept={() => void call.accept()}
-                  onDecline={call.decline}
-                  // Màn lớn: khung video co theo chiều cao cửa sổ để cả cột vừa 1366×650 không phải cuộn
-                  videoClassName="aspect-video w-full lg:aspect-auto lg:h-[clamp(6rem,calc(100dvh-34rem),11rem)]"
-                />
+                <>
+                  <div className={sideTab === 'chat' ? 'block' : 'hidden'}>
+                    <MatchChatBox
+                      matchId={game.matchId}
+                      isFinished={!active}
+                      connection={connection}
+                      currentUserId={myId}
+                    />
+                  </div>
+                  <div className={sideTab === 'video' ? 'block' : 'hidden'}>
+                    <VideoCallPanel
+                      opponentName={opponent?.displayName ?? 'Đối thủ'}
+                      selfName={me?.displayName ?? 'Bạn'}
+                      status={call.phase}
+                      micOn={call.micOn}
+                      camOn={call.camOn}
+                      opponentStream={call.remoteStream}
+                      localStream={call.localStream}
+                      error={call.error}
+                      onToggleMic={call.toggleMic}
+                      onToggleCam={call.toggleCam}
+                      onEndCall={call.hangup}
+                      onStartCall={() => void call.start()}
+                      onAccept={() => void call.accept()}
+                      onDecline={call.decline}
+                      // Màn lớn: khung video co theo chiều cao cửa sổ để cả cột vừa 1366×650 không phải cuộn
+                      videoClassName="aspect-video w-full lg:aspect-auto lg:h-[clamp(6rem,calc(100dvh-34rem),11rem)]"
+                    />
+                  </div>
+                </>
               )}
             </div>
 
@@ -392,6 +448,13 @@ export default function MatchView({
                       🏳️ Xin thua
                     </button>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowReportModal(true)}
+                    className="flex min-h-[36px] items-center justify-center rounded-xl border border-slate-800 text-xs text-slate-400 transition hover:border-rose-500/40 hover:text-rose-300"
+                  >
+                    🚩 Báo cáo đối thủ
+                  </button>
                 </div>
               )}
             </div>
@@ -420,12 +483,22 @@ export default function MatchView({
         onCancel={() => void runAction((conn, id) => conn.answerDraw(id, false))}
       />
       <Modal
-        isOpen={endInfo !== null}
+        isOpen={endInfo !== null && !showReportModal}
         title="Ván đấu kết thúc"
-        message={endInfo ? endMessage(endInfo) : ''}
+        message={endInfo ? endMessage(endInfo, game?.yourColor ?? me?.color) : ''}
         confirmText="Về Sảnh"
+        cancelText="Báo cáo đối thủ"
         onConfirm={() => router.push('/lobby')}
+        onCancel={() => setShowReportModal(true)}
       />
+      {game && (
+        <ReportModal
+          isOpen={showReportModal}
+          matchId={game.matchId}
+          opponentName={opponent?.displayName ?? 'đối thủ'}
+          onClose={() => setShowReportModal(false)}
+        />
+      )}
     </main>
   );
 }
@@ -438,9 +511,13 @@ function statusText(game: GameState | null, me: RoomMember | null): string {
   return game.turn === (game.yourColor ?? me?.color) ? `Đến lượt bạn (${turnName})${check}` : `Đến lượt đối thủ (${turnName})${check}`;
 }
 
-function endMessage(end: Pick<GameEnd, 'result' | 'endReason' | 'endRule'>): string {
+function endMessage(end: Pick<GameEnd, 'result' | 'endReason' | 'endRule' | 'ratings'>, color?: PlayerColor | null): string {
   const who =
     end.result === 'RED_WIN' ? 'Đỏ thắng' : end.result === 'BLACK_WIN' ? 'Đen thắng' : end.result === 'DRAW' ? 'Hòa' : 'Ván kết thúc';
   const reason = end.endReason ? (END_REASON_LABELS[end.endReason] ?? end.endReason) : null;
-  return [who, reason, end.endRule].filter(Boolean).join(' — ') + '.';
+  const base = [who, reason, end.endRule].filter(Boolean).join(' — ') + '.';
+  const change = color === 'RED' ? end.ratings?.red : color === 'BLACK' ? end.ratings?.black : null;
+  if (!change) return base;
+  const deltaStr = change.delta > 0 ? `+${change.delta}` : `${change.delta}`;
+  return `${base} (${deltaStr})`;
 }

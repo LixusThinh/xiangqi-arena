@@ -63,6 +63,8 @@ export class InMemoryPrisma {
   readonly move: ModelDelegate;
   readonly ratingHistory: ModelDelegate;
   readonly drawOffer: ModelDelegate;
+  readonly chat: ModelDelegate;
+  readonly report: ModelDelegate;
 
   constructor() {
     const now = (): Date => new Date();
@@ -129,6 +131,7 @@ export class InMemoryPrisma {
           blackPlayer: { table: 'user', kind: 'one', localKey: 'blackPlayerId', foreignKey: 'id' },
           moves: { table: 'move', kind: 'many', localKey: 'id', foreignKey: 'matchId' },
           drawOffers: { table: 'drawOffer', kind: 'many', localKey: 'id', foreignKey: 'matchId' },
+          ratingHistory: { table: 'ratingHistory', kind: 'many', localKey: 'id', foreignKey: 'matchId' },
         },
       },
       drawOffer: {
@@ -168,6 +171,31 @@ export class InMemoryPrisma {
           room: { table: 'room', kind: 'one', localKey: 'roomId', foreignKey: 'id' },
         },
       },
+      chat: {
+        unique: [],
+        defaults: () => ({ type: 'TEXT', emojiId: null, createdAt: now() }),
+        relations: {
+          room: { table: 'room', kind: 'one', localKey: 'roomId', foreignKey: 'id' },
+          match: { table: 'match', kind: 'one', localKey: 'matchId', foreignKey: 'id' },
+          sender: { table: 'user', kind: 'one', localKey: 'senderId', foreignKey: 'id' },
+        },
+      },
+      report: {
+        unique: [['matchId', 'reporterId']],
+        defaults: () => ({
+          description: null,
+          status: 'OPEN',
+          handledById: null,
+          handledAt: null,
+          createdAt: now(),
+        }),
+        relations: {
+          reporter: { table: 'user', kind: 'one', localKey: 'reporterId', foreignKey: 'id' },
+          reportedUser: { table: 'user', kind: 'one', localKey: 'reportedUserId', foreignKey: 'id' },
+          handler: { table: 'user', kind: 'one', localKey: 'handledById', foreignKey: 'id' },
+          match: { table: 'match', kind: 'one', localKey: 'matchId', foreignKey: 'id' },
+        },
+      },
     };
     for (const name of Object.keys(this.defs)) {
       this.tables.set(name, []);
@@ -183,6 +211,8 @@ export class InMemoryPrisma {
     this.move = new ModelDelegate(this, 'move');
     this.ratingHistory = new ModelDelegate(this, 'ratingHistory');
     this.drawOffer = new ModelDelegate(this, 'drawOffer');
+    this.chat = new ModelDelegate(this, 'chat');
+    this.report = new ModelDelegate(this, 'report');
   }
 
   /**
@@ -267,6 +297,16 @@ export class InMemoryPrisma {
               return (value as number | Date) > (operand as number | Date);
             case 'gte':
               return (value as number | Date) >= (operand as number | Date);
+            case 'contains': {
+              const strVal = String(value ?? '');
+              const target = String(operand ?? '');
+              const mode = (condition as { mode?: string }).mode;
+              return mode === 'insensitive'
+                ? strVal.toLowerCase().includes(target.toLowerCase())
+                : strVal.includes(target);
+            }
+            case 'mode':
+              return true;
             default:
               throw new Error(`InMemoryPrisma: operator "${op}" not implemented`);
           }

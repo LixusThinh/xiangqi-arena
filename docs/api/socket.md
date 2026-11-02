@@ -99,10 +99,19 @@ Phát sau mỗi nước hợp lệ. Mỗi socket nhận `yourColor` của chính
 ### `game:end`
 
 ```jsonc
-{ "matchId": "1", "result": "DRAW", "endReason": "REPETITION", "endRule": "Điều 24.2 ..." }
+{
+  "matchId": "1",
+  "result": "DRAW",
+  "endReason": "REPETITION",
+  "endRule": "Điều 24.2 ...",
+  "ratings": {
+    "red": { "before": 1200, "after": 1200, "delta": 0 },
+    "black": { "before": 1200, "after": 1200, "delta": 0 }
+  }
+}
 ```
 
-Phát (sau `game:update`) khi ván chuyển `FINISHED`/`ABORTED`. `endReason` gồm cả `RESIGNATION`, `DRAW_AGREEMENT` (XQA-91).
+Phát (sau `game:update`) khi ván chuyển `FINISHED`/`ABORTED`. `endReason` gồm cả `RESIGNATION`, `DRAW_AGREEMENT` (XQA-91). `ratings` chứa điểm Elo cập nhật của 2 bên (`null` nếu ván không tính Elo / `ABORTED`).
 
 ### `game:draw-offered` — `{ matchId, by: "RED" | "BLACK", atPly }`
 
@@ -111,6 +120,37 @@ Có đề nghị hòa mới. FE bên kia mở popup Đồng ý / Từ chối. Tr
 ### `game:draw-rejected` — `{ matchId, by }`
 
 `by` là người **từ chối**. FE của người đề nghị hiện toast.
+
+## Chat trong ván online (XQA-29, FR-23)
+
+### `chat:send`
+Gửi tin nhắn trong ván đấu đang diễn ra.
+```jsonc
+{
+  "matchId": "1",
+  "content": "Xin chào đối thủ!"
+}
+```
+- Điều kiện: người gửi là người chơi trong ván (`GAME_NOT_PLAYER`), ván đang `ACTIVE` (`GAME_NOT_ACTIVE`), nội dung sau trim từ 1–300 ký tự Unicode (`VALIDATION_ERROR`), rate limit tối đa 5 tin / 10 giây mỗi người (`CHAT_RATE_LIMITED`).
+- Thành công: lưu DB bảng `chats`, server phát `chat:message` cho cả phòng `match:<id>`, ack trả về thông tin tin nhắn vừa gửi.
+
+### `chat:message`
+Phát cho cả phòng khi có tin nhắn mới hợp lệ.
+```jsonc
+{
+  "id": "101",
+  "matchId": "1",
+  "senderId": "1",
+  "senderName": "Kỳ Thủ Một",
+  "content": "Xin chào đối thủ!",
+  "createdAt": "2026-11-02T10:00:00.000Z"
+}
+```
+
+### Lấy lại lịch sử chat
+Gọi REST API:
+`GET /matches/:id/chats` (cần Authorization Bearer của người chơi trong ván).
+Trả về mảng tối đa 50 tin nhắn gần nhất theo thứ tự thời gian tăng dần (`ChatMessageView[]`).
 
 ## Mất kết nối và vào lại (XQA-93)
 

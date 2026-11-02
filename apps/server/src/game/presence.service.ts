@@ -72,6 +72,21 @@ export class PresenceService implements OnModuleDestroy {
     return this.matches.get(matchId)?.get(userId)?.disconnect != null;
   }
 
+  /**
+   * Đếm số user đang online (có ít nhất 1 socket đang kết nối vào một ván).
+   */
+  countOnlineUsers(): number {
+    const userIds = new Set<string>();
+    for (const players of this.matches.values()) {
+      for (const [userId, entry] of players.entries()) {
+        if (entry.sockets > 0) {
+          userIds.add(userId);
+        }
+      }
+    }
+    return userIds.size;
+  }
+
   /** Ván kết thúc: hủy mọi đồng hồ chờ, quên ván. */
   clear(matchId: string): void {
     const players = this.matches.get(matchId);

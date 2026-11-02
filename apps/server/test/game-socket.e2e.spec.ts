@@ -304,4 +304,123 @@ describe('XQA-75 Socket game events (e2e)', () => {
       expect(own).toMatchObject({ ok: false, error: { code: 'GAME_DRAW_OFFER_OWN' } });
     });
   });
+
+  describe('XQA-29: chat trong ván online (FR-23, AC-29-01..07)', () => {
+    it('AC-29-01: gửi tin hợp lệ 1-300 ký tự → đối thủ nhận chat:message, tin lưu DB bảng chats', async () => {
+      const r = await joinedPlayer(red);
+      const b = await joinedPlayer(black);
+
+      const msgPromise = next<Record<string, unknown>>(b, 'chat:message');
+      const ack = await emit(r, 'chat:send', { matchId, content: 'Chào bạn, chúc ván đấu hay! 😊' });
+
+      expect(ack).toMatchObject({
+        ok: true,
+        data: {
+          matchId,
+          content: 'Chào bạn, chúc ván đấu hay! 😊',
+          senderName: expect.any(String),
+        },
+      });
+
+      const received = await msgPromise;
+      expect(received).toMatchObject({
+        matchId,
+        content: 'Chào bạn, chúc ván đấu hay! 😊',
+      });
+
+      const chats = t.prisma.rows('chat');
+      expect(chats).toHaveLength(1);
+      expect(chats[0].message).toBe('Chào bạn, chúc ván đấu hay! 😊');
+    });
+
+    it('AC-29-02: gửi tin rỗng, chỉ khoảng trắng, hoặc 301 ký tự → VALIDATION_ERROR, không lưu DB', async () => {
+      const r = await joinedPlayer(red);
+      const b = await joinedPlayer(black);
+
+      let received = false;
+      b.on('chat:message', () => (received = true));
+
+      const emptyAck = await emit(r, 'chat:send', { matchId, content: '' });
+      expect(emptyAck).toMatchObject({ ok: false, error: { code: 'VALIDATION_ERROR' } });
+
+      const spacesAck = await emit(r, 'chat:send', { matchId, content: '     ' });
+      expect(spacesAck).toMatchObject({ ok: false, error: { code: 'VALIDATION_ERROR' } });
+
+      const longContent = 'A'.repeat(301);
+      const longAck = await emit(r, 'chat:send', { matchId, content: longContent });
+      expect(longAck).toMatchObject({ ok: false, error: { code: 'VALIDATION_ERROR' } });
+
+      expect(received).toBe(false);
+      expect(t.prisma.rows('chat')).toHaveLength(0);
+    });
+
+    it('AC-29-03: HTML/script được lưu nguyên văn, không bị biến đổi', async () => {
+      const r = await joinedPlayer(red);
+      const b = await joinedPlayer(black);
+
+      const xss = '<script>alert("XSS")</script><img src=x onerror=alert(1)>';
+      const msgPromise = next<Record<string, unknown>>(b, 'chat:message');
+      const ack = await emit(r, 'chat:send', { matchId, content: xss });
+
+      expect(ack.ok).toBe(true);
+      const received = await msgPromise;
+      expect(received.content).toBe(xss);
+
+      const chats = t.prisma.rows('chat');
+      expect(chats[0].message).toBe(xss);
+    });
+
+    it('AC-29-04: rate limit quá 5 tin / 10 giây → tin thứ 6 bị từ chối CHAT_RATE_LIMITED', async () => {
+      const r = await joinedPlayer(red);
+
+      for (let i = 1; i <= 5; i++) {
+        const ack = await emit(r, 'chat:send', { matchId, content: `Tin nhắn ${i}` });
+        expect(ack.ok).toBe(true);
+      }
+
+      const blockedAck = await emit(r, 'chat:send', { matchId, content: 'Tin nhắn thứ 6' });
+      expect(blockedAck).toMatchObject({ ok: false, error: { code: 'CHAT_RATE_LIMITED' } });
+
+      expect(t.prisma.rows('chat')).toHaveLength(5);
+    });
+
+    it('AC-29-05: người ngoài gửi tin vào ván → từ chối GAME_NOT_PLAYER, không lưu DB', async () => {
+      const o = connect(outsider);
+      await connected(o);
+
+      const ack = await emit(o, 'chat:send', { matchId, content: 'Tôi là khán giả' });
+      expect(ack).toMatchObject({ ok: false, error: { code: 'GAME_NOT_PLAYER' } });
+      expect(t.prisma.rows('chat')).toHaveLength(0);
+    });
+
+    it('AC-29-06: ván đã FINISHED → từ chối GAME_NOT_ACTIVE', async () => {
+      const r = await joinedPlayer(red);
+      await emit(r, 'game:resign', { matchId });
+
+      const ack = await emit(r, 'chat:send', { matchId, content: 'Chat sau khi thua' });
+      expect(ack).toMatchObject({ ok: false, error: { code: 'GAME_NOT_ACTIVE' } });
+    });
+
+    it('AC-29-07: GET /matches/:id/chats trả tối đa 50 tin nhắn theo thứ tự thời gian', async () => {
+      const r = await joinedPlayer(red);
+
+      // Gửi 3 tin
+      await emit(r, 'chat:send', { matchId, content: 'Tin 1' });
+      await emit(r, 'chat:send', { matchId, content: 'Tin 2' });
+      await emit(r, 'chat:send', { matchId, content: 'Tin 3' });
+
+      const res = await request(t.server).get(`/matches/${matchId}/chats`).set(auth(red)).expect(200);
+      expect(res.body).toHaveLength(3);
+      expect(res.body[0].content).toBe('Tin 1');
+      expect(res.body[1].content).toBe('Tin 2');
+      expect(res.body[2].content).toBe('Tin 3');
+
+      // Người ngoài xem bị 403 GAME_NOT_PLAYER
+      const outsiderRes = await request(t.server)
+        .get(`/matches/${matchId}/chats`)
+        .set(auth(outsider))
+        .expect(403);
+      expect(outsiderRes.body.code).toBe('GAME_NOT_PLAYER');
+    });
+  });
 });

@@ -1,9 +1,9 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthJwtGuard } from '../auth/auth-jwt.guard';
 import { AuthenticatedRequest } from '../auth/auth.types';
-import { MoveDto } from './game.dto';
+import { CreateReportDto, MoveDto } from './game.dto';
 import { GameService } from './game.service';
-import { GameStateView } from './game.types';
+import { ChatMessageView, GameStateView, ReportView } from './game.types';
 
 /**
  * REST cho ván cờ: đọc trạng thái (tải lại trang – NFR-07) và đi quân dự phòng.
@@ -17,6 +17,21 @@ export class GameController {
   @Get('matches/:id')
   state(@Req() req: AuthenticatedRequest, @Param('id') id: string): Promise<GameStateView> {
     return this.gameService.getState(id, req.user.sub);
+  }
+
+  @Get('matches/:id/chats')
+  getChats(@Req() req: AuthenticatedRequest, @Param('id') id: string): Promise<ChatMessageView[]> {
+    return this.gameService.getChats(id, req.user.sub);
+  }
+
+  @Post('matches/:id/report')
+  @HttpCode(HttpStatus.CREATED)
+  report(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() dto: CreateReportDto,
+  ): Promise<ReportView> {
+    return this.gameService.createReport(id, req.user.sub, dto);
   }
 
   @Get('rooms/:code/match')

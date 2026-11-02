@@ -133,7 +133,7 @@ describe('XQA-93 mất kết nối / vào lại ván (e2e)', () => {
     const end = next<Record<string, unknown>>(b, 'game:end', GRACE_SEC * 1000 + 2000);
     const update = next<StateBody>(b, 'game:update', GRACE_SEC * 1000 + 2000);
     r.disconnect();
-    expect(await end).toEqual({ matchId, result: 'BLACK_WIN', endReason: 'DISCONNECT', endRule: null });
+    expect(await end).toMatchObject({ matchId, result: 'BLACK_WIN', endReason: 'DISCONNECT', endRule: null });
     expect(await update).toMatchObject({ status: 'FINISHED', result: 'BLACK_WIN', disconnected: [] });
     expect(matchRow()).toMatchObject({ status: 'FINISHED', result: 'BLACK_WIN', endReason: 'DISCONNECT' });
     expect(t.prisma.rows('room')[0].status).toBe('FINISHED');
