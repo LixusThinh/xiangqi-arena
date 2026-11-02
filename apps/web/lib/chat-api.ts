@@ -1,4 +1,4 @@
-import { apiRequest } from './auth-api';
+import { authorizedRequest } from './session';
 
 export interface ChatMessageView {
   id: string;
@@ -18,7 +18,7 @@ export const CHAT_ERROR_MESSAGES: Record<string, string> = {
 
 export const chatApi = {
   getChats(matchId: string): Promise<ChatMessageView[]> {
-    return apiRequest<ChatMessageView[]>(`/matches/${encodeURIComponent(matchId)}/chats`, {
+    return authorizedRequest<ChatMessageView[]>(`/matches/${encodeURIComponent(matchId)}/chats`, {
       method: 'GET',
     });
   },

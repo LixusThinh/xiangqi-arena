@@ -1,4 +1,4 @@
-import { apiRequest } from './auth-api';
+import { authorizedRequest } from './session';
 
 export type ReportReason = 'CHEATING' | 'HARASSMENT' | 'SPAM' | 'OTHER';
 
@@ -27,7 +27,7 @@ export const REPORT_REASON_LABELS: Record<ReportReason, string> = {
 
 export const reportApi = {
   createReport(matchId: string, input: CreateReportInput): Promise<ReportView> {
-    return apiRequest<ReportView>(`/matches/${encodeURIComponent(matchId)}/report`, {
+    return authorizedRequest<ReportView>(`/matches/${encodeURIComponent(matchId)}/report`, {
       method: 'POST',
       body: JSON.stringify(input),
     });

@@ -1,4 +1,4 @@
-import { apiRequest } from './auth-api';
+import { authorizedRequest } from './session';
 
 export type UserRole = 'PLAYER' | 'ADMIN';
 export type AccountStatus = 'ACTIVE' | 'LOCKED';
@@ -105,7 +105,7 @@ export interface AdminReportsPage {
 
 export const adminApi = {
   getDashboard(): Promise<AdminDashboardData> {
-    return apiRequest<AdminDashboardData>('/admin/dashboard', { method: 'GET' });
+    return authorizedRequest<AdminDashboardData>('/admin/dashboard', { method: 'GET' });
   },
 
   getUsers(query: { q?: string; page?: number; pageSize?: number } = {}): Promise<AdminUsersPage> {
@@ -114,11 +114,11 @@ export const adminApi = {
     if (query.page) params.set('page', String(query.page));
     if (query.pageSize) params.set('pageSize', String(query.pageSize));
     const qs = params.toString();
-    return apiRequest<AdminUsersPage>(`/admin/users${qs ? `?${qs}` : ''}`, { method: 'GET' });
+    return authorizedRequest<AdminUsersPage>(`/admin/users${qs ? `?${qs}` : ''}`, { method: 'GET' });
   },
 
   updateUserStatus(userId: string, status: AccountStatus): Promise<AdminUserItem> {
-    return apiRequest<AdminUserItem>(`/admin/users/${encodeURIComponent(userId)}/status`, {
+    return authorizedRequest<AdminUserItem>(`/admin/users/${encodeURIComponent(userId)}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });
@@ -130,11 +130,11 @@ export const adminApi = {
     if (query.page) params.set('page', String(query.page));
     if (query.pageSize) params.set('pageSize', String(query.pageSize));
     const qs = params.toString();
-    return apiRequest<AdminMatchesPage>(`/admin/matches${qs ? `?${qs}` : ''}`, { method: 'GET' });
+    return authorizedRequest<AdminMatchesPage>(`/admin/matches${qs ? `?${qs}` : ''}`, { method: 'GET' });
   },
 
   getMatchDetail(matchId: string): Promise<AdminMatchDetail> {
-    return apiRequest<AdminMatchDetail>(`/admin/matches/${encodeURIComponent(matchId)}`, {
+    return authorizedRequest<AdminMatchDetail>(`/admin/matches/${encodeURIComponent(matchId)}`, {
       method: 'GET',
     });
   },
@@ -145,11 +145,11 @@ export const adminApi = {
     if (query.page) params.set('page', String(query.page));
     if (query.pageSize) params.set('pageSize', String(query.pageSize));
     const qs = params.toString();
-    return apiRequest<AdminReportsPage>(`/admin/reports${qs ? `?${qs}` : ''}`, { method: 'GET' });
+    return authorizedRequest<AdminReportsPage>(`/admin/reports${qs ? `?${qs}` : ''}`, { method: 'GET' });
   },
 
   updateReportStatus(reportId: string, status: ReportStatus): Promise<AdminReportItem> {
-    return apiRequest<AdminReportItem>(`/admin/reports/${encodeURIComponent(reportId)}`, {
+    return authorizedRequest<AdminReportItem>(`/admin/reports/${encodeURIComponent(reportId)}`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });
