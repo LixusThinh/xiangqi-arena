@@ -23,11 +23,15 @@
           {
             "side": "r",
             "type": "perpetual_check"
+          },
+          {
+            "side": "b",
+            "type": "perpetual_chase"
           }
         ]
       },
-      "rule": "Điều 23 Điểm 1 – một quân chiếu mãi",
-      "note": "Hình trong PDF không in Tướng Đen; vị trí f0 SUY RA từ nước Tg6.1 / Tg6/1 (Tướng ở cột 6 phía Đen). Cần người đọc bản in đối chiếu lại."
+      "rule": "Điều 23 Điểm 1 + Điều 7.1g – chiếu mãi bị xử thua bất kể tình huống (BR-REP-01)",
+      "note": "Hình trong PDF không in Tướng Đen; vị trí f0 SUY RA từ nước Tg6.1 / Tg6/1 (Tướng ở cột 6 phía Đen). Cần người đọc bản in đối chiếu lại. | 02/11/2026: Tướng Đen né chiếu f0↔f1 mở đường cho Pháo a0 (ngòi Sĩ d0) rồi Pháo c1 (ngòi Sĩ e1) luân phiên bắt Xe → về kỹ thuật Đen cũng bắt mãi (24.29: hai quân luân phiên bắt một quân; Điểm 6 câu 2: Pháo bắt Xe dù có căn). Tài liệu vẫn xử Trắng thua → căn cứ để duyệt BR-REP-01 (chiếu mãi thua dù bên kia bắt mãi). Kết luận loss/Đỏ giữ nguyên, chỉ bổ sung vi phạm của Đen vào danh sách."
     },
     {
       "id": "GT-D24-H02",

@@ -14,7 +14,7 @@ const judge = new RepetitionJudge(Position.initial(), { threshold: ruleProfile.r
 const verdict = judge.play(move);
 if (verdict.result?.kind === 'loss') endMatch({ winner: verdict.result.winner, reason: 'REPETITION' });
 if (verdict.result?.kind === 'draw') endMatch({ result: 'DRAW', reason: 'REPETITION' });
-// 'undetermined': ván tiếp tục (chỉ còn ca chờ BR-REP-01, xem mục 6)
+// 'undetermined': ván tiếp tục (hiện không còn ca nào; giữ cho ca luật chưa rõ sau này)
 ```
 
 `verdict.violations[]` là loại vi phạm theo từng bên (`perpetual_check` | `perpetual_chase`) kèm điểm luật làm căn cứ (AC2 của XQA-78). `judge.history` cho biết từng nước là `check` / `chase` / `idle`, quân đuổi, quân bị đuổi, có căn thật không – dùng cho thông báo FE (XQA-149) và replay.
@@ -52,7 +52,7 @@ if (verdict.result?.kind === 'draw') endMatch({ result: 'DRAW', reason: 'REPETIT
 | 9 | Tướng / Tốt bắt mãi → hòa; phối hợp với **một** Xe/Mã/Pháo → hòa | Quân đuổi chỉ gồm Tướng/Tốt, hoặc Tướng/Tốt + 1 quân khác → `draw`; + từ 2 quân khác → `loss` (24.26 hình 71–73) | judgeCycle (3 ca) |
 | 10 | Cản mãi, thí mãi, đòi đổi mãi, dọa mãi chiếu rút bắt quân → hòa | Không phải nước bắt; mọi nước đều chỉ là đòi đổi cùng loại → không phạm | bàn cờ thật (Xe đổi Xe) + judgeCycle |
 
-Hai bên cùng phạm **cùng** một loại → hòa (Điều 7.2c). Hai bên phạm **khác** loại (một chiếu mãi, một bắt mãi) → `undetermined`, chờ BR-REP-01.
+Hai bên cùng phạm **cùng** một loại → hòa (Điều 7.2c). Hai bên phạm **khác** loại (một chiếu mãi, một bắt mãi) → bên **chiếu mãi** thua (BR-REP-01, Điều 7.1g, Điều 24.2 Hình 1).
 
 ## 5. Giới hạn còn lại
 
@@ -62,11 +62,11 @@ Hai bên cùng phạm **cùng** một loại → hòa (Điều 7.2c). Hai bên p
 
 ## 6. Business rule đề xuất (chờ PM duyệt – AC2 XQA-95)
 
-Các điểm dưới đây là **cách hệ thống hiểu luật** ở chỗ văn bản không định rõ. Chưa phải luật Cờ Tướng. Code đã cài theo đề xuất, trừ BR-REP-01 (chưa cài, đang trả `undetermined`).
+Các điểm dưới đây là **cách hệ thống hiểu luật** ở chỗ văn bản không định rõ. Chưa phải luật Cờ Tướng. Code đã cài theo đề xuất. BR-REP-01 được PM duyệt và cài ngày 02/11/2026.
 
 | ID | Đề xuất | Căn cứ | Trạng thái code |
 |---|---|---|---|
-| BR-REP-01 | Một bên chiếu mãi, bên kia bắt mãi → bên **chiếu mãi** thua | Điều 7.1g: "bất kể tình huống nào… chiếu mãi… phải thay đổi nước đi, nếu không bị xử thua" | Chưa cài, `undetermined` |
+| BR-REP-01 | Một bên chiếu mãi, bên kia bắt mãi → bên **chiếu mãi** thua | Điều 7.1g: "bất kể tình huống nào… chiếu mãi… phải thay đổi nước đi, nếu không bị xử thua". Điều 24.2 Hình 1: Tướng Đen né chiếu mở đường cho hai Pháo luân phiên bắt Xe (bắt mãi theo 24.29) nhưng tài liệu vẫn xử Trắng chiếu mãi thua (golden GT-D24-H01) | Đã cài (PM duyệt 02/11/2026) |
 | BR-REP-02 | "Không di động được" = quân bị đuổi không còn nước hợp lệ nào | Điểm 7, 24.15 | Đã cài |
 | BR-REP-03 | "Đòi đổi quân" chỉ tính khi quân bị đuổi cùng loại và ăn lại được ngay. Khác loại (Xe dọa Pháo mà Pháo ăn được Xe) vẫn tính là nước bắt | Điều 22.5, 24.20, 24.32 | Đã cài |
 | BR-REP-04 | Ngoại lệ Tốt chưa qua sông áp dụng cả khi nhiều quân cùng đuổi | Điểm 3 (chỉ nói "một quân"), 24.21 hình 60 (Pháo đổi ngòi bắt Tốt chưa qua sông → không phạm) | Đã cài |

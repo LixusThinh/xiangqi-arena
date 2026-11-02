@@ -247,14 +247,19 @@ export function judgeCycle(cycle: readonly MoveRecord[]): {
   if (violations[0].type === violations[1].type) {
     return { violations, result: { kind: 'draw', rule: 'Điều 7.2c – hai bên cùng phạm một điều luật cấm' } };
   }
-  // Luật không nói rõ khi một bên chiếu mãi, bên kia bắt mãi → chờ BR-REP-01 (đề xuất, chưa duyệt)
+  // BR-REP-01 (PM duyệt 02/11/2026): một bên chiếu mãi, bên kia bắt mãi → bên chiếu mãi thua.
+  // Căn cứ: Điều 7.1g "Bất kể tình huống nào … chiếu mãi … phải thay đổi nước đi, nếu không bị xử thua",
+  // và Điều 24.2 Hình 1: hai Pháo Đen luân phiên được mở đường bắt Xe (bắt mãi theo 24.29) nhưng tài liệu
+  // vẫn xử Trắng chiếu mãi phải đổi, không đổi thì thua.
+  const checker = violations.find((v) => v.type === 'perpetual_check') as RepetitionViolation;
+  const chaser = violations.find((v) => v.type === 'perpetual_chase') as RepetitionViolation;
   return {
     violations,
     result: {
-      kind: 'undetermined',
-      reason: `Hai bên phạm hai loại khác nhau (${violations
-        .map((v) => `${SIDE_NAME[v.side]} ${v.type === 'perpetual_check' ? 'chiếu mãi' : 'bắt mãi'}`)
-        .join(', ')}); chờ BR-REP-01`,
+      kind: 'loss',
+      loser: checker.side,
+      winner: opponentOf(checker.side),
+      rule: `Điều 7.1g – ${SIDE_NAME[checker.side]} chiếu mãi bị xử thua dù ${SIDE_NAME[chaser.side]} bắt mãi (BR-REP-01)`,
     },
   };
 }
