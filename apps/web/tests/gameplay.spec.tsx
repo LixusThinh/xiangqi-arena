@@ -72,11 +72,11 @@ describe('Xiangqi Arena Game Room Page', () => {
     const redAdvisor = screen.getByTestId('piece-84');
 
     fireEvent.click(redKing);
-    expect(screen.getByTestId('selected-mask')).toHaveAttribute('y', '730');
+    expect(screen.getByTestId('selected-mask')).toHaveAttribute('data-square', '85');
 
     // Click friendly piece 84
     fireEvent.click(redAdvisor);
-    expect(screen.getByTestId('selected-mask')).toHaveAttribute('x', expect.stringContaining('250'));
+    expect(screen.getByTestId('selected-mask')).toHaveAttribute('data-square', '84');
   });
 
   it('moves piece to empty square, updates lastMove, and switches turn', () => {
@@ -118,9 +118,9 @@ describe('Xiangqi Arena Game Room Page', () => {
     // Click Phe Đen
     fireEvent.click(screen.getByRole('button', { name: /Phe Đen/i }));
 
-    // King coordinates are now inverted
+    // Bàn lật: Tướng Đỏ lên hàng hiển thị trên cùng (xa nhất)
     const redKing = screen.getByTestId('piece-85');
-    expect(redKing).toHaveAttribute('y', '10');
+    expect(redKing).toHaveAttribute('data-row', '0');
   });
 
   it('Chơi thử không có đồng hồ chạy ở client (giờ thi đấu chỉ do server tính – XQA-141)', () => {

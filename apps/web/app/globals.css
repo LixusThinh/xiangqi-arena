@@ -6,3 +6,48 @@
 body {
   min-height: 100vh;
 }
+
+/* ---------- Bàn cờ 2.5D (components/board/Board.tsx) ---------- */
+.xq-lift,
+.xq-shadow {
+  transition: transform 150ms ease-out, opacity 150ms ease-out;
+}
+.xq-shadow {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.xq-board--interactive .xq-piece:hover .xq-lift {
+  transform: translateY(-4px);
+}
+.xq-piece--selected .xq-lift,
+.xq-board--interactive .xq-piece--selected:hover .xq-lift {
+  transform: translateY(-13px);
+}
+.xq-piece--selected .xq-shadow {
+  transform: scale(1.15);
+  opacity: 0.32;
+}
+/* Quân vừa đi trượt từ ô cũ sang ô mới, nhấc lên giữa đường */
+.xq-arrive {
+  animation: xq-arrive 300ms cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+@keyframes xq-arrive {
+  0% {
+    transform: translate(calc(var(--dx) * 1px), calc(var(--dy) * 1px));
+  }
+  50% {
+    transform: translate(calc(var(--dx) * 0.45px), calc(var(--dy) * 0.45px - 16px));
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .xq-arrive {
+    animation: none;
+  }
+  .xq-lift,
+  .xq-shadow {
+    transition: none;
+  }
+}

@@ -49,16 +49,17 @@ describe('<Board />', () => {
     const redKingR = screen.getByTestId('piece-85');
     const blackKingR = screen.getByTestId('piece-4');
 
-    expect(redKingR).toHaveAttribute('y', '730');
-    expect(blackKingR).toHaveAttribute('y', '10');
+    // Đỏ ở dưới: Tướng Đỏ ở hàng hiển thị 9 (gần), Tướng Đen ở hàng 0 (xa)
+    expect(redKingR).toHaveAttribute('data-row', '9');
+    expect(blackKingR).toHaveAttribute('data-row', '0');
 
     // Flip to Black perspective
     rerender(<Board fen={STARTING_FEN} orientation="b" />);
     const redKingB = screen.getByTestId('piece-85');
     const blackKingB = screen.getByTestId('piece-4');
 
-    expect(redKingB).toHaveAttribute('y', '10');
-    expect(blackKingB).toHaveAttribute('y', '730');
+    expect(redKingB).toHaveAttribute('data-row', '0');
+    expect(blackKingB).toHaveAttribute('data-row', '9');
   });
 
   it('triggers onSquareClick callback when square is clicked', () => {
@@ -85,9 +86,11 @@ describe('<Board />', () => {
     render(<Board fen={STARTING_FEN} selectedSquare={85} />);
     const mask = screen.getByTestId('selected-mask');
     expect(mask).toBeInTheDocument();
-    expect(mask).toHaveAttribute('href', '/ChessImage/mask-white.png');
-    expect(mask).toHaveAttribute('x', '330');
-    expect(mask).toHaveAttribute('y', '730');
+    expect(mask.tagName.toLowerCase()).toBe('polygon');
+    // Ô e0 (Tướng Đỏ) nằm giữa mép dưới: tâm tứ giác có x = 0 trong hệ toạ độ chiếu
+    const xs = (mask.getAttribute('points') ?? '').split(' ').map((pt) => Number(pt.split(',')[0]));
+    expect(xs).toHaveLength(4);
+    expect(xs.reduce((a, b) => a + b, 0) / 4).toBeCloseTo(0, 1);
   });
 
   it('renders lastMove highlight masks for origin and destination', () => {
@@ -96,9 +99,8 @@ describe('<Board />', () => {
     const toMask = screen.getByTestId('last-move-to');
 
     expect(fromMask).toBeInTheDocument();
-    expect(fromMask).toHaveAttribute('href', '/ChessImage/mask2-orange.png');
     expect(toMask).toBeInTheDocument();
-    expect(toMask).toHaveAttribute('href', '/ChessImage/mask2-orange.png');
+    expect(fromMask.getAttribute('points')).not.toBe(toMask.getAttribute('points'));
   });
 
   it('does not crash and does not render mask when selectedSquare is out of bounds', () => {
@@ -124,11 +126,25 @@ describe('<Board />', () => {
     expect(screen.queryByTestId('last-move-to')).not.toBeInTheDocument();
   });
 
-  it('applies SVG transform-box:fill-box and origin-center to piece elements', () => {
+  it('draws pieces far-to-near so nearer pieces overlap farther ones', () => {
     render(<Board fen={STARTING_FEN} />);
-    const piece = screen.getByTestId('piece-85');
-    expect(piece).toHaveClass('[transform-box:fill-box]');
-    expect(piece).toHaveClass('origin-center');
+    const rows = screen.getAllByTestId(/^piece-/).map((el) => Number(el.getAttribute('data-row')));
+    expect(rows).toEqual([...rows].sort((a, b) => a - b));
+  });
+
+  it('marks the selected piece so it is lifted, and slides the piece that just moved', () => {
+    render(<Board fen={STARTING_FEN} selectedSquare={85} lastMove={{ from: 70, to: 85 }} onSquareClick={() => {}} />);
+    const king = screen.getByTestId('piece-85');
+    expect(king).toHaveClass('xq-piece--selected');
+    expect(king.querySelector('.xq-arrive')).not.toBeNull();
+    expect(screen.getByTestId('piece-4').querySelector('.xq-arrive')).toBeNull();
+  });
+
+  it('shows Chinese glyphs and Vietnamese labels on pieces', () => {
+    render(<Board fen={STARTING_FEN} />);
+    expect(screen.getByTestId('piece-85')).toHaveTextContent('帥');
+    expect(screen.getByTestId('piece-4')).toHaveTextContent('將');
+    expect(screen.getByTestId('piece-85')).toHaveAttribute('aria-label', 'Tướng Đỏ');
   });
 
   it('renders move hints when validMoves prop is provided', () => {
@@ -168,7 +184,7 @@ describe('<Board />', () => {
     expect(screen.queryAllByTestId(/^valid-move-/)).toHaveLength(0);
   });
 
-  it('draws valid-move dots above pieces so capture targets stay visible', () => {
+  it('draws capture hints above pieces so capture targets stay visible', () => {
     const { container } = render(<Board fen={STARTING_FEN} validMoves={[0]} />);
     const nodes = Array.from(container.querySelectorAll('[data-testid]'));
     const dotIdx = nodes.findIndex((n) => n.getAttribute('data-testid') === 'valid-move-0');
