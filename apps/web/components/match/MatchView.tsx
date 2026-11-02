@@ -307,8 +307,8 @@ export default function MatchView({
 
           </div>
 
-          {/* Bàn cờ co theo chiều cao màn hình để không phải cuộn (tỉ lệ ảnh bàn 741×821) */}
-          <div className="w-full lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:w-[clamp(20rem,calc((100dvh-6.5rem)*741/821),560px)]">
+          {/* Bàn cờ co theo chiều cao màn hình để không phải cuộn (khung bàn 2.5D rộng/cao ≈ 1.12, xem BOARD_ASPECT) */}
+          <div className="w-full lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:w-[clamp(20rem,calc((100dvh-6.5rem)*1.12),620px)]">
             <Board
               position={position}
               orientation={orientation}
