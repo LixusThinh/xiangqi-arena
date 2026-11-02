@@ -35,6 +35,25 @@ export interface MatchHistoryPage {
   totalPages: number;
 }
 
+export interface HistoryMove {
+  ply: number;
+  color: 'RED' | 'BLACK';
+  from: string;
+  to: string;
+  piece: string;
+  captured: string | null;
+  isCheck: boolean;
+  thinkTimeMs: number | null;
+  fenAfter: string;
+}
+
+export interface MatchHistoryDetail extends MatchHistoryItem {
+  initialFen: string;
+  finalFen: string;
+  ratingChange: { before: number; after: number; delta: number } | null;
+  moves: HistoryMove[];
+}
+
 export const HISTORY_PAGE_SIZE = 20;
 
 /** Nhãn lý do kết thúc theo bảng `endReason` của docs/api/history.md (đủ mọi giá trị enum MatchEndReason). */
@@ -58,6 +77,9 @@ export const historyApi = {
   list(page = 1, pageSize = HISTORY_PAGE_SIZE): Promise<MatchHistoryPage> {
     const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
     return authorizedRequest<MatchHistoryPage>(`/me/matches?${query.toString()}`, { method: 'GET' });
+  },
+  get(id: string): Promise<MatchHistoryDetail> {
+    return authorizedRequest<MatchHistoryDetail>(`/me/matches/${id}`, { method: 'GET' });
   },
 };
 

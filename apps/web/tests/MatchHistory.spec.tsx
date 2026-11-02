@@ -100,6 +100,8 @@ describe('MatchHistory (XQA-98)', () => {
     expect(row).toHaveTextContent('15:12');
     expect(row).toHaveTextContent('20/10/2026');
     expect(screen.getByTestId('history-total')).toHaveTextContent('1');
+    const replayLink = within(row).getByRole('link', { name: 'Xem lại' });
+    expect(replayLink).toHaveAttribute('href', '/history/12');
   });
 
   it('kết quả Thua / Hòa và lý do mới (xin thua, hòa thỏa thuận, mất kết nối) hiện đúng nhãn', async () => {
