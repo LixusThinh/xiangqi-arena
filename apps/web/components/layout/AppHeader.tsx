@@ -11,6 +11,7 @@ export const NAV_ITEMS = [
   { href: '/', label: 'Trang chủ', match: (p: string) => p === '/' },
   { href: '/lobby', label: 'Sảnh', match: (p: string) => p.startsWith('/lobby') || p.startsWith('/room') },
   { href: '/play-ai', label: 'Chơi với máy', match: (p: string) => p.startsWith('/play-ai') },
+  { href: '/leaderboard', label: 'Xếp hạng', match: (p: string) => p.startsWith('/leaderboard') },
   { href: '/history', label: 'Lịch sử', match: (p: string) => p.startsWith('/history') },
   { href: '/practice', label: 'Chơi thử', match: (p: string) => p.startsWith('/practice') },
 ] as const;
@@ -75,6 +76,17 @@ export default function AppHeader() {
               </Link>
             );
           })}
+          {user?.role === 'ADMIN' && (
+            <Link
+              href="/admin"
+              aria-current={current.startsWith('/admin') ? 'page' : undefined}
+              className={`shrink-0 rounded-lg px-2.5 sm:px-3 py-2 sm:py-1.5 min-h-[40px] sm:min-h-0 inline-flex items-center text-sm font-medium transition ${
+                current.startsWith('/admin') ? 'bg-slate-800 text-amber-200' : 'text-slate-300 hover:bg-slate-900 hover:text-slate-100'
+              }`}
+            >
+              Quản trị
+            </Link>
+          )}
         </nav>
 
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">

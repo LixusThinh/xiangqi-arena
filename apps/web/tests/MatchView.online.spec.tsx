@@ -8,6 +8,7 @@ import MatchView from '../components/match/MatchView';
 import { saveSession } from '../lib/auth-api';
 import {
   GameSocketError,
+  type ChatMessageView,
   type DrawRejected,
   type PlayerDisconnected,
   type PlayerReconnected,
@@ -149,6 +150,18 @@ class FakeConnection implements GameConnection {
   onSignal(l: (s: WebrtcSignal) => void) {
     this.signals.push(l);
   }
+  chatMessages: Array<(m: ChatMessageView) => void> = [];
+  sendChat = jest.fn(async (matchId: string, content: string) => ({
+    id: 'mock-chat-1',
+    matchId,
+    senderId: '1',
+    senderName: 'Red',
+    content,
+    createdAt: new Date().toISOString(),
+  }));
+  onChatMessage(l: (m: ChatMessageView) => void) {
+    this.chatMessages.push(l);
+  }
   close() {
     this.closed = true;
   }
@@ -286,6 +299,26 @@ describe('MatchView – đi quân online (XQA-76)', () => {
     expect(await screen.findByText(/Hòa — Lặp nước \(Điều 23\) — Điều 24.2\./)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Về Sảnh' }));
     expect(mockPush).toHaveBeenCalledWith('/lobby');
+  });
+
+  it('game:end có ratings → hộp kết thúc hiện +16 cho bên thắng (XQA-40)', async () => {
+    const conn = new FakeConnection(state());
+    await renderAs(RED, conn);
+    act(() =>
+      conn.ends.forEach((l) =>
+        l({
+          matchId: '9',
+          result: 'RED_WIN',
+          endReason: 'CHECKMATE',
+          endRule: null,
+          ratings: {
+            red: { before: 1200, after: 1216, delta: 16 },
+            black: { before: 1200, after: 1184, delta: -16 },
+          },
+        }),
+      ),
+    );
+    expect(await screen.findByText(/Đỏ thắng — Chiếu bí\. \(\+16\)/)).toBeInTheDocument();
   });
 
   it('mất kết nối → hiện banner, có lại → ẩn', async () => {

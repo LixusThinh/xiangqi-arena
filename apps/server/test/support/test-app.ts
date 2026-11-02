@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Server } from 'node:http';
 import { Test } from '@nestjs/testing';
+import { AccountStatus, UserRole } from '@prisma/client';
 import { hash } from 'bcryptjs';
 import * as request from 'supertest';
 import { AppModule } from '../../src/app.module';
@@ -44,7 +45,15 @@ export async function createTestApp(): Promise<TestApp> {
 /** Thêm sẵn một user vào DB giả (mật khẩu bcrypt cost 4 cho test nhanh). */
 export async function seedUser(
   prisma: InMemoryPrisma,
-  overrides: Partial<{ username: string; email: string; password: string; displayName: string }> = {},
+  overrides: Partial<{
+    username: string;
+    email: string;
+    password: string;
+    displayName: string;
+    rating: number;
+    role: UserRole;
+    accountStatus: AccountStatus;
+  }> = {},
 ): Promise<{ id: bigint; username: string; email: string; password: string }> {
   const username = overrides.username ?? 'player1';
   const email = overrides.email ?? `${username}@xiangqi.local`;
@@ -55,6 +64,9 @@ export async function seedUser(
       email,
       passwordHash: await hash(password, 4),
       displayName: overrides.displayName ?? username,
+      ...(overrides.rating !== undefined ? { rating: overrides.rating } : {}),
+      ...(overrides.role !== undefined ? { role: overrides.role } : {}),
+      ...(overrides.accountStatus !== undefined ? { accountStatus: overrides.accountStatus } : {}),
     },
   });
   return { id: user.id as bigint, username, email, password };

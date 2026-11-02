@@ -12,7 +12,7 @@ import { Server, Socket } from 'socket.io';
 import { AuthJwtGuard } from '../auth/auth-jwt.guard';
 import { ClockService } from './clock.service';
 import { GameService } from './game.service';
-import { GameStateView, PlayerColor } from './game.types';
+import { ChatMessageView, GameStateView, PlayerColor } from './game.types';
 import { PresenceService } from './presence.service';
 
 /** Ack trả về cho client qua callback của socket.emit(event, payload, ack). */
@@ -214,6 +214,31 @@ export class GameGateway implements OnGatewayInit, OnGatewayDisconnect {
   }
 
   /**
+   * XQA-29: gửi tin nhắn chat trong ván cờ. Hợp lệ → lưu DB, phát `chat:message` cho cả phòng.
+   */
+  @SubscribeMessage('chat:send')
+  async chatSend(
+    @ConnectedSocket() socket: GameSocket,
+    @MessageBody() body: unknown,
+  ): Promise<WsAck<ChatMessageView>> {
+    try {
+      if (
+        !isRecord(body) ||
+        typeof body.matchId !== 'string' ||
+        !DIGITS.test(body.matchId) ||
+        typeof body.content !== 'string'
+      ) {
+        return this.fail('VALIDATION_ERROR', 'Payload must be { matchId, content }');
+      }
+      const message = await this.gameService.sendChat(body.matchId, socket.data.userId, body.content);
+      this.server.to(matchRoom(body.matchId)).emit('chat:message', message);
+      return { ok: true, data: message };
+    } catch (error) {
+      return { ok: false, error: this.toError(error) };
+    }
+  }
+
+  /**
    * XQA-124: chuyển tiếp tín hiệu WebRTC cho đối thủ trong ván. Ack trả `delivered` = số socket đối thủ đã nhận
    * (0 → đối thủ chưa mở màn ván, FE báo "đối thủ chưa sẵn sàng").
    */
@@ -350,6 +375,7 @@ export class GameGateway implements OnGatewayInit, OnGatewayDisconnect {
         result: state.result,
         endReason: state.endReason,
         endRule: state.endRule,
+        ratings: state.ratings ?? null,
       });
     }
   }

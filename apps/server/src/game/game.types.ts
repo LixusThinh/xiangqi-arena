@@ -1,4 +1,4 @@
-import { MatchEndReason, MatchResult, MatchStatus } from '@prisma/client';
+import { MatchEndReason, MatchResult, MatchStatus, ReportReason, ReportStatus } from '@prisma/client';
 
 export type PlayerColor = 'RED' | 'BLACK';
 
@@ -32,6 +32,37 @@ export interface DisconnectedPlayerView {
   deadline: Date;
 }
 
+export interface PlayerRatingChange {
+  before: number;
+  after: number;
+  delta: number;
+}
+
+export interface MatchRatings {
+  red: PlayerRatingChange;
+  black: PlayerRatingChange;
+}
+
+export interface ChatMessageView {
+  id: string;
+  matchId: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface ReportView {
+  id: string;
+  matchId: string;
+  reporterId: string;
+  reportedUserId: string;
+  reason: ReportReason;
+  description: string | null;
+  status: ReportStatus;
+  createdAt: string;
+}
+
 /** Trạng thái ván gửi cho FE (REST và socket dùng chung). */
 export interface GameStateView {
   matchId: string;
@@ -46,6 +77,8 @@ export interface GameStateView {
   endReason: MatchEndReason | null;
   /** Căn cứ luật khi ván kết thúc do lặp nước (Điều 23), null nếu không phải. */
   endRule: string | null;
+  /** Điểm Elo cập nhật của 2 bên khi ván kết thúc (XQA-40). */
+  ratings?: MatchRatings | null;
   red: GamePlayer;
   black: GamePlayer;
   /** Màu của người đang xem; null nếu không phải người chơi. */

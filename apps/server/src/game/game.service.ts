@@ -12,6 +12,7 @@ import {
   MatchResult,
   MatchStatus,
   Prisma,
+  ReportStatus,
   RoomStatus,
 } from '@prisma/client';
 import {
@@ -27,8 +28,12 @@ import {
   STARTING_FEN,
 } from '@xiangqi-arena/xiangqi-core';
 import { PrismaService } from '../prisma/prisma.service';
+import { calculateElo } from './elo';
+import { ChatRateLimiter } from './chat-rate-limiter';
+import { CreateReportDto } from './game.dto';
 import { PresenceService } from './presence.service';
 import {
+  ChatMessageView,
   DisconnectedPlayerView,
   DrawOfferView,
   GameMoveView,
@@ -36,6 +41,7 @@ import {
   GameStateView,
   MoveInput,
   PlayerColor,
+  ReportView,
 } from './game.types';
 
 /**
@@ -106,6 +112,9 @@ const matchSelect = {
     take: 1,
     select: { id: true, offeredBy: true, atPly: true },
   },
+  ratingHistory: {
+    select: { userId: true, ratingBefore: true, ratingAfter: true },
+  },
 } as const;
 
 type MatchRow = Prisma.MatchGetPayload<{ select: typeof matchSelect }>;
@@ -145,7 +154,92 @@ export class GameService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly presence: PresenceService,
+    private readonly chatRateLimiter: ChatRateLimiter,
   ) {}
+
+  /**
+   * Gửi tin nhắn chat trong ván cờ (XQA-29, FR-23).
+   * Kiểm tra: là người chơi, ván ACTIVE, độ dài 1-300 ký tự (Unicode code points), rate limit 5 tin/10s.
+   */
+  async sendChat(matchId: string, userId: string, content: string): Promise<ChatMessageView> {
+    if (!/^\d+$/.test(matchId)) {
+      throw this.error(BadRequestException, 'VALIDATION_ERROR', 'matchId must be digits');
+    }
+    const trimmed = typeof content === 'string' ? content.trim() : '';
+    const codePointLength = [...trimmed].length;
+    if (codePointLength < 1 || codePointLength > 300) {
+      throw this.error(BadRequestException, 'VALIDATION_ERROR', 'Tin nhắn phải có độ dài từ 1 đến 300 ký tự');
+    }
+
+    const match = await this.loadMatch(matchId);
+    const isPlayer =
+      match.redPlayerId.toString() === userId || match.blackPlayerId.toString() === userId;
+    if (!isPlayer) {
+      throw this.error(ForbiddenException, 'GAME_NOT_PLAYER', 'You are not a player in this match');
+    }
+    if (match.status !== MatchStatus.ACTIVE) {
+      throw this.error(ConflictException, 'GAME_NOT_ACTIVE', 'Ván đấu không còn hoạt động');
+    }
+
+    if (!this.chatRateLimiter.isAllowed(userId)) {
+      throw this.error(
+        BadRequestException,
+        'CHAT_RATE_LIMITED',
+        'Bạn gửi tin nhắn quá nhanh. Tối đa 5 tin / 10 giây.',
+      );
+    }
+
+    const sender =
+      match.redPlayerId.toString() === userId ? match.redPlayer : match.blackPlayer;
+
+    const row = await this.prisma.chat.create({
+      data: {
+        roomId: match.roomId,
+        matchId: match.id,
+        senderId: BigInt(userId),
+        message: trimmed,
+        type: 'TEXT',
+      },
+    });
+
+    return {
+      id: row.id.toString(),
+      matchId: match.id.toString(),
+      senderId: userId,
+      senderName: sender.displayName,
+      content: trimmed,
+      createdAt: row.createdAt.toISOString(),
+    };
+  }
+
+  /** Lấy lịch sử 50 tin nhắn gần nhất của ván (XQA-29, AC-29-07). */
+  async getChats(matchId: string, userId: string): Promise<ChatMessageView[]> {
+    if (!/^\d+$/.test(matchId)) throw this.notFound();
+    const match = await this.loadMatch(matchId);
+    const isPlayer =
+      match.redPlayerId.toString() === userId || match.blackPlayerId.toString() === userId;
+    if (!isPlayer) {
+      throw this.error(ForbiddenException, 'GAME_NOT_PLAYER', 'You are not a player in this match');
+    }
+
+    const rows = await this.prisma.chat.findMany({
+      where: { matchId: match.id },
+      orderBy: { id: 'desc' },
+      take: 50,
+      include: {
+        sender: { select: { displayName: true } },
+      },
+    });
+
+    return rows.reverse().map((r) => ({
+      id: r.id.toString(),
+      matchId: match.id.toString(),
+      senderId: r.senderId.toString(),
+      senderName: r.sender.displayName,
+      content: r.message,
+      createdAt: r.createdAt.toISOString(),
+    }));
+  }
 
   /** Trạng thái ván. Ván ở WAITING (vừa đủ 2 người) được bắt đầu ngay khi một người chơi mở. */
   async getState(matchId: string, userId: string): Promise<GameStateView> {
@@ -275,7 +369,7 @@ export class GameService {
           thinkTimeMs: this.thinkTime(match, now),
         },
       });
-      if (result) await this.afterFinish(tx, match);
+      if (result) await this.afterFinish(tx, match, result, MatchStatus.FINISHED);
     });
 
     return this.getState(matchId, userId);
@@ -397,6 +491,82 @@ export class GameService {
   }
 
   /**
+   * XQA-30: Báo cáo người chơi đối thủ trong ván cờ.
+   * - Chỉ người chơi trong ván mới được báo cáo đối thủ.
+   * - Mỗi người chỉ được báo cáo 1 lần / ván (409 REPORT_DUPLICATE).
+   * - Lý do theo enum ReportReason, mô tả tối đa 500 ký tự Unicode (400 VALIDATION_ERROR).
+   */
+  async createReport(matchId: string, userId: string, dto: CreateReportDto): Promise<ReportView> {
+    if (!/^\d+$/.test(matchId)) {
+      throw this.notFound();
+    }
+    const match = await this.prisma.match.findUnique({
+      where: { id: BigInt(matchId) },
+      select: { id: true, redPlayerId: true, blackPlayerId: true },
+    });
+    if (!match) throw this.notFound();
+
+    const userBigInt = BigInt(userId);
+    const isRed = match.redPlayerId === userBigInt;
+    const isBlack = match.blackPlayerId === userBigInt;
+    if (!isRed && !isBlack) {
+      throw this.error(ForbiddenException, 'GAME_NOT_PLAYER', 'You are not a player of this match');
+    }
+    const reportedUserId = isRed ? match.blackPlayerId : match.redPlayerId;
+    if (reportedUserId === userBigInt) {
+      throw this.error(BadRequestException, 'VALIDATION_ERROR', 'Cannot report yourself');
+    }
+
+    const existing = await this.prisma.report.findFirst({
+      where: {
+        matchId: match.id,
+        reporterId: userBigInt,
+      },
+    });
+    if (existing) {
+      throw this.error(ConflictException, 'REPORT_DUPLICATE', 'Bạn đã báo cáo ván này rồi.');
+    }
+
+    let description: string | null = null;
+    if (dto.description !== undefined && dto.description !== null) {
+      const trimmed = dto.description.trim();
+      if (Array.from(trimmed).length > 500) {
+        throw this.error(BadRequestException, 'VALIDATION_ERROR', 'Mô tả không được vượt quá 500 ký tự');
+      }
+      description = trimmed || null;
+    }
+
+    try {
+      const report = await this.prisma.report.create({
+        data: {
+          matchId: match.id,
+          reporterId: userBigInt,
+          reportedUserId,
+          reason: dto.reason,
+          description,
+          status: ReportStatus.OPEN,
+        },
+      });
+
+      return {
+        id: report.id.toString(),
+        matchId: report.matchId.toString(),
+        reporterId: report.reporterId.toString(),
+        reportedUserId: report.reportedUserId.toString(),
+        reason: report.reason,
+        description: report.description,
+        status: report.status,
+        createdAt: report.createdAt.toISOString(),
+      };
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw this.error(ConflictException, 'REPORT_DUPLICATE', 'Bạn đã báo cáo ván này rồi.');
+      }
+      throw err;
+    }
+  }
+
+  /**
    * Chốt kết quả cho ván không do nước đi (xin thua, hòa, mất kết nối – XQA-93).
    * Chỉ chạy khi ván còn ACTIVE; ván đã kết thúc → GAME_NOT_ACTIVE, kết quả cũ giữ nguyên.
    */
@@ -422,11 +592,16 @@ export class GameService {
     if (claimed.count !== 1) {
       throw this.error(ConflictException, 'GAME_NOT_ACTIVE', 'The match has already ended');
     }
-    await this.afterFinish(tx, match);
+    await this.afterFinish(tx, match, result, status);
   }
 
-  /** Việc phụ khi ván kết thúc: phòng → FINISHED, đề nghị hòa còn chờ → EXPIRED. */
-  private async afterFinish(tx: Tx, match: Pick<MatchRow, 'id' | 'roomId'>): Promise<void> {
+  /** Việc phụ khi ván kết thúc: phòng → FINISHED, đề nghị hòa còn chờ → EXPIRED, tính điểm Elo (XQA-40). */
+  private async afterFinish(
+    tx: Tx,
+    match: Pick<MatchRow, 'id' | 'roomId' | 'redPlayerId' | 'blackPlayerId'>,
+    result: MatchResult | null,
+    status: MatchStatus = MatchStatus.FINISHED,
+  ): Promise<void> {
     await tx.room.updateMany({
       where: { id: match.roomId, status: RoomStatus.PLAYING },
       data: { status: RoomStatus.FINISHED },
@@ -435,6 +610,51 @@ export class GameService {
       where: { matchId: match.id, status: DrawOfferStatus.PENDING },
       data: { status: DrawOfferStatus.EXPIRED },
     });
+
+    if (status === MatchStatus.FINISHED && result !== null) {
+      const existing = await tx.ratingHistory.findFirst({
+        where: { matchId: match.id },
+      });
+      if (!existing) {
+        const [redUser, blackUser] = await Promise.all([
+          tx.user.findUnique({ where: { id: match.redPlayerId }, select: { rating: true } }),
+          tx.user.findUnique({ where: { id: match.blackPlayerId }, select: { rating: true } }),
+        ]);
+        if (redUser && blackUser) {
+          const actualScoreRed =
+            result === MatchResult.RED_WIN ? 1 : result === MatchResult.BLACK_WIN ? 0 : 0.5;
+          const { newRatingA: newRatingRed, newRatingB: newRatingBlack } =
+            calculateElo(redUser.rating, blackUser.rating, actualScoreRed);
+
+          await Promise.all([
+            tx.user.update({
+              where: { id: match.redPlayerId },
+              data: { rating: newRatingRed },
+            }),
+            tx.user.update({
+              where: { id: match.blackPlayerId },
+              data: { rating: newRatingBlack },
+            }),
+            tx.ratingHistory.create({
+              data: {
+                userId: match.redPlayerId,
+                matchId: match.id,
+                ratingBefore: redUser.rating,
+                ratingAfter: newRatingRed,
+              },
+            }),
+            tx.ratingHistory.create({
+              data: {
+                userId: match.blackPlayerId,
+                matchId: match.id,
+                ratingBefore: blackUser.rating,
+                ratingAfter: newRatingBlack,
+              },
+            }),
+          ]);
+        }
+      }
+    }
   }
 
   /** Người chơi của ván + ván đang ACTIVE (ván WAITING được bắt đầu như khi đi nước đầu). */
@@ -581,6 +801,25 @@ export class GameService {
       verdictResult.kind !== 'undetermined'
         ? verdictResult.rule
         : null;
+
+    const redHist = match.ratingHistory?.find((r) => r.userId === match.redPlayerId);
+    const blackHist = match.ratingHistory?.find((r) => r.userId === match.blackPlayerId);
+    const ratings =
+      redHist && blackHist
+        ? {
+            red: {
+              before: redHist.ratingBefore,
+              after: redHist.ratingAfter,
+              delta: redHist.ratingAfter - redHist.ratingBefore,
+            },
+            black: {
+              before: blackHist.ratingBefore,
+              after: blackHist.ratingAfter,
+              delta: blackHist.ratingAfter - blackHist.ratingBefore,
+            },
+          }
+        : null;
+
     return {
       matchId: match.id.toString(),
       roomCode: match.room.roomCode,
@@ -592,6 +831,7 @@ export class GameService {
       result: match.result,
       endReason: match.endReason,
       endRule,
+      ratings,
       red: this.toPlayer(match.redPlayer),
       black: this.toPlayer(match.blackPlayer),
       yourColor,

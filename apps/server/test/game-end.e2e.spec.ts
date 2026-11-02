@@ -55,6 +55,27 @@ describe('XQA-90/91 kết thúc ván, xin thua, xin hòa (e2e)', () => {
       expect(t.prisma.rows('room')[0].status).toBe('FINISHED');
     });
 
+    it('khi ván kết thúc (Đỏ xin thua) → rating 2 bên đổi đúng và có 2 dòng rating_history (XQA-40)', async () => {
+      const res = await post(red, 'resign').expect(200);
+      expect(res.body.ratings).toEqual({
+        red: { before: 1200, after: 1184, delta: -16 },
+        black: { before: 1200, after: 1216, delta: 16 },
+      });
+      const histories = t.prisma.rows('ratingHistory');
+      expect(histories).toHaveLength(2);
+      expect(histories).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ matchId: BigInt(matchId), ratingBefore: 1200, ratingAfter: 1184 }),
+          expect.objectContaining({ matchId: BigInt(matchId), ratingBefore: 1200, ratingAfter: 1216 }),
+        ]),
+      );
+      const users = t.prisma.rows('user');
+      const redUser = users.find((u) => u.username === 'redp');
+      const blackUser = users.find((u) => u.username === 'blackp');
+      expect(redUser?.rating).toBe(1184);
+      expect(blackUser?.rating).toBe(1216);
+    });
+
     it('Đen xin thua (không phải lượt mình vẫn được) → Đỏ thắng', async () => {
       const res = await post(black, 'resign').expect(200);
       expect(res.body).toMatchObject({ result: 'RED_WIN', endReason: 'RESIGNATION' });
