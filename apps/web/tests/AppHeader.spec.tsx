@@ -39,9 +39,34 @@ describe('<AppHeader /> – điều hướng chung', () => {
     const nav = screen.getByRole('navigation', { name: 'Điều hướng chính' });
     expect(nav).toHaveTextContent('Trang chủ');
     expect(nav).toHaveTextContent('Sảnh');
+    expect(nav).toHaveTextContent('Xếp hạng');
     expect(nav).toHaveTextContent('Chơi thử');
     expect(screen.getByRole('link', { name: 'Lịch sử' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Sảnh' })).not.toHaveAttribute('aria-current');
+  });
+
+  it('tô trang Xếp hạng khi mở /leaderboard', () => {
+    mockPathname = '/leaderboard';
+    render(<AppHeader />);
+    expect(screen.getByRole('link', { name: 'Xếp hạng' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('user role PLAYER không thấy link Quản trị; role ADMIN thấy link Quản trị', () => {
+    const { unmount } = render(<AppHeader />);
+    expect(screen.queryByRole('link', { name: 'Quản trị' })).not.toBeInTheDocument();
+    unmount();
+
+    signIn();
+    const { unmount: unmountPlayer } = render(<AppHeader />);
+    expect(screen.queryByRole('link', { name: 'Quản trị' })).not.toBeInTheDocument();
+    unmountPlayer();
+
+    saveSession(
+      { accessToken: 'a', expiresIn: 900, refreshToken: 'r', refreshExpiresIn: 604800 },
+      { ...user, role: 'ADMIN' },
+    );
+    render(<AppHeader />);
+    expect(screen.getByRole('link', { name: 'Quản trị' })).toHaveAttribute('href', '/admin');
   });
 
   it('phòng chờ được tính là thuộc mục Sảnh', () => {

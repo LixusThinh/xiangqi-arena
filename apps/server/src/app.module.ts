@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { GameModule } from './game/game.module';
 import { HistoryModule } from './history/history.module';
+import { LeaderboardModule } from './leaderboard/leaderboard.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RoomModule } from './room/room.module';
 import { UserModule } from './user/user.module';
@@ -18,6 +19,7 @@ import { UserModule } from './user/user.module';
     RoomModule,
     GameModule,
     HistoryModule,
+    LeaderboardModule,
     AdminModule,
   ],
   controllers: [AppController],

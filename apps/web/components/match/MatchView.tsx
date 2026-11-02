@@ -422,7 +422,7 @@ export default function MatchView({
       <Modal
         isOpen={endInfo !== null}
         title="Ván đấu kết thúc"
-        message={endInfo ? endMessage(endInfo) : ''}
+        message={endInfo ? endMessage(endInfo, game?.yourColor ?? me?.color) : ''}
         confirmText="Về Sảnh"
         onConfirm={() => router.push('/lobby')}
       />
@@ -438,9 +438,13 @@ function statusText(game: GameState | null, me: RoomMember | null): string {
   return game.turn === (game.yourColor ?? me?.color) ? `Đến lượt bạn (${turnName})${check}` : `Đến lượt đối thủ (${turnName})${check}`;
 }
 
-function endMessage(end: Pick<GameEnd, 'result' | 'endReason' | 'endRule'>): string {
+function endMessage(end: Pick<GameEnd, 'result' | 'endReason' | 'endRule' | 'ratings'>, color?: PlayerColor | null): string {
   const who =
     end.result === 'RED_WIN' ? 'Đỏ thắng' : end.result === 'BLACK_WIN' ? 'Đen thắng' : end.result === 'DRAW' ? 'Hòa' : 'Ván kết thúc';
   const reason = end.endReason ? (END_REASON_LABELS[end.endReason] ?? end.endReason) : null;
-  return [who, reason, end.endRule].filter(Boolean).join(' — ') + '.';
+  const base = [who, reason, end.endRule].filter(Boolean).join(' — ') + '.';
+  const change = color === 'RED' ? end.ratings?.red : color === 'BLACK' ? end.ratings?.black : null;
+  if (!change) return base;
+  const deltaStr = change.delta > 0 ? `+${change.delta}` : `${change.delta}`;
+  return `${base} (${deltaStr})`;
 }

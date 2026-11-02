@@ -99,10 +99,19 @@ Phát sau mỗi nước hợp lệ. Mỗi socket nhận `yourColor` của chính
 ### `game:end`
 
 ```jsonc
-{ "matchId": "1", "result": "DRAW", "endReason": "REPETITION", "endRule": "Điều 24.2 ..." }
+{
+  "matchId": "1",
+  "result": "DRAW",
+  "endReason": "REPETITION",
+  "endRule": "Điều 24.2 ...",
+  "ratings": {
+    "red": { "before": 1200, "after": 1200, "delta": 0 },
+    "black": { "before": 1200, "after": 1200, "delta": 0 }
+  }
+}
 ```
 
-Phát (sau `game:update`) khi ván chuyển `FINISHED`/`ABORTED`. `endReason` gồm cả `RESIGNATION`, `DRAW_AGREEMENT` (XQA-91).
+Phát (sau `game:update`) khi ván chuyển `FINISHED`/`ABORTED`. `endReason` gồm cả `RESIGNATION`, `DRAW_AGREEMENT` (XQA-91). `ratings` chứa điểm Elo cập nhật của 2 bên (`null` nếu ván không tính Elo / `ABORTED`).
 
 ### `game:draw-offered` — `{ matchId, by: "RED" | "BLACK", atPly }`
 

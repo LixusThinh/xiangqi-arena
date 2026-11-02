@@ -350,6 +350,7 @@ export class GameGateway implements OnGatewayInit, OnGatewayDisconnect {
         result: state.result,
         endReason: state.endReason,
         endRule: state.endRule,
+        ratings: state.ratings ?? null,
       });
     }
   }

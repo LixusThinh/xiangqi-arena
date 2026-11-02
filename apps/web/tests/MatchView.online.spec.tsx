@@ -288,6 +288,26 @@ describe('MatchView – đi quân online (XQA-76)', () => {
     expect(mockPush).toHaveBeenCalledWith('/lobby');
   });
 
+  it('game:end có ratings → hộp kết thúc hiện +16 cho bên thắng (XQA-40)', async () => {
+    const conn = new FakeConnection(state());
+    await renderAs(RED, conn);
+    act(() =>
+      conn.ends.forEach((l) =>
+        l({
+          matchId: '9',
+          result: 'RED_WIN',
+          endReason: 'CHECKMATE',
+          endRule: null,
+          ratings: {
+            red: { before: 1200, after: 1216, delta: 16 },
+            black: { before: 1200, after: 1184, delta: -16 },
+          },
+        }),
+      ),
+    );
+    expect(await screen.findByText(/Đỏ thắng — Chiếu bí\. \(\+16\)/)).toBeInTheDocument();
+  });
+
   it('mất kết nối → hiện banner, có lại → ẩn', async () => {
     const conn = new FakeConnection(state());
     await renderAs(RED, conn);

@@ -9,7 +9,7 @@ import { loginPathFor } from '@/lib/session';
  * Các trang chỉ dành cho người đã đăng nhập (XQA-67, FR-03).
  * Thêm trang mới cần đăng nhập thì thêm tiền tố vào đây.
  */
-export const PROTECTED_PATH_PREFIXES = ['/lobby', '/room', '/history', '/profile'] as const;
+export const PROTECTED_PATH_PREFIXES = ['/lobby', '/room', '/history', '/profile', '/admin'] as const;
 
 export function isProtectedPath(pathname: string | null): boolean {
   if (!pathname) return false;

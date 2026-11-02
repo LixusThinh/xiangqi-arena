@@ -27,6 +27,7 @@ import {
   STARTING_FEN,
 } from '@xiangqi-arena/xiangqi-core';
 import { PrismaService } from '../prisma/prisma.service';
+import { calculateElo } from './elo';
 import { PresenceService } from './presence.service';
 import {
   DisconnectedPlayerView,
@@ -105,6 +106,9 @@ const matchSelect = {
     orderBy: { id: 'desc' },
     take: 1,
     select: { id: true, offeredBy: true, atPly: true },
+  },
+  ratingHistory: {
+    select: { userId: true, ratingBefore: true, ratingAfter: true },
   },
 } as const;
 
@@ -275,7 +279,7 @@ export class GameService {
           thinkTimeMs: this.thinkTime(match, now),
         },
       });
-      if (result) await this.afterFinish(tx, match);
+      if (result) await this.afterFinish(tx, match, result, MatchStatus.FINISHED);
     });
 
     return this.getState(matchId, userId);
@@ -422,11 +426,16 @@ export class GameService {
     if (claimed.count !== 1) {
       throw this.error(ConflictException, 'GAME_NOT_ACTIVE', 'The match has already ended');
     }
-    await this.afterFinish(tx, match);
+    await this.afterFinish(tx, match, result, status);
   }
 
-  /** Việc phụ khi ván kết thúc: phòng → FINISHED, đề nghị hòa còn chờ → EXPIRED. */
-  private async afterFinish(tx: Tx, match: Pick<MatchRow, 'id' | 'roomId'>): Promise<void> {
+  /** Việc phụ khi ván kết thúc: phòng → FINISHED, đề nghị hòa còn chờ → EXPIRED, tính điểm Elo (XQA-40). */
+  private async afterFinish(
+    tx: Tx,
+    match: Pick<MatchRow, 'id' | 'roomId' | 'redPlayerId' | 'blackPlayerId'>,
+    result: MatchResult | null,
+    status: MatchStatus = MatchStatus.FINISHED,
+  ): Promise<void> {
     await tx.room.updateMany({
       where: { id: match.roomId, status: RoomStatus.PLAYING },
       data: { status: RoomStatus.FINISHED },
@@ -435,6 +444,51 @@ export class GameService {
       where: { matchId: match.id, status: DrawOfferStatus.PENDING },
       data: { status: DrawOfferStatus.EXPIRED },
     });
+
+    if (status === MatchStatus.FINISHED && result !== null) {
+      const existing = await tx.ratingHistory.findFirst({
+        where: { matchId: match.id },
+      });
+      if (!existing) {
+        const [redUser, blackUser] = await Promise.all([
+          tx.user.findUnique({ where: { id: match.redPlayerId }, select: { rating: true } }),
+          tx.user.findUnique({ where: { id: match.blackPlayerId }, select: { rating: true } }),
+        ]);
+        if (redUser && blackUser) {
+          const actualScoreRed =
+            result === MatchResult.RED_WIN ? 1 : result === MatchResult.BLACK_WIN ? 0 : 0.5;
+          const { newRatingA: newRatingRed, newRatingB: newRatingBlack } =
+            calculateElo(redUser.rating, blackUser.rating, actualScoreRed);
+
+          await Promise.all([
+            tx.user.update({
+              where: { id: match.redPlayerId },
+              data: { rating: newRatingRed },
+            }),
+            tx.user.update({
+              where: { id: match.blackPlayerId },
+              data: { rating: newRatingBlack },
+            }),
+            tx.ratingHistory.create({
+              data: {
+                userId: match.redPlayerId,
+                matchId: match.id,
+                ratingBefore: redUser.rating,
+                ratingAfter: newRatingRed,
+              },
+            }),
+            tx.ratingHistory.create({
+              data: {
+                userId: match.blackPlayerId,
+                matchId: match.id,
+                ratingBefore: blackUser.rating,
+                ratingAfter: newRatingBlack,
+              },
+            }),
+          ]);
+        }
+      }
+    }
   }
 
   /** Người chơi của ván + ván đang ACTIVE (ván WAITING được bắt đầu như khi đi nước đầu). */
@@ -581,6 +635,25 @@ export class GameService {
       verdictResult.kind !== 'undetermined'
         ? verdictResult.rule
         : null;
+
+    const redHist = match.ratingHistory?.find((r) => r.userId === match.redPlayerId);
+    const blackHist = match.ratingHistory?.find((r) => r.userId === match.blackPlayerId);
+    const ratings =
+      redHist && blackHist
+        ? {
+            red: {
+              before: redHist.ratingBefore,
+              after: redHist.ratingAfter,
+              delta: redHist.ratingAfter - redHist.ratingBefore,
+            },
+            black: {
+              before: blackHist.ratingBefore,
+              after: blackHist.ratingAfter,
+              delta: blackHist.ratingAfter - blackHist.ratingBefore,
+            },
+          }
+        : null;
+
     return {
       matchId: match.id.toString(),
       roomCode: match.room.roomCode,
@@ -592,6 +665,7 @@ export class GameService {
       result: match.result,
       endReason: match.endReason,
       endRule,
+      ratings,
       red: this.toPlayer(match.redPlayer),
       black: this.toPlayer(match.blackPlayer),
       yourColor,

@@ -129,6 +129,7 @@ export class InMemoryPrisma {
           blackPlayer: { table: 'user', kind: 'one', localKey: 'blackPlayerId', foreignKey: 'id' },
           moves: { table: 'move', kind: 'many', localKey: 'id', foreignKey: 'matchId' },
           drawOffers: { table: 'drawOffer', kind: 'many', localKey: 'id', foreignKey: 'matchId' },
+          ratingHistory: { table: 'ratingHistory', kind: 'many', localKey: 'id', foreignKey: 'matchId' },
         },
       },
       drawOffer: {

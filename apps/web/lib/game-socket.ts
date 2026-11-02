@@ -60,8 +60,20 @@ export interface GameState {
   clockRunning: PlayerColor | null;
   incrementMs: number;
   serverTime: string;
+  ratings?: MatchRatings | null;
   startedAt: string | null;
   endedAt: string | null;
+}
+
+export interface PlayerRatingChange {
+  before: number;
+  after: number;
+  delta: number;
+}
+
+export interface MatchRatings {
+  red: PlayerRatingChange;
+  black: PlayerRatingChange;
 }
 
 export interface GameEnd {
@@ -69,6 +81,7 @@ export interface GameEnd {
   result: MatchResult | null;
   endReason: string | null;
   endRule: string | null;
+  ratings?: MatchRatings | null;
 }
 
 export interface DrawOffered extends DrawOffer {
