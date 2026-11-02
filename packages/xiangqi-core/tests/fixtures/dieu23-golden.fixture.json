@@ -1,0 +1,148 @@
+{
+  "source": "luat_co_tuong_viet_nam.pdf (Liên đoàn Cờ Việt Nam, tài liệu tập huấn trọng tài 2015), Điều 24, trang 19–20",
+  "coordinates": "xiangqi-core: cột a–i trái→phải nhìn từ phía Đỏ (Trắng trong tài liệu), hàng 0 = hàng đáy Đen",
+  "method": "Đặt thế cờ theo hình, đi các nước setup, lặp cycle tới khi thế cờ xuất hiện lần thứ 3 (threshold mặc định), so phán quyết RepetitionJudge với kết luận trong tài liệu",
+  "cases": [
+    {
+      "id": "GT-D24-H01",
+      "figure": "Hình 1",
+      "section": "24.2",
+      "fen": "c2a1k3/2c1a2R1/b6P1/8p/9/9/9/9/4K4/9 r - - 0 1",
+      "setup": [],
+      "cycle": [
+        "h1h0",
+        "f0f1",
+        "h0h1",
+        "f1f0"
+      ],
+      "notation": "1. X2.1 Tg6.1 2. X2/1 Tg6/1",
+      "expected": {
+        "kind": "loss",
+        "loser": "r",
+        "violations": [
+          {
+            "side": "r",
+            "type": "perpetual_check"
+          }
+        ]
+      },
+      "rule": "Điều 23 Điểm 1 – một quân chiếu mãi",
+      "note": "Hình trong PDF không in Tướng Đen; vị trí f0 SUY RA từ nước Tg6.1 / Tg6/1 (Tướng ở cột 6 phía Đen). Cần người đọc bản in đối chiếu lại."
+    },
+    {
+      "id": "GT-D24-H02",
+      "figure": "Hình 2",
+      "section": "24.2",
+      "fen": "9/4k4/9/9/9/9/9/9/2p6/3K1RBc1 r - - 0 1",
+      "setup": [],
+      "cycle": [
+        "f9e9",
+        "e1f1",
+        "e9f9",
+        "f1e1"
+      ],
+      "notation": "1. X4-5 Tg5-6 2. X5-4 Tg6-5",
+      "expected": {
+        "kind": "loss",
+        "loser": "r",
+        "violations": [
+          {
+            "side": "r",
+            "type": "perpetual_check"
+          }
+        ]
+      },
+      "rule": "Điều 23 Điểm 1",
+      "note": ""
+    },
+    {
+      "id": "GT-D24-H03",
+      "figure": "Hình 3",
+      "section": "24.2",
+      "fen": "4R4/3k5/5R3/9/9/2B6/n8/3pB4/4p4/3K5 r - - 0 1",
+      "setup": [],
+      "cycle": [
+        "f2f1",
+        "d1d2",
+        "e0d0",
+        "d2e2",
+        "d0e0",
+        "e2d2",
+        "f1f2",
+        "d2d1"
+      ],
+      "notation": "1. X4.1 Tg4.1 2. X5-6 Tg4-5 3. X6-5 Tg5-4 4. X4/1 Tg4/1",
+      "expected": {
+        "kind": "loss",
+        "loser": "r",
+        "violations": [
+          {
+            "side": "r",
+            "type": "perpetual_check"
+          }
+        ]
+      },
+      "rule": "Điều 23 Điểm 1 – hai quân thay nhau chiếu mãi",
+      "note": ""
+    },
+    {
+      "id": "GT-D24-H04",
+      "figure": "Hình 4",
+      "section": "24.3",
+      "fen": "3akr3/5c3/1P2b4/4R4/9/9/9/9/9/4CK3 r - - 0 1",
+      "setup": [
+        "e3e2",
+        "f1e1"
+      ],
+      "cycle": [
+        "e2f2",
+        "e1f1",
+        "f2e2",
+        "f1e1"
+      ],
+      "notation": "1. X5.1 P6-5 2. X5.4 P5-6 3. X4-5 P6-5 ...",
+      "expected": {
+        "kind": "draw",
+        "loser": null,
+        "violations": [
+          {
+            "side": "r",
+            "type": "perpetual_check"
+          },
+          {
+            "side": "b",
+            "type": "perpetual_check"
+          }
+        ]
+      },
+      "rule": "Vừa đỡ vừa chiếu lại, hai bên không đổi → hòa (Điều 7.2c)",
+      "note": ""
+    },
+    {
+      "id": "GT-D24-H05",
+      "figure": "Hình 5",
+      "section": "24.4",
+      "fen": "5c3/8R/4k2P1/3P5/5P3/6P2/5pN2/5A3/4CK3/6rn1 r - - 0 1",
+      "setup": [],
+      "cycle": [
+        "f4e4",
+        "f6e6",
+        "e4f4",
+        "e6f6"
+      ],
+      "notation": "1. B4-5 B6-5 2. B5-4 B5-6 ...",
+      "expected": {
+        "kind": "loss",
+        "loser": "r",
+        "violations": [
+          {
+            "side": "r",
+            "type": "perpetual_check"
+          }
+        ]
+      },
+      "rule": "Hai chiếu một chiếu lại – bên chiếu mãi thua",
+      "note": ""
+    }
+  ]
+}
