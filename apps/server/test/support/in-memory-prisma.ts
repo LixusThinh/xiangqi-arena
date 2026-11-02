@@ -181,7 +181,7 @@ export class InMemoryPrisma {
         },
       },
       report: {
-        unique: [],
+        unique: [['matchId', 'reporterId']],
         defaults: () => ({
           description: null,
           status: 'OPEN',

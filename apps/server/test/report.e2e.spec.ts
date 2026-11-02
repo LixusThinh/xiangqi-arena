@@ -110,6 +110,24 @@ describe('POST /matches/:id/report (XQA-30, FR-24, AC-30-01 … 06)', () => {
     expect(res.body.code).toBe('REPORT_DUPLICATE');
   });
 
+  it('AC-30-03 (race condition): hai request gửi đồng thời -> đúng 1 request thành công 201, 1 request trả 409 REPORT_DUPLICATE', async () => {
+    const [req1, req2] = await Promise.all([
+      request(t.server)
+        .post(`/matches/${matchId}/report`)
+        .set('Authorization', `Bearer ${p1.token}`)
+        .send({ reason: 'CHEATING' }),
+      request(t.server)
+        .post(`/matches/${matchId}/report`)
+        .set('Authorization', `Bearer ${p1.token}`)
+        .send({ reason: 'SPAM' }),
+    ]);
+
+    const statuses = [req1.status, req2.status].sort();
+    expect(statuses).toEqual([201, 409]);
+    const duplicateRes = req1.status === 409 ? req1 : req2;
+    expect(duplicateRes.body.code).toBe('REPORT_DUPLICATE');
+  });
+
   it('AC-30-04: người ngoài không chơi ván đó báo cáo -> 403 GAME_NOT_PLAYER', async () => {
     const res = await request(t.server)
       .post(`/matches/${matchId}/report`)

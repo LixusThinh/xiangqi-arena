@@ -536,27 +536,34 @@ export class GameService {
       description = trimmed || null;
     }
 
-    const report = await this.prisma.report.create({
-      data: {
-        matchId: match.id,
-        reporterId: userBigInt,
-        reportedUserId,
-        reason: dto.reason,
-        description,
-        status: ReportStatus.OPEN,
-      },
-    });
+    try {
+      const report = await this.prisma.report.create({
+        data: {
+          matchId: match.id,
+          reporterId: userBigInt,
+          reportedUserId,
+          reason: dto.reason,
+          description,
+          status: ReportStatus.OPEN,
+        },
+      });
 
-    return {
-      id: report.id.toString(),
-      matchId: report.matchId.toString(),
-      reporterId: report.reporterId.toString(),
-      reportedUserId: report.reportedUserId.toString(),
-      reason: report.reason,
-      description: report.description,
-      status: report.status,
-      createdAt: report.createdAt.toISOString(),
-    };
+      return {
+        id: report.id.toString(),
+        matchId: report.matchId.toString(),
+        reporterId: report.reporterId.toString(),
+        reportedUserId: report.reportedUserId.toString(),
+        reason: report.reason,
+        description: report.description,
+        status: report.status,
+        createdAt: report.createdAt.toISOString(),
+      };
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw this.error(ConflictException, 'REPORT_DUPLICATE', 'Bạn đã báo cáo ván này rồi.');
+      }
+      throw err;
+    }
   }
 
   /**

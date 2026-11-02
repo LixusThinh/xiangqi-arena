@@ -311,6 +311,7 @@ model Report {
   handler        User?        @relation("ReportHandler", fields: [handledById], references: [id], onDelete: SetNull)
   match          Match        @relation(fields: [matchId], references: [id], onDelete: Restrict)
 
+  @@unique([matchId, reporterId])
   @@index([reporterId, createdAt])
   @@index([reportedUserId, status])
   @@index([matchId])
