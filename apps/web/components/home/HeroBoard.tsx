@@ -3,26 +3,28 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Position, algebraicToSquare, type Move, type Piece } from '@xiangqi-arena/xiangqi-core';
 import Board from '@/components/board/Board';
+import { formatVietnameseMove } from '@/lib/ai/vietnamese-notation';
 
 /**
  * 8 nước khai cuộc mẫu kinh điển: Pháo đầu đối Bình phong Mã.
- * Đã kiểm tra tính hợp lệ qua engine của @xiangqi-arena/xiangqi-core.
+ * [nước đi từ, nước đi tới]. Ký hiệu nước được tính tự động bằng formatVietnameseMove.
  */
-export const HERO_OPENING_MOVES: ReadonlyArray<[string, string, string]> = [
-  ['h7', 'e7', 'Pháo 2 bình 5'],
-  ['b0', 'c2', 'Mã 8 tấn 7'],
-  ['h9', 'g7', 'Mã 2 tấn 3'],
-  ['h0', 'g2', 'Mã 2 tấn 3'],
-  ['i9', 'h9', 'Xe 1 bình 2'],
-  ['c3', 'c4', 'Tốt 7 tấn 1'],
-  ['h9', 'h3', 'Xe 2 tấn 6'],
-  ['d0', 'e1', 'Sĩ 4 tấn 5'],
+export const HERO_OPENING_MOVES: ReadonlyArray<[string, string]> = [
+  ['h7', 'e7'], // Đỏ: Pháo 2 bình 5
+  ['b0', 'c2'], // Đen: Mã 2 tấn 3 (cột b là cột 2 của Đen)
+  ['h9', 'g7'], // Đỏ: Mã 2 tấn 3
+  ['h0', 'g2'], // Đen: Mã 8 tấn 7 (cột h là cột 8 của Đen)
+  ['i9', 'h9'], // Đỏ: Xe 1 bình 2
+  ['c3', 'c4'], // Đen: Tốt 3 tấn 1 (cột c là cột 3 của Đen)
+  ['h9', 'h3'], // Đỏ: Xe 2 tấn 6
+  ['d0', 'e1'], // Đen: Sĩ 4 tấn 5
 ];
 
 export interface StepSnapshot {
   board: (Piece | null)[];
   lastMove: { from: number; to: number } | null;
-  notation: string | null;
+  notation: string;
+  stepLabel: string;
 }
 
 export default function HeroBoard() {
@@ -30,27 +32,38 @@ export default function HeroBoard() {
   const [isPaused, setIsPaused] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
 
-  // Tạo sẵn các thế cờ cho từng bước khai cuộc
+  // Tạo sẵn các thế cờ cho từng bước khai cuộc với ký hiệu tính tự động từ engine
   const snapshots: StepSnapshot[] = useMemo(() => {
     const snaps: StepSnapshot[] = [];
     const pos = Position.initial();
+
     snaps.push({
       board: [...pos.board],
       lastMove: null,
       notation: 'Thế cờ khởi đầu',
+      stepLabel: 'Khai cuộc: Pháo đầu vs Bình phong Mã',
     });
 
-    for (const [fromAlg, toAlg, desc] of HERO_OPENING_MOVES) {
+    let ply = 1;
+    for (const [fromAlg, toAlg] of HERO_OPENING_MOVES) {
       const move: Move = {
         from: algebraicToSquare(fromAlg),
         to: algebraicToSquare(toAlg),
       };
+      // Tính ký hiệu tiếng Việt CHÍNH XÁC từ thế cờ trước nước đi
+      const notation = formatVietnameseMove(pos, move);
+      const moveNum = Math.ceil(ply / 2);
+      const isRed = ply % 2 === 1;
+      const stepLabel = isRed ? `${moveNum}. ${notation}` : `${moveNum}... ${notation}`;
+
       pos.applyMove(move);
       snaps.push({
         board: [...pos.board],
         lastMove: move,
-        notation: desc,
+        notation,
+        stepLabel,
       });
+      ply++;
     }
 
     return snaps;
@@ -98,14 +111,14 @@ export default function HeroBoard() {
         <div className="flex items-center gap-2">
           <span className="inline-block h-2 w-2 rounded-full bg-cinnabar-500 animate-pulse" />
           <span className="font-medium text-paper-200">
-            {step === 0 ? 'Khai cuộc: Pháo đầu vs Bình phong Mã' : `${step}. ${current.notation}`}
+            {current.stepLabel}
           </span>
         </div>
 
         <button
           type="button"
           onClick={() => setIsPaused((p) => !p)}
-          className="rounded px-2 py-1 text-xs border border-wood-700/60 bg-ink-900/80 text-paper-300 hover:text-paper-100 transition min-h-[32px] sm:min-h-0"
+          className="rounded px-2.5 py-1 text-xs border border-wood-700/60 bg-ink-900/80 text-paper-300 hover:text-paper-100 transition min-h-[36px]"
           aria-label={isPaused ? 'Tiếp tục chạy bàn cờ' : 'Tạm dừng chạy bàn cờ'}
         >
           {isPaused ? '▶ Chạy tiếp' : '⏸ Dừng'}

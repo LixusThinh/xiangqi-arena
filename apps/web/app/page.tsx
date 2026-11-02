@@ -34,18 +34,18 @@ export default function HomePage() {
   return (
     <main className="bg-ink-950 text-paper-100 min-h-[calc(100vh-3.5rem)] pb-16 overflow-x-hidden">
       {/* Hero Section */}
-      <section className="mx-auto max-w-6xl px-4 py-8 sm:py-12 md:py-16 grid items-center gap-8 md:gap-10 md:grid-cols-[1.1fr_minmax(0,460px)]">
-        <div className="flex flex-col items-start">
+      <section className="mx-auto max-w-6xl px-4 py-8 sm:py-12 md:py-14 lg:py-16 grid items-center gap-8 lg:gap-10 lg:grid-cols-[1.1fr_minmax(0,440px)]">
+        <div className="flex flex-col items-start w-full">
           <div className="inline-flex items-center gap-2 rounded-full border border-wood-700/60 bg-ink-900/90 px-3.5 py-1 text-xs font-semibold tracking-wider text-paper-300">
             <span className="h-1.5 w-1.5 rounded-full bg-cinnabar-500" />
             CỜ TƯỚNG TRỰC TUYẾN VIỆT NAM
           </div>
 
-          <h1 className="mt-4 text-[clamp(1.75rem,3.2vw+0.75rem,2.75rem)] font-extrabold leading-[1.2] tracking-tight text-paper-50 max-w-xl">
+          <h1 className="mt-4 text-[clamp(1.5rem,2.5vw+0.75rem,2.5rem)] font-extrabold leading-[1.25] tracking-tight text-paper-50 max-w-2xl">
             Đấu cờ tướng trực tuyến chuẩn luật Việt Nam
           </h1>
 
-          <p className="mt-3.5 max-w-lg text-sm sm:text-base leading-relaxed text-paper-300 font-normal">
+          <p className="mt-3.5 max-w-xl text-sm sm:text-base leading-relaxed text-paper-300 font-normal">
             Trải nghiệm cờ tướng đậm chất truyền thống giấy dó, mực tàu, son đỏ. Chơi với máy thông minh, lập phòng thi đấu bạn bè có đồng hồ máy chủ chuẩn xác và gọi video trực tiếp.
           </p>
 
