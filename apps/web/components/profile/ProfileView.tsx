@@ -22,7 +22,9 @@ function formatJoinDate(isoDate: string): string {
 }
 
 export default function ProfileView({ username: targetUsername }: ProfileViewProps) {
-  const [sessionUser, setSessionUser] = useState(() => getStoredSession()?.user ?? null);
+  // Đọc phiên sau khi mount: lúc server render (trang /u/[username] công khai) không có localStorage
+  const [sessionUser, setSessionUser] = useState<NonNullable<ReturnType<typeof getStoredSession>>['user'] | null>(null);
+  const [sessionReady, setSessionReady] = useState(false);
   const [profile, setProfile] = useState<UserProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -44,11 +46,14 @@ export default function ProfileView({ username: targetUsername }: ProfileViewPro
 
   useEffect(() => {
     const syncSession = () => setSessionUser(getStoredSession()?.user ?? null);
+    syncSession();
+    setSessionReady(true);
     window.addEventListener('storage', syncSession);
     return () => window.removeEventListener('storage', syncSession);
   }, []);
 
   useEffect(() => {
+    if (!sessionReady) return;
     if (!effectiveUsername) {
       setLoading(false);
       setLoadError('Không tìm thấy thông tin tài khoản.');
@@ -82,7 +87,7 @@ export default function ProfileView({ username: targetUsername }: ProfileViewPro
     return () => {
       isMounted = false;
     };
-  }, [effectiveUsername]);
+  }, [effectiveUsername, sessionReady]);
 
   const handleStartEdit = () => {
     if (!profile) return;
