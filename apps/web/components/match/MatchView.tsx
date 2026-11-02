@@ -19,6 +19,7 @@ import {
   type PlayerColor,
 } from '@/lib/game-socket';
 import VideoCallPanel from '@/components/match/VideoCallPanel';
+import MatchChatBox from '@/components/chat/MatchChatBox';
 import { useDisplayClock } from '@/lib/game-clock';
 import PlayerBadge, { clockFor } from '@/components/match/PlayerBadge';
 import { useVideoCall } from '@/lib/use-video-call';
@@ -58,6 +59,7 @@ export default function MatchView({
   const connRef = useRef<GameConnection | null>(null);
   // Bản state của kết nối để hook video call đăng ký nhận tín hiệu khi kết nối sẵn sàng
   const [connection, setConnection] = useState<GameConnection | null>(null);
+  const [sideTab, setSideTab] = useState<'chat' | 'video'>('chat');
 
   useEffect(() => {
     let cancelled = false;
@@ -142,6 +144,12 @@ export default function MatchView({
 
   const clock = useDisplayClock(game);
   const call = useVideoCall(connection, game?.matchId ?? null, game?.yourColor ?? null);
+
+  useEffect(() => {
+    if (call.phase === 'incoming') {
+      setSideTab('video');
+    }
+  }, [call.phase]);
 
   const position = useMemo(() => (game ? Position.fromFen(game.fen) : Position.initial()), [game]);
   const myTurn =
@@ -343,26 +351,63 @@ export default function MatchView({
               )}
             </section>
 
-            <div className="order-2 lg:order-none">
+            <div className="order-2 flex flex-col gap-2 lg:order-none">
+              <div className="flex rounded-xl border border-slate-800 bg-slate-900/60 p-0.5 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setSideTab('chat')}
+                  className={`flex-1 rounded-lg py-1.5 transition ${
+                    sideTab === 'chat'
+                      ? 'bg-amber-500 font-bold text-slate-950 shadow'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  💬 Trò chuyện
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSideTab('video')}
+                  className={`flex-1 rounded-lg py-1.5 transition ${
+                    sideTab === 'video'
+                      ? 'bg-amber-500 font-bold text-slate-950 shadow'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  📹 Gọi video
+                </button>
+              </div>
+
               {game && (
-                <VideoCallPanel
-                  opponentName={opponent?.displayName ?? 'Đối thủ'}
-                  selfName={me?.displayName ?? 'Bạn'}
-                  status={call.phase}
-                  micOn={call.micOn}
-                  camOn={call.camOn}
-                  opponentStream={call.remoteStream}
-                  localStream={call.localStream}
-                  error={call.error}
-                  onToggleMic={call.toggleMic}
-                  onToggleCam={call.toggleCam}
-                  onEndCall={call.hangup}
-                  onStartCall={() => void call.start()}
-                  onAccept={() => void call.accept()}
-                  onDecline={call.decline}
-                  // Màn lớn: khung video co theo chiều cao cửa sổ để cả cột vừa 1366×650 không phải cuộn
-                  videoClassName="aspect-video w-full lg:aspect-auto lg:h-[clamp(6rem,calc(100dvh-34rem),11rem)]"
-                />
+                <>
+                  <div className={sideTab === 'chat' ? 'block' : 'hidden'}>
+                    <MatchChatBox
+                      matchId={game.matchId}
+                      isFinished={!active}
+                      connection={connection}
+                      currentUserId={myId}
+                    />
+                  </div>
+                  <div className={sideTab === 'video' ? 'block' : 'hidden'}>
+                    <VideoCallPanel
+                      opponentName={opponent?.displayName ?? 'Đối thủ'}
+                      selfName={me?.displayName ?? 'Bạn'}
+                      status={call.phase}
+                      micOn={call.micOn}
+                      camOn={call.camOn}
+                      opponentStream={call.remoteStream}
+                      localStream={call.localStream}
+                      error={call.error}
+                      onToggleMic={call.toggleMic}
+                      onToggleCam={call.toggleCam}
+                      onEndCall={call.hangup}
+                      onStartCall={() => void call.start()}
+                      onAccept={() => void call.accept()}
+                      onDecline={call.decline}
+                      // Màn lớn: khung video co theo chiều cao cửa sổ để cả cột vừa 1366×650 không phải cuộn
+                      videoClassName="aspect-video w-full lg:aspect-auto lg:h-[clamp(6rem,calc(100dvh-34rem),11rem)]"
+                    />
+                  </div>
+                </>
               )}
             </div>
 

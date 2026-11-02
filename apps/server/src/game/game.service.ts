@@ -28,8 +28,10 @@ import {
 } from '@xiangqi-arena/xiangqi-core';
 import { PrismaService } from '../prisma/prisma.service';
 import { calculateElo } from './elo';
+import { ChatRateLimiter } from './chat-rate-limiter';
 import { PresenceService } from './presence.service';
 import {
+  ChatMessageView,
   DisconnectedPlayerView,
   DrawOfferView,
   GameMoveView,
@@ -149,7 +151,92 @@ export class GameService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly presence: PresenceService,
+    private readonly chatRateLimiter: ChatRateLimiter,
   ) {}
+
+  /**
+   * Gửi tin nhắn chat trong ván cờ (XQA-29, FR-23).
+   * Kiểm tra: là người chơi, ván ACTIVE, độ dài 1-300 ký tự (Unicode code points), rate limit 5 tin/10s.
+   */
+  async sendChat(matchId: string, userId: string, content: string): Promise<ChatMessageView> {
+    if (!/^\d+$/.test(matchId)) {
+      throw this.error(BadRequestException, 'VALIDATION_ERROR', 'matchId must be digits');
+    }
+    const trimmed = typeof content === 'string' ? content.trim() : '';
+    const codePointLength = [...trimmed].length;
+    if (codePointLength < 1 || codePointLength > 300) {
+      throw this.error(BadRequestException, 'VALIDATION_ERROR', 'Tin nhắn phải có độ dài từ 1 đến 300 ký tự');
+    }
+
+    const match = await this.loadMatch(matchId);
+    const isPlayer =
+      match.redPlayerId.toString() === userId || match.blackPlayerId.toString() === userId;
+    if (!isPlayer) {
+      throw this.error(ForbiddenException, 'GAME_NOT_PLAYER', 'You are not a player in this match');
+    }
+    if (match.status !== MatchStatus.ACTIVE) {
+      throw this.error(ConflictException, 'GAME_NOT_ACTIVE', 'Ván đấu không còn hoạt động');
+    }
+
+    if (!this.chatRateLimiter.isAllowed(userId)) {
+      throw this.error(
+        BadRequestException,
+        'CHAT_RATE_LIMITED',
+        'Bạn gửi tin nhắn quá nhanh. Tối đa 5 tin / 10 giây.',
+      );
+    }
+
+    const sender =
+      match.redPlayerId.toString() === userId ? match.redPlayer : match.blackPlayer;
+
+    const row = await this.prisma.chat.create({
+      data: {
+        roomId: match.roomId,
+        matchId: match.id,
+        senderId: BigInt(userId),
+        message: trimmed,
+        type: 'TEXT',
+      },
+    });
+
+    return {
+      id: row.id.toString(),
+      matchId: match.id.toString(),
+      senderId: userId,
+      senderName: sender.displayName,
+      content: trimmed,
+      createdAt: row.createdAt.toISOString(),
+    };
+  }
+
+  /** Lấy lịch sử 50 tin nhắn gần nhất của ván (XQA-29, AC-29-07). */
+  async getChats(matchId: string, userId: string): Promise<ChatMessageView[]> {
+    if (!/^\d+$/.test(matchId)) throw this.notFound();
+    const match = await this.loadMatch(matchId);
+    const isPlayer =
+      match.redPlayerId.toString() === userId || match.blackPlayerId.toString() === userId;
+    if (!isPlayer) {
+      throw this.error(ForbiddenException, 'GAME_NOT_PLAYER', 'You are not a player in this match');
+    }
+
+    const rows = await this.prisma.chat.findMany({
+      where: { matchId: match.id },
+      orderBy: { id: 'desc' },
+      take: 50,
+      include: {
+        sender: { select: { displayName: true } },
+      },
+    });
+
+    return rows.reverse().map((r) => ({
+      id: r.id.toString(),
+      matchId: match.id.toString(),
+      senderId: r.senderId.toString(),
+      senderName: r.sender.displayName,
+      content: r.message,
+      createdAt: r.createdAt.toISOString(),
+    }));
+  }
 
   /** Trạng thái ván. Ván ở WAITING (vừa đủ 2 người) được bắt đầu ngay khi một người chơi mở. */
   async getState(matchId: string, userId: string): Promise<GameStateView> {

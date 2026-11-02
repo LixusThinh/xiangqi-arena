@@ -8,6 +8,7 @@ import MatchView from '../components/match/MatchView';
 import { saveSession } from '../lib/auth-api';
 import {
   GameSocketError,
+  type ChatMessageView,
   type DrawRejected,
   type PlayerDisconnected,
   type PlayerReconnected,
@@ -148,6 +149,18 @@ class FakeConnection implements GameConnection {
   signal = jest.fn(async () => ({ delivered: 1 }));
   onSignal(l: (s: WebrtcSignal) => void) {
     this.signals.push(l);
+  }
+  chatMessages: Array<(m: ChatMessageView) => void> = [];
+  sendChat = jest.fn(async (matchId: string, content: string) => ({
+    id: 'mock-chat-1',
+    matchId,
+    senderId: '1',
+    senderName: 'Red',
+    content,
+    createdAt: new Date().toISOString(),
+  }));
+  onChatMessage(l: (m: ChatMessageView) => void) {
+    this.chatMessages.push(l);
   }
   close() {
     this.closed = true;

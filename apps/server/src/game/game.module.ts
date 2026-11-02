@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { ChatRateLimiter } from './chat-rate-limiter';
 import { ClockService } from './clock.service';
 import { GameController } from './game.controller';
 import { GameGateway } from './game.gateway';
@@ -9,7 +10,7 @@ import { PresenceService } from './presence.service';
 @Module({
   imports: [AuthModule],
   controllers: [GameController],
-  providers: [GameService, GameGateway, PresenceService, ClockService],
-  exports: [GameService],
+  providers: [GameService, GameGateway, PresenceService, ClockService, ChatRateLimiter],
+  exports: [GameService, ChatRateLimiter],
 })
 export class GameModule {}

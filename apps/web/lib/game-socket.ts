@@ -76,6 +76,15 @@ export interface MatchRatings {
   black: PlayerRatingChange;
 }
 
+export interface ChatMessageView {
+  id: string;
+  matchId: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+  createdAt: string;
+}
+
 export interface GameEnd {
   matchId: string;
   result: MatchResult | null;
@@ -140,6 +149,7 @@ export const GAME_ERROR_MESSAGES: Record<string, string> = {
   AUTH_TOKEN_INVALID: 'Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.',
   AUTH_TOKEN_EXPIRED: 'Phiên đăng nhập đã hết hạn. Vui lòng tải lại trang.',
   AUTH_SESSION_REVOKED: 'Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.',
+  CHAT_RATE_LIMITED: 'Bạn gửi tin quá nhanh (tối đa 5 tin / 10 giây). Vui lòng chờ giây lát.',
   SOCKET_TIMEOUT: 'Máy chủ không phản hồi, kiểm tra kết nối mạng.',
 };
 
@@ -183,6 +193,9 @@ export interface GameConnection {
   /** XQA-124: gửi tín hiệu WebRTC cho đối thủ; `delivered` = 0 nghĩa là đối thủ chưa mở màn ván. */
   signal(matchId: string, kind: WebrtcSignalKind, data?: unknown): Promise<{ delivered: number }>;
   onSignal(listener: (signal: WebrtcSignal) => void): void;
+  /** XQA-29: gửi và nhận tin nhắn trò chuyện trong ván đấu. */
+  sendChat(matchId: string, content: string): Promise<ChatMessageView>;
+  onChatMessage(listener: (message: ChatMessageView) => void): void;
   close(): void;
 }
 
@@ -288,6 +301,12 @@ export const connectGame: ConnectGame = (token) => {
     },
     onSignal(listener) {
       socket.on('webrtc:signal', listener);
+    },
+    sendChat(matchId, content) {
+      return request<ChatMessageView>(socket, 'chat:send', { matchId, content });
+    },
+    onChatMessage(listener) {
+      socket.on('chat:message', listener);
     },
     close() {
       socket.removeAllListeners();

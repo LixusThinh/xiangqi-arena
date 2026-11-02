@@ -12,7 +12,7 @@ import { Server, Socket } from 'socket.io';
 import { AuthJwtGuard } from '../auth/auth-jwt.guard';
 import { ClockService } from './clock.service';
 import { GameService } from './game.service';
-import { GameStateView, PlayerColor } from './game.types';
+import { ChatMessageView, GameStateView, PlayerColor } from './game.types';
 import { PresenceService } from './presence.service';
 
 /** Ack trả về cho client qua callback của socket.emit(event, payload, ack). */
@@ -211,6 +211,31 @@ export class GameGateway implements OnGatewayInit, OnGatewayDisconnect {
       this.server.to(matchRoom(matchId)).emit('game:draw-rejected', { matchId, by: state.yourColor });
       return state;
     });
+  }
+
+  /**
+   * XQA-29: gửi tin nhắn chat trong ván cờ. Hợp lệ → lưu DB, phát `chat:message` cho cả phòng.
+   */
+  @SubscribeMessage('chat:send')
+  async chatSend(
+    @ConnectedSocket() socket: GameSocket,
+    @MessageBody() body: unknown,
+  ): Promise<WsAck<ChatMessageView>> {
+    try {
+      if (
+        !isRecord(body) ||
+        typeof body.matchId !== 'string' ||
+        !DIGITS.test(body.matchId) ||
+        typeof body.content !== 'string'
+      ) {
+        return this.fail('VALIDATION_ERROR', 'Payload must be { matchId, content }');
+      }
+      const message = await this.gameService.sendChat(body.matchId, socket.data.userId, body.content);
+      this.server.to(matchRoom(body.matchId)).emit('chat:message', message);
+      return { ok: true, data: message };
+    } catch (error) {
+      return { ok: false, error: this.toError(error) };
+    }
   }
 
   /**

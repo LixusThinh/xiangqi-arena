@@ -43,6 +43,15 @@ export interface MatchRatings {
   black: PlayerRatingChange;
 }
 
+export interface ChatMessageView {
+  id: string;
+  matchId: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+  createdAt: string;
+}
+
 /** Trạng thái ván gửi cho FE (REST và socket dùng chung). */
 export interface GameStateView {
   matchId: string;
