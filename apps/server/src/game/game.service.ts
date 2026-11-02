@@ -12,6 +12,7 @@ import {
   MatchResult,
   MatchStatus,
   Prisma,
+  ReportStatus,
   RoomStatus,
 } from '@prisma/client';
 import {
@@ -29,6 +30,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { calculateElo } from './elo';
 import { ChatRateLimiter } from './chat-rate-limiter';
+import { CreateReportDto } from './game.dto';
 import { PresenceService } from './presence.service';
 import {
   ChatMessageView,
@@ -39,6 +41,7 @@ import {
   GameStateView,
   MoveInput,
   PlayerColor,
+  ReportView,
 } from './game.types';
 
 /**
@@ -485,6 +488,75 @@ export class GameService {
     }
     this.presence.clear(matchId);
     return this.getState(matchId, opponentId);
+  }
+
+  /**
+   * XQA-30: Báo cáo người chơi đối thủ trong ván cờ.
+   * - Chỉ người chơi trong ván mới được báo cáo đối thủ.
+   * - Mỗi người chỉ được báo cáo 1 lần / ván (409 REPORT_DUPLICATE).
+   * - Lý do theo enum ReportReason, mô tả tối đa 500 ký tự Unicode (400 VALIDATION_ERROR).
+   */
+  async createReport(matchId: string, userId: string, dto: CreateReportDto): Promise<ReportView> {
+    if (!/^\d+$/.test(matchId)) {
+      throw this.notFound();
+    }
+    const match = await this.prisma.match.findUnique({
+      where: { id: BigInt(matchId) },
+      select: { id: true, redPlayerId: true, blackPlayerId: true },
+    });
+    if (!match) throw this.notFound();
+
+    const userBigInt = BigInt(userId);
+    const isRed = match.redPlayerId === userBigInt;
+    const isBlack = match.blackPlayerId === userBigInt;
+    if (!isRed && !isBlack) {
+      throw this.error(ForbiddenException, 'GAME_NOT_PLAYER', 'You are not a player of this match');
+    }
+    const reportedUserId = isRed ? match.blackPlayerId : match.redPlayerId;
+    if (reportedUserId === userBigInt) {
+      throw this.error(BadRequestException, 'VALIDATION_ERROR', 'Cannot report yourself');
+    }
+
+    const existing = await this.prisma.report.findFirst({
+      where: {
+        matchId: match.id,
+        reporterId: userBigInt,
+      },
+    });
+    if (existing) {
+      throw this.error(ConflictException, 'REPORT_DUPLICATE', 'Bạn đã báo cáo ván này rồi.');
+    }
+
+    let description: string | null = null;
+    if (dto.description !== undefined && dto.description !== null) {
+      const trimmed = dto.description.trim();
+      if (Array.from(trimmed).length > 500) {
+        throw this.error(BadRequestException, 'VALIDATION_ERROR', 'Mô tả không được vượt quá 500 ký tự');
+      }
+      description = trimmed || null;
+    }
+
+    const report = await this.prisma.report.create({
+      data: {
+        matchId: match.id,
+        reporterId: userBigInt,
+        reportedUserId,
+        reason: dto.reason,
+        description,
+        status: ReportStatus.OPEN,
+      },
+    });
+
+    return {
+      id: report.id.toString(),
+      matchId: report.matchId.toString(),
+      reporterId: report.reporterId.toString(),
+      reportedUserId: report.reportedUserId.toString(),
+      reason: report.reason,
+      description: report.description,
+      status: report.status,
+      createdAt: report.createdAt.toISOString(),
+    };
   }
 
   /**

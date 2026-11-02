@@ -20,6 +20,7 @@ import {
 } from '@/lib/game-socket';
 import VideoCallPanel from '@/components/match/VideoCallPanel';
 import MatchChatBox from '@/components/chat/MatchChatBox';
+import ReportModal from '@/components/report/ReportModal';
 import { useDisplayClock } from '@/lib/game-clock';
 import PlayerBadge, { clockFor } from '@/components/match/PlayerBadge';
 import { useVideoCall } from '@/lib/use-video-call';
@@ -60,6 +61,7 @@ export default function MatchView({
   // Bản state của kết nối để hook video call đăng ký nhận tín hiệu khi kết nối sẵn sàng
   const [connection, setConnection] = useState<GameConnection | null>(null);
   const [sideTab, setSideTab] = useState<'chat' | 'video'>('chat');
+  const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -286,6 +288,15 @@ export default function MatchView({
               <Link href="/history" className="flex min-h-[40px] sm:min-h-0 items-center text-slate-300 underline hover:text-amber-200">
                 Lịch sử ván
               </Link>
+              {game && (
+                <button
+                  type="button"
+                  onClick={() => setShowReportModal(true)}
+                  className="flex min-h-[40px] sm:min-h-0 items-center font-medium text-rose-300 hover:text-rose-200"
+                >
+                  🚩 Báo cáo đối thủ
+                </button>
+              )}
             </nav>
           )}
         </header>
@@ -437,6 +448,13 @@ export default function MatchView({
                       🏳️ Xin thua
                     </button>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowReportModal(true)}
+                    className="flex min-h-[36px] items-center justify-center rounded-xl border border-slate-800 text-xs text-slate-400 transition hover:border-rose-500/40 hover:text-rose-300"
+                  >
+                    🚩 Báo cáo đối thủ
+                  </button>
                 </div>
               )}
             </div>
@@ -465,12 +483,22 @@ export default function MatchView({
         onCancel={() => void runAction((conn, id) => conn.answerDraw(id, false))}
       />
       <Modal
-        isOpen={endInfo !== null}
+        isOpen={endInfo !== null && !showReportModal}
         title="Ván đấu kết thúc"
         message={endInfo ? endMessage(endInfo, game?.yourColor ?? me?.color) : ''}
         confirmText="Về Sảnh"
+        cancelText="Báo cáo đối thủ"
         onConfirm={() => router.push('/lobby')}
+        onCancel={() => setShowReportModal(true)}
       />
+      {game && (
+        <ReportModal
+          isOpen={showReportModal}
+          matchId={game.matchId}
+          opponentName={opponent?.displayName ?? 'đối thủ'}
+          onClose={() => setShowReportModal(false)}
+        />
+      )}
     </main>
   );
 }

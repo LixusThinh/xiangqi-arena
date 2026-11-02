@@ -107,6 +107,7 @@ model User {
   ratingHistory    RatingHistory[]
   submittedReports Report[]        @relation("ReportReporter")
   receivedReports  Report[]        @relation("ReportReportedUser")
+  handledReports   Report[]        @relation("ReportHandler")
   authSessions     AuthSession[]
 
   @@map("users")
@@ -300,14 +301,19 @@ model Report {
   reportedUserId BigInt       @map("reported_user_id") @db.BigInt
   matchId        BigInt       @map("match_id") @db.BigInt
   reason         ReportReason
+  description    String?      @db.VarChar(500)
   status         ReportStatus @default(OPEN)
+  handledById    BigInt?      @map("handled_by_id") @db.BigInt
+  handledAt      DateTime?    @map("handled_at") @db.Timestamptz(6)
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   reporter       User         @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Restrict)
   reportedUser   User         @relation("ReportReportedUser", fields: [reportedUserId], references: [id], onDelete: Restrict)
+  handler        User?        @relation("ReportHandler", fields: [handledById], references: [id], onDelete: SetNull)
   match          Match        @relation(fields: [matchId], references: [id], onDelete: Restrict)
 
   @@index([reporterId, createdAt])
   @@index([reportedUserId, status])
   @@index([matchId])
+  @@index([status])
   @@map("reports")
 }

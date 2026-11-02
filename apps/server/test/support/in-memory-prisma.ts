@@ -64,6 +64,7 @@ export class InMemoryPrisma {
   readonly ratingHistory: ModelDelegate;
   readonly drawOffer: ModelDelegate;
   readonly chat: ModelDelegate;
+  readonly report: ModelDelegate;
 
   constructor() {
     const now = (): Date => new Date();
@@ -179,6 +180,22 @@ export class InMemoryPrisma {
           sender: { table: 'user', kind: 'one', localKey: 'senderId', foreignKey: 'id' },
         },
       },
+      report: {
+        unique: [],
+        defaults: () => ({
+          description: null,
+          status: 'OPEN',
+          handledById: null,
+          handledAt: null,
+          createdAt: now(),
+        }),
+        relations: {
+          reporter: { table: 'user', kind: 'one', localKey: 'reporterId', foreignKey: 'id' },
+          reportedUser: { table: 'user', kind: 'one', localKey: 'reportedUserId', foreignKey: 'id' },
+          handler: { table: 'user', kind: 'one', localKey: 'handledById', foreignKey: 'id' },
+          match: { table: 'match', kind: 'one', localKey: 'matchId', foreignKey: 'id' },
+        },
+      },
     };
     for (const name of Object.keys(this.defs)) {
       this.tables.set(name, []);
@@ -195,6 +212,7 @@ export class InMemoryPrisma {
     this.ratingHistory = new ModelDelegate(this, 'ratingHistory');
     this.drawOffer = new ModelDelegate(this, 'drawOffer');
     this.chat = new ModelDelegate(this, 'chat');
+    this.report = new ModelDelegate(this, 'report');
   }
 
   /**

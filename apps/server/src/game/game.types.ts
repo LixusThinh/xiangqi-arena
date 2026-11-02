@@ -1,4 +1,4 @@
-import { MatchEndReason, MatchResult, MatchStatus } from '@prisma/client';
+import { MatchEndReason, MatchResult, MatchStatus, ReportReason, ReportStatus } from '@prisma/client';
 
 export type PlayerColor = 'RED' | 'BLACK';
 
@@ -49,6 +49,17 @@ export interface ChatMessageView {
   senderId: string;
   senderName: string;
   content: string;
+  createdAt: string;
+}
+
+export interface ReportView {
+  id: string;
+  matchId: string;
+  reporterId: string;
+  reportedUserId: string;
+  reason: ReportReason;
+  description: string | null;
+  status: ReportStatus;
   createdAt: string;
 }
 
