@@ -6,6 +6,7 @@
 | Runner | `packages/xiangqi-core/tests/dieu23-golden.spec.ts` (chạy cùng `pnpm --filter xiangqi-core test`) |
 | Nguồn | `luat_co_tuong_viet_nam.pdf`, Điều 24, trang 19–20 (Hình 1–5) |
 | Kết quả 21/10 | 5/5 hình cho đúng phán quyết như tài liệu với RepetitionJudge phần 1 (XQA-78) |
+| Kết quả 02/11 | 5/5 với RepetitionJudge phần 2 (XQA-95) + BR-REP-01. Sau phần 2, H01 từng ra `undetermined` vì engine thấy cả Đen bắt mãi |
 
 ## Cách chuyển hình thành fixture
 
@@ -18,7 +19,7 @@
 
 | ID | Hình | Kết luận tài liệu | Phán quyết engine | Ghi chú |
 |---|---|---|---|---|
-| GT-D24-H01 | 1 | Trắng chiếu mãi → phải đổi, không đổi thua | Đỏ thua, Điểm 1 | **Hình in không có Tướng Đen**; vị trí f0 suy ra từ nước Tg6.1 / Tg6/1. Cần người đối chiếu bản in |
+| GT-D24-H01 | 1 | Trắng chiếu mãi → phải đổi, không đổi thua | Đỏ thua, Điều 7.1g (BR-REP-01). Vi phạm: Đỏ chiếu mãi, Đen bắt mãi | **Hình in không có Tướng Đen**; vị trí f0 suy ra từ nước Tg6.1 / Tg6/1 (đã đối chiếu hình trang 19: các quân khác khớp). Tướng Đen né chiếu mở đường cho Pháo a0 / Pháo c1 luân phiên bắt Xe → Đen cũng bắt mãi (24.29). Tài liệu vẫn xử Trắng thua → căn cứ cài BR-REP-01 |
 | GT-D24-H02 | 2 | Như trên | Đỏ thua, Điểm 1 | |
 | GT-D24-H03 | 3 | Hai Xe thay nhau chiếu mãi → thua | Đỏ thua, Điểm 1 | |
 | GT-D24-H04 | 4 | Vừa đỡ vừa chiếu lại, hai bên không đổi → hòa | Hòa (Điều 7.2c) | Có 2 nước chuẩn bị (X5.1, P6-5) trước chu kỳ |

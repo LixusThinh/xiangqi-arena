@@ -320,11 +320,16 @@ describe('judgeCycle – các điểm của Điều 23', () => {
     expect(result).toMatchObject({ kind: 'draw' });
   });
 
-  it('một bên chiếu mãi, bên kia bắt mãi → undetermined, chờ BR-REP-01 (luật không nói rõ)', () => {
+  it('BR-REP-01 (Điều 7.1g, Điều 24.2 Hình 1): một bên chiếu mãi, bên kia bắt mãi → bên chiếu mãi thua', () => {
     const { violations, result } = judgeCycle([rec('r', 'check'), rec('b', 'chase', [{}])]);
     expect(violations.map((v) => v.type)).toEqual(['perpetual_check', 'perpetual_chase']);
-    expect(result).toMatchObject({ kind: 'undetermined' });
-    expect(result.kind === 'undetermined' && result.reason).toContain('BR-REP-01');
+    expect(result).toMatchObject({ kind: 'loss', loser: 'r', winner: 'b' });
+    expect(result.kind === 'loss' && result.rule).toContain('BR-REP-01');
+  });
+
+  it('BR-REP-01 đối xứng: Đen chiếu mãi, Đỏ bắt mãi → Đen thua', () => {
+    const { result } = judgeCycle([rec('r', 'chase', [{}]), rec('b', 'check')]);
+    expect(result).toMatchObject({ kind: 'loss', loser: 'b', winner: 'r' });
   });
 });
 
