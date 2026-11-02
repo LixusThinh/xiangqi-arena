@@ -37,7 +37,8 @@ Luật và mã lỗi của xin thua / xin hòa: `docs/api/socket.md` mục `game
   "moves": [ ... ],
   "drawOffer": null,                  // { "by": "RED", "atPly": 3 } khi có đề nghị hòa chờ (XQA-91)
   "disconnected": [],                 // [{ "color": "BLACK", "deadline": "<ISO>" }] khi có người mất kết nối (XQA-93)
-  "redTimeLeftMs": 600000, "blackTimeLeftMs": 600000,   // chưa trừ giờ (XQA-141)
+  "redTimeLeftMs": 598400, "blackTimeLeftMs": 600000,   // còn lại tại serverTime (XQA-141)
+  "clockRunning": "RED", "incrementMs": 0, "serverTime": "2026-10-31T08:00:01.600Z",
   "startedAt": "...", "endedAt": null
 }
 ```
@@ -67,4 +68,15 @@ Sau nước đi: hết nước hợp lệ cho bên kia → kết thúc (`CHECKMA
 - Chỉ ván `ACTIVE` mới được chốt (`updateMany ... where status = ACTIVE`). Hai thao tác kết thúc cùng lúc (ví dụ xin thua và nước chiếu bí) → cái đến sau nhận `409` (`GAME_NOT_ACTIVE`, hoặc `GAME_STALE_STATE` nếu là nước đi), kết quả đầu giữ nguyên.
 - Sau khi chốt: phòng → `FINISHED`, đề nghị hòa còn chờ → `EXPIRED`.
 
-Chưa có: trừ đồng hồ / hết giờ `TIMEOUT` (XQA-141, Sprint 5), cập nhật Elo (Sprint 6).
+## Đồng hồ (XQA-141) – chỉ server tính giờ
+
+- DB lưu thời gian còn lại của mỗi bên **tại mốc `turnStartedAt`**. Server tính bên tới lượt theo `currentPly` (Đỏ ở ply chẵn).
+- Đi quân hợp lệ: `thời gian người đi = còn lại − (now − turnStartedAt) + incrementSec × 1000`, ghi cùng transaction với nước đi; `turnStartedAt = now`.
+- Hết giờ → bên tới lượt thua: `result` = bên kia thắng, `endReason = TIMEOUT`, thời gian bên hết giờ ghi 0. Server phát hiện ở 3 chỗ:
+  1. Gateway hẹn giờ đúng lúc hết giờ sau mỗi lần phát state; chuông kêu → `checkTimeout` tính lại từ DB (kêu sớm thì hẹn lại).
+  2. Mỗi `GET /matches/:id`, đi quân, xin hòa / xin thua: hết giờ rồi thì chốt TIMEOUT trước. Đi quân sau khi hết giờ → nước **không** được ghi, response là state đã `FINISHED`; xin thua / hòa → `409 GAME_NOT_ACTIVE`.
+  3. Server khởi động (Render free thức dậy) → hẹn giờ lại cho mọi ván `ACTIVE`.
+- Ván kết thúc bằng cách khác (chiếu bí, xin thua, hòa, mất kết nối): đồng hồ dừng, thời gian lúc kết thúc được giữ nguyên.
+- Response mang `redTimeLeftMs` / `blackTimeLeftMs` (tính tới `serverTime`), `clockRunning` (bên đang chạy giờ, `null` khi không chạy), `incrementMs`. **Client chỉ đếm lùi để hiển thị**; payload client gửi lên không có trường thời gian nào được đọc, client không có event báo hết giờ.
+
+Chưa có: cập nhật Elo (Sprint 6).

@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import ArenaPage from '../app/page';
+import ArenaPage from '../app/practice/page';
 
 describe('Xiangqi Arena Game Room Page', () => {
   beforeEach(() => {
@@ -123,25 +123,14 @@ describe('Xiangqi Arena Game Room Page', () => {
     expect(redKing).toHaveAttribute('y', '10');
   });
 
-  it('counts down turn timer by 1s every 1000ms for active player', () => {
-    render(<ArenaPage />);
-    expect(screen.getAllByText('00:60').length).toBeGreaterThan(0);
-
-    act(() => {
-      jest.advanceTimersByTime(2000);
-    });
-
-    expect(screen.getByText('00:58')).toBeInTheDocument();
-  });
-
-  it('stops timer ticking when timer reaches 0', () => {
+  it('Chơi thử không có đồng hồ chạy ở client (giờ thi đấu chỉ do server tính – XQA-141)', () => {
     render(<ArenaPage />);
     act(() => {
       jest.advanceTimersByTime(65000);
     });
-
-    expect(screen.getByText('00:00')).toBeInTheDocument();
-    expect(screen.getByText('Hết giờ!')).toBeInTheDocument();
+    expect(screen.queryByText(/^00:\d\d$/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Hết giờ!')).not.toBeInTheDocument();
+    expect(screen.getByText(/không tính giờ/)).toBeInTheDocument();
   });
 
   it('handles chat messages and quick chips', () => {

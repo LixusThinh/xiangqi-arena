@@ -10,6 +10,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { AuthJwtGuard } from '../auth/auth-jwt.guard';
+import { ClockService } from './clock.service';
 import { GameService } from './game.service';
 import { GameStateView, PlayerColor } from './game.types';
 import { PresenceService } from './presence.service';
@@ -22,7 +23,15 @@ interface SocketData {
   sessionId: string;
   /** Các ván socket này đã game:join (để biết rời ván nào khi mất kết nối – XQA-93). */
   matches?: string[];
+  /** Màu của user trong từng ván đã join (để gắn người gửi cho tín hiệu WebRTC – XQA-124). */
+  colors?: Record<string, PlayerColor>;
 }
+
+/** Loại tín hiệu WebRTC được chuyển tiếp (XQA-124). Server không đọc nội dung SDP / ICE. */
+export const WEBRTC_SIGNAL_KINDS = ['call', 'accept', 'decline', 'offer', 'answer', 'ice', 'hangup'] as const;
+export type WebrtcSignalKind = (typeof WEBRTC_SIGNAL_KINDS)[number];
+/** Giới hạn kích thước `data` (JSON) của 1 tín hiệu; SDP thường vài KB. */
+export const WEBRTC_SIGNAL_MAX_BYTES = 32 * 1024;
 
 type GameSocket = Socket<Record<string, never>, Record<string, never>, Record<string, never>, SocketData>;
 
@@ -58,7 +67,12 @@ export function viewFor(state: GameStateView, userId: string): GameStateView {
  * - Mất kết nối (XQA-93): socket cuối cùng của một người chơi rời ván ACTIVE → giữ ván
  *   RuleProfile.reconnectGraceSec (60s), phát player:disconnected { matchId, color, deadline, graceSec }.
  *   game:join lại trong hạn → player:reconnected; quá hạn → GameService.forfeitByDisconnect, phát game:update + game:end.
- * - Chưa có: đồng hồ (XQA-141).
+ * - Video call (XQA-124): webrtc:signal { matchId, kind, data } chỉ được chuyển tiếp cho socket khác trong phòng ván
+ *   (đối thủ), kèm `from` = màu người gửi. Chỉ người chơi đã game:join mới gửi được; server không đọc / lưu
+ *   SDP, ICE – hình và tiếng đi thẳng giữa 2 trình duyệt (STUN/TURN cấu hình ở web).
+ * - Đồng hồ (XQA-141): sau mỗi lần phát state của ván ACTIVE, hẹn giờ đúng lúc bên tới lượt hết giờ;
+ *   chuông kêu → GameService.checkTimeout tự tính lại từ DB, hết giờ thật thì chốt TIMEOUT + game:update + game:end.
+ *   Server khởi động → hẹn lại cho mọi ván ACTIVE. Client không có event nào để báo hết giờ.
  */
 @WebSocketGateway()
 export class GameGateway implements OnGatewayInit, OnGatewayDisconnect {
@@ -71,9 +85,16 @@ export class GameGateway implements OnGatewayInit, OnGatewayDisconnect {
     private readonly gameService: GameService,
     private readonly authGuard: AuthJwtGuard,
     private readonly presence: PresenceService,
+    private readonly clock: ClockService,
   ) {}
 
   afterInit(server: Server): void {
+    // Server vừa khởi động (hoặc Render free vừa thức dậy): hẹn giờ lại cho các ván đang chơi
+    void this.gameService.activeClocks().then(
+      (clocks) => clocks.forEach(({ matchId, remainingMs }) => this.scheduleFlag(matchId, remainingMs)),
+      (error: unknown) =>
+        this.logger.error('restore match clocks failed', error instanceof Error ? error.stack : String(error)),
+    );
     // Middleware chạy trước khi socket được coi là connected → không có event nào lọt vào trước khi xác thực xong.
     server.use((socket, next) => {
       const token: unknown = isRecord(socket.handshake.auth) ? socket.handshake.auth.token : undefined;
@@ -109,6 +130,7 @@ export class GameGateway implements OnGatewayInit, OnGatewayDisconnect {
         return this.fail('GAME_NOT_PLAYER', 'You are not a player in this match');
       }
       await socket.join(matchRoom(matchId));
+      (socket.data.colors ??= {})[matchId] = state.yourColor;
       const joined = (socket.data.matches ??= []);
       if (!joined.includes(matchId)) {
         joined.push(matchId);
@@ -118,6 +140,7 @@ export class GameGateway implements OnGatewayInit, OnGatewayDisconnect {
           state = await this.gameService.getState(matchId, userId);
         }
       }
+      this.syncClock(state);
       return { ok: true, data: state };
     } catch (error) {
       return { ok: false, error: this.toError(error) };
@@ -190,6 +213,42 @@ export class GameGateway implements OnGatewayInit, OnGatewayDisconnect {
     });
   }
 
+  /**
+   * XQA-124: chuyển tiếp tín hiệu WebRTC cho đối thủ trong ván. Ack trả `delivered` = số socket đối thủ đã nhận
+   * (0 → đối thủ chưa mở màn ván, FE báo "đối thủ chưa sẵn sàng").
+   */
+  @SubscribeMessage('webrtc:signal')
+  async signal(
+    @ConnectedSocket() socket: GameSocket,
+    @MessageBody() body: unknown,
+  ): Promise<WsAck<{ delivered: number }>> {
+    if (
+      !isRecord(body) ||
+      typeof body.matchId !== 'string' ||
+      !DIGITS.test(body.matchId) ||
+      typeof body.kind !== 'string' ||
+      !(WEBRTC_SIGNAL_KINDS as readonly string[]).includes(body.kind)
+    ) {
+      return this.fail('VALIDATION_ERROR', `Payload must be { matchId, kind: ${WEBRTC_SIGNAL_KINDS.join('|')}, data? }`);
+    }
+    const room = matchRoom(body.matchId);
+    const from = socket.data.colors?.[body.matchId];
+    if (!socket.rooms.has(room) || !from) {
+      return this.fail('GAME_NOT_JOINED', 'Join the match with game:join before calling');
+    }
+    const data = body.data ?? null;
+    if (Buffer.byteLength(JSON.stringify(data) ?? 'null') > WEBRTC_SIGNAL_MAX_BYTES) {
+      return this.fail('VALIDATION_ERROR', 'Signal data is too large');
+    }
+    const sockets = await this.server.in(room).fetchSockets();
+    // Chỉ gửi cho socket của người kia; tab khác của chính mình không nhận
+    const targets = sockets.filter((s) => (s.data as SocketData).userId !== socket.data.userId);
+    for (const target of targets) {
+      target.emit('webrtc:signal', { matchId: body.matchId, from, kind: body.kind, data });
+    }
+    return { ok: true, data: { delivered: targets.length } };
+  }
+
   /** Khung chung cho event chỉ mang { matchId }: kiểm payload, đã join, gọi service, phát state. */
   private async matchAction(
     socket: GameSocket,
@@ -248,8 +307,38 @@ export class GameGateway implements OnGatewayInit, OnGatewayDisconnect {
     }
   }
 
+  /** Hẹn giờ theo đồng hồ đang chạy trong state; ván không còn chạy giờ thì bỏ hẹn. */
+  private syncClock(state: GameStateView): void {
+    if (state.status !== 'ACTIVE' || !state.clockRunning) {
+      this.clock.clear(state.matchId);
+      return;
+    }
+    const remainingMs = state.clockRunning === 'RED' ? state.redTimeLeftMs : state.blackTimeLeftMs;
+    this.scheduleFlag(state.matchId, remainingMs);
+  }
+
+  private scheduleFlag(matchId: string, remainingMs: number): void {
+    // +25ms để chuông kêu sau mốc hết giờ, tránh phải hẹn lại vì làm tròn
+    this.clock.schedule(matchId, remainingMs + 25, () => {
+      void this.flag(matchId);
+    });
+  }
+
+  /** Chuông hết giờ kêu: server tính lại, hết giờ thật thì phát kết quả, chưa thì hẹn lại. */
+  private async flag(matchId: string): Promise<void> {
+    try {
+      const outcome = await this.gameService.checkTimeout(matchId);
+      if (!outcome) return;
+      if ('ended' in outcome) await this.broadcast(outcome.ended);
+      else this.scheduleFlag(matchId, outcome.remainingMs);
+    } catch (error) {
+      this.logger.error(`clock check failed for match ${matchId}`, error instanceof Error ? error.stack : String(error));
+    }
+  }
+
   /** Phát trạng thái mới cho mọi socket trong phòng ván, mỗi socket nhận yourColor của chính nó. */
   private async broadcast(state: GameStateView): Promise<void> {
+    this.syncClock(state);
     const sockets = await this.server.in(matchRoom(state.matchId)).fetchSockets();
     for (const s of sockets) {
       s.emit('game:update', viewFor(state, (s.data as SocketData).userId));

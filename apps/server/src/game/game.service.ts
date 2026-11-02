@@ -86,7 +86,7 @@ const matchSelect = {
   redPlayerId: true,
   blackPlayerId: true,
   room: { select: { roomCode: true } },
-  ruleProfile: { select: { repetitionThreshold: true, reconnectGraceSec: true } },
+  ruleProfile: { select: { repetitionThreshold: true, reconnectGraceSec: true, incrementSec: true } },
   redPlayer: { select: playerSelect },
   blackPlayer: { select: playerSelect },
   moves: {
@@ -133,7 +133,11 @@ interface Replay {
  *   Mọi đường kết thúc đi qua `finishInTx`: chỉ ván ACTIVE mới được chốt, kết quả do server tính,
  *   client không gửi result/endReason được (FR-13, BR-05).
  * - Mất kết nối (XQA-93): gateway theo dõi qua PresenceService; hết thời gian chờ → forfeitByDisconnect.
- * - Chưa có: đồng hồ / hết giờ (XQA-141), Elo.
+ * - Đồng hồ (XQA-141): chỉ server tính giờ. DB lưu thời gian còn lại của mỗi bên tại mốc turnStartedAt;
+ *   đi quân → trừ thời gian suy nghĩ của người đi + cộng increment; hết giờ → bên tới lượt thua (TIMEOUT).
+ *   Hết giờ được phát hiện ở: hẹn giờ của gateway (checkTimeout), mỗi lần đi quân / tải ván / thao tác.
+ *   Client chỉ nhận số mili giây còn lại để hiển thị, không gửi được thời gian và không tự kết thúc ván.
+ * - Chưa có: Elo.
  * Transport (REST ở GameController, Socket.IO ở gateway XQA-75) chỉ gọi vào đây.
  */
 @Injectable()
@@ -150,7 +154,38 @@ export class GameService {
     if (match.status === MatchStatus.WAITING && color) {
       match = await this.start(match);
     }
+    if (await this.finishIfFlagged(match)) match = await this.loadMatch(matchId);
     return this.toView(match, this.replay(match), color);
+  }
+
+  /**
+   * Gateway gọi khi hẹn giờ hết giờ kêu (XQA-141). Server tự tính lại từ DB:
+   * - đã hết giờ → chốt TIMEOUT, trả `{ ended }` để phát game:update + game:end;
+   * - chưa hết (chuông kêu sớm) → trả `{ remainingMs }` để hẹn lại;
+   * - ván không còn ACTIVE → null.
+   */
+  async checkTimeout(matchId: string): Promise<{ ended: GameStateView } | { remainingMs: number } | null> {
+    const match = await this.loadMatch(matchId);
+    if (match.status !== MatchStatus.ACTIVE) return null;
+    if (await this.finishIfFlagged(match)) {
+      const ended = await this.loadMatch(matchId);
+      return { ended: this.toView(ended, this.replay(ended), null) };
+    }
+    const running = this.runningClock(match, new Date());
+    return running ? { remainingMs: running.leftMs } : null;
+  }
+
+  /** Ván ACTIVE + thời gian còn lại của bên tới lượt – để gateway hẹn giờ lại lúc server khởi động. */
+  async activeClocks(): Promise<Array<{ matchId: string; remainingMs: number }>> {
+    const rows = await this.prisma.match.findMany({
+      where: { status: MatchStatus.ACTIVE },
+      select: { id: true, status: true, currentPly: true, redTimeLeftMs: true, blackTimeLeftMs: true, turnStartedAt: true },
+    });
+    const now = new Date();
+    return rows.flatMap((row) => {
+      const running = this.runningClock(row, now);
+      return running ? [{ matchId: row.id.toString(), remainingMs: running.leftMs }] : [];
+    });
   }
 
   async makeMove(matchId: string, userId: string, input: MoveInput): Promise<GameStateView> {
@@ -168,6 +203,8 @@ export class GameService {
     if (match.status !== MatchStatus.ACTIVE) {
       throw this.error(ConflictException, 'GAME_NOT_ACTIVE', 'The match has already ended');
     }
+    // Đi quân khi đã hết giờ: nước đi không được ghi, ván kết thúc TIMEOUT (bên tới lượt thua)
+    if (await this.finishIfFlagged(match)) return this.getState(matchId, userId);
     if (input.expectedPly !== match.currentPly) {
       throw this.error(
         ConflictException,
@@ -196,6 +233,10 @@ export class GameService {
     const now = new Date();
 
     const { result, endReason } = resolveEnding(status, verdict);
+    // Trừ thời gian suy nghĩ của người vừa đi, cộng increment nếu ván còn tiếp tục
+    const moverLeftMs = Math.max(0, this.clockOf(match, color) - this.thinkTime(match, now));
+    const incrementMs = result ? 0 : match.ruleProfile.incrementSec * 1000;
+    const moverClock = BigInt(moverLeftMs + incrementMs);
 
     await this.prisma.$transaction(async (tx) => {
       // Khóa lạc quan theo currentPly: request trùng / song song sẽ thấy count = 0
@@ -205,6 +246,7 @@ export class GameService {
           currentFen: replay.position.toFen(),
           currentPly: ply,
           turnStartedAt: now,
+          ...(color === 'RED' ? { redTimeLeftMs: moverClock } : { blackTimeLeftMs: moverClock }),
           ...(result ? { status: MatchStatus.FINISHED, result, endReason, endedAt: now } : {}),
         },
       });
@@ -360,14 +402,22 @@ export class GameService {
    */
   private async finishInTx(
     tx: Tx,
-    match: Pick<MatchRow, 'id' | 'roomId'>,
+    match: MatchRow,
     result: MatchResult | null,
     endReason: MatchEndReason,
     status: MatchStatus = MatchStatus.FINISHED,
   ): Promise<void> {
+    const now = new Date();
+    // Dừng đồng hồ: ghi lại thời gian còn lại của bên đang tới lượt tại lúc kết thúc
+    const running = this.runningClock(match, now);
+    const frozen = running
+      ? running.color === 'RED'
+        ? { redTimeLeftMs: BigInt(running.leftMs) }
+        : { blackTimeLeftMs: BigInt(running.leftMs) }
+      : {};
     const claimed = await tx.match.updateMany({
       where: { id: match.id, status: MatchStatus.ACTIVE },
-      data: { status, result, endReason, endedAt: new Date() },
+      data: { status, result, endReason, endedAt: now, ...frozen },
     });
     if (claimed.count !== 1) {
       throw this.error(ConflictException, 'GAME_NOT_ACTIVE', 'The match has already ended');
@@ -400,7 +450,7 @@ export class GameService {
     if (match.status === MatchStatus.WAITING) {
       match = await this.start(match);
     }
-    if (match.status !== MatchStatus.ACTIVE) {
+    if (match.status !== MatchStatus.ACTIVE || (await this.finishIfFlagged(match))) {
       throw this.error(ConflictException, 'GAME_NOT_ACTIVE', 'The match has already ended');
     }
     return { match, color };
@@ -471,10 +521,47 @@ export class GameService {
     return null;
   }
 
-  /** Thời gian suy nghĩ của nước vừa đi (chỉ để lưu lịch sử; trừ đồng hồ thuộc XQA-141). */
+  /** Thời gian suy nghĩ của lượt hiện tại tính tới `now` (lưu lịch sử + trừ đồng hồ). */
   private thinkTime(match: MatchRow, now: Date): number {
     if (!match.turnStartedAt) return 0;
     return Math.max(0, now.getTime() - match.turnStartedAt.getTime());
+  }
+
+  /** Thời gian còn lại (ms) của một bên tại mốc turnStartedAt, như đang lưu trong DB. */
+  private clockOf(match: Pick<MatchRow, 'redTimeLeftMs' | 'blackTimeLeftMs'>, color: PlayerColor): number {
+    return Number(color === 'RED' ? match.redTimeLeftMs : match.blackTimeLeftMs);
+  }
+
+  /**
+   * Đồng hồ đang chạy của ván ACTIVE: bên tới lượt (Đỏ đi ở ply chẵn) và thời gian còn lại tính tới `now`.
+   * null nếu ván không ACTIVE hoặc chưa bắt đầu tính giờ.
+   */
+  private runningClock(
+    match: Pick<MatchRow, 'status' | 'currentPly' | 'redTimeLeftMs' | 'blackTimeLeftMs' | 'turnStartedAt'>,
+    now: Date,
+  ): { color: PlayerColor; leftMs: number } | null {
+    if (match.status !== MatchStatus.ACTIVE || !match.turnStartedAt) return null;
+    const color: PlayerColor = match.currentPly % 2 === 0 ? 'RED' : 'BLACK';
+    const elapsed = Math.max(0, now.getTime() - match.turnStartedAt.getTime());
+    return { color, leftMs: Math.max(0, this.clockOf(match, color) - elapsed) };
+  }
+
+  /**
+   * Bên tới lượt đã hết giờ → chốt TIMEOUT (bên đó thua). Trả true nếu ván vừa được chốt ở đây
+   * hoặc đã bị request khác chốt trước (ván không còn ACTIVE).
+   */
+  private async finishIfFlagged(match: MatchRow): Promise<boolean> {
+    const running = this.runningClock(match, new Date());
+    if (!running || running.leftMs > 0) return false;
+    try {
+      await this.prisma.$transaction((tx) =>
+        this.finishInTx(tx, match, opponentWins(running.color), MatchEndReason.TIMEOUT),
+      );
+    } catch (error) {
+      if (!(error instanceof ConflictException)) throw error;
+    }
+    this.presence.clear(match.id.toString());
+    return true;
   }
 
   private toView(match: MatchRow, replay: Replay, yourColor: PlayerColor | null): GameStateView {
@@ -512,10 +599,24 @@ export class GameService {
       moves,
       drawOffer: ended ? null : this.toDrawOffer(match),
       disconnected: ended ? [] : this.toDisconnected(match),
-      redTimeLeftMs: Number(match.redTimeLeftMs),
-      blackTimeLeftMs: Number(match.blackTimeLeftMs),
+      ...this.clockView(match),
       startedAt: match.startedAt,
       endedAt: match.endedAt,
+    };
+  }
+
+  /** Đồng hồ cho client: thời gian còn lại tại `serverTime`; client chỉ đếm lùi bên `clockRunning` để hiển thị. */
+  private clockView(
+    match: MatchRow,
+  ): Pick<GameStateView, 'redTimeLeftMs' | 'blackTimeLeftMs' | 'clockRunning' | 'incrementMs' | 'serverTime'> {
+    const now = new Date();
+    const running = this.runningClock(match, now);
+    return {
+      redTimeLeftMs: running?.color === 'RED' ? running.leftMs : this.clockOf(match, 'RED'),
+      blackTimeLeftMs: running?.color === 'BLACK' ? running.leftMs : this.clockOf(match, 'BLACK'),
+      clockRunning: running?.color ?? null,
+      incrementMs: match.ruleProfile.incrementSec * 1000,
+      serverTime: now.toISOString(),
     };
   }
 

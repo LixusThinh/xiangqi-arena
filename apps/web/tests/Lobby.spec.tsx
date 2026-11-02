@@ -3,7 +3,7 @@
  * AC1: danh sách cập nhật khi có phòng mới. AC2: theo wireframe (danh sách + tạo phòng chọn màu, công khai/riêng tư).
  */
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import Lobby from '../components/Lobby';
+import Lobby from '../components/lobby/Lobby';
 import { saveSession } from '../lib/auth-api';
 import type { RoomDetail, RoomSummary } from '../lib/room-api';
 

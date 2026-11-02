@@ -102,7 +102,7 @@ export async function apiRequest<T>(
       throw error;
     }
     throw new AuthApiError(
-      'Không kết nối được với máy chủ. Hãy kiểm tra backend rồi thử lại.',
+      'Không kết nối được với máy chủ. Máy chủ vừa khởi động lại có thể mất khoảng 1 phút, hãy thử lại sau ít giây.',
       0,
       'NETWORK_ERROR',
     );

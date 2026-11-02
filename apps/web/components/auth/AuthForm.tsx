@@ -290,7 +290,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
             {isRegister ? 'Đã có tài khoản?' : 'Chưa có tài khoản?'}{' '}
             <Link
               href={isRegister ? '/login' : '/register'}
-              className="font-semibold text-amber-300 hover:text-amber-200"
+              className="inline-block py-1 font-semibold text-amber-300 hover:text-amber-200"
             >
               {isRegister ? 'Đăng nhập' : 'Đăng ký'}
             </Link>

@@ -32,7 +32,7 @@ export default function MatchControls({
           type="button"
           aria-pressed={playerSide === 'r'}
           onClick={() => onSelectSide('r')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+          className={`flex min-h-[40px] sm:min-h-0 items-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-md text-xs font-semibold transition-all ${
             playerSide === 'r'
               ? 'bg-red-600 text-white shadow-md shadow-red-900/50'
               : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
@@ -45,7 +45,7 @@ export default function MatchControls({
           type="button"
           aria-pressed={playerSide === 'b'}
           onClick={() => onSelectSide('b')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+          className={`flex min-h-[40px] sm:min-h-0 items-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-md text-xs font-semibold transition-all ${
             playerSide === 'b'
               ? 'bg-blue-600 text-white shadow-md shadow-blue-900/50'
               : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
@@ -57,12 +57,12 @@ export default function MatchControls({
       </div>
 
       {/* Nút thao tác trận đấu */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           disabled={!canUndo}
           onClick={onUndoMove}
-          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors shadow-sm ${
+          className={`inline-flex min-h-[40px] sm:min-h-0 items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-medium rounded-lg transition-colors shadow-sm ${
             canUndo
               ? 'bg-slate-700 hover:bg-slate-600 text-sky-300 border border-sky-500/30'
               : 'opacity-40 cursor-not-allowed bg-slate-800 text-slate-500 border border-slate-700'
@@ -73,21 +73,21 @@ export default function MatchControls({
         <button
           type="button"
           onClick={onNewGame}
-          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 hover:bg-slate-600 text-amber-300 border border-amber-500/30 transition-colors shadow-sm"
+          className="inline-flex min-h-[40px] sm:min-h-0 items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-medium rounded-lg bg-slate-700 hover:bg-slate-600 text-amber-300 border border-amber-500/30 transition-colors shadow-sm"
         >
           🔄 Ván mới
         </button>
         <button
           type="button"
           onClick={onOfferDraw}
-          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 transition-colors shadow-sm"
+          className="inline-flex min-h-[40px] sm:min-h-0 items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-medium rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 transition-colors shadow-sm"
         >
           🤝 Xin hòa
         </button>
         <button
           type="button"
           onClick={onLeaveRoom}
-          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-red-950/60 hover:bg-red-900/80 text-red-300 border border-red-800/50 transition-colors shadow-sm"
+          className="inline-flex min-h-[40px] sm:min-h-0 items-center justify-center px-3 py-2 sm:py-1.5 text-xs font-medium rounded-lg bg-red-950/60 hover:bg-red-900/80 text-red-300 border border-red-800/50 transition-colors shadow-sm"
         >
           🚪 Thoát
         </button>

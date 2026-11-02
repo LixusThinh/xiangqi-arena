@@ -61,7 +61,7 @@ export default function Modal({
             <button
               type="button"
               onClick={onCancel}
-              className="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
+              className="flex min-h-[40px] items-center justify-center rounded-xl bg-slate-700 hover:bg-slate-600 px-4 py-2.5 sm:py-2 text-sm sm:text-xs font-semibold text-slate-300 transition-colors"
             >
               {cancelText}
             </button>
@@ -69,7 +69,7 @@ export default function Modal({
           <button
             type="button"
             onClick={onConfirm}
-            className="px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition-colors shadow-lg shadow-amber-500/20"
+            className="flex min-h-[40px] items-center justify-center rounded-xl bg-amber-500 hover:bg-amber-400 px-4 py-2.5 sm:py-2 text-sm sm:text-xs font-bold text-slate-950 transition-colors shadow-lg shadow-amber-500/20"
           >
             {isNotice ? 'Đóng' : confirmText}
           </button>

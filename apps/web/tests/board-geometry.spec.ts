@@ -5,8 +5,8 @@ import {
   OFFSET_Y,
   BOARD_WIDTH,
   BOARD_HEIGHT,
-} from '../components/board-geometry';
-import { FEN_PRESETS } from '../components/fen-presets';
+} from '../components/board/board-geometry';
+import { FEN_PRESETS } from '../components/board/fen-presets';
 
 describe('board-geometry', () => {
   it('has correct geometric constants', () => {

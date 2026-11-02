@@ -56,8 +56,15 @@ export interface GameStateView {
   drawOffer: DrawOfferView | null;
   /** Người chơi đang mất kết nối (chỉ khi ván ACTIVE). Rỗng nếu cả hai đều đang kết nối. */
   disconnected: DisconnectedPlayerView[];
+  /** Thời gian còn lại (ms) của mỗi bên, tính tại `serverTime` (XQA-141). Server là nơi duy nhất tính giờ. */
   redTimeLeftMs: number;
   blackTimeLeftMs: number;
+  /** Bên có đồng hồ đang chạy (bên tới lượt của ván ACTIVE); null khi ván chưa chạy giờ / đã kết thúc. */
+  clockRunning: PlayerColor | null;
+  /** Số mili giây được cộng sau mỗi nước (RuleProfile.incrementSec). */
+  incrementMs: number;
+  /** Thời điểm server chụp đồng hồ (ISO). Client dùng để đếm lùi hiển thị, không dùng để xử hết giờ. */
+  serverTime: string;
   startedAt: Date | null;
   endedAt: Date | null;
 }

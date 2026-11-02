@@ -4,7 +4,7 @@
  * Socket thật được thay bằng GameConnection giả (contract docs/api/socket.md).
  */
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import MatchView from '../components/MatchView';
+import MatchView from '../components/match/MatchView';
 import { saveSession } from '../lib/auth-api';
 import {
   GameSocketError,
@@ -14,6 +14,7 @@ import {
   type GameConnection,
   type GameEnd,
   type GameState,
+  type WebrtcSignal,
   type MoveRequest,
 } from '../lib/game-socket';
 import type { RoomDetail, RoomMember } from '../lib/room-api';
@@ -79,6 +80,9 @@ function state(overrides: Partial<GameState> = {}): GameState {
     disconnected: [],
     redTimeLeftMs: 600000,
     blackTimeLeftMs: 600000,
+    clockRunning: 'RED',
+    incrementMs: 0,
+    serverTime: '2026-10-21T08:00:00.000Z',
     startedAt: '2026-10-21T08:00:00.000Z',
     endedAt: null,
     ...overrides,
@@ -139,6 +143,11 @@ class FakeConnection implements GameConnection {
   }
   onConnectionChange(l: (c: boolean) => void) {
     this.conn.push(l);
+  }
+  signals: Array<(s: WebrtcSignal) => void> = [];
+  signal = jest.fn(async () => ({ delivered: 1 }));
+  onSignal(l: (s: WebrtcSignal) => void) {
+    this.signals.push(l);
   }
   close() {
     this.closed = true;
@@ -442,5 +451,26 @@ describe('MatchView – vào lại ván, banner mất kết nối (XQA-94)', () 
     await renderAs(RED, conn);
     act(() => conn.conn.forEach((l) => l(false)));
     expect(screen.getByRole('alert')).toHaveTextContent('Vào lại trong 60 giây');
+  });
+});
+
+describe('MatchView – đồng hồ (XQA-142, giờ do server tính)', () => {
+  it('hiện đồng hồ 2 bên theo số server gửi', async () => {
+    const conn = new FakeConnection(state({ redTimeLeftMs: 600_000, blackTimeLeftMs: 245_000, clockRunning: 'RED' }));
+    await renderAs(RED, conn);
+    expect(screen.getByTestId('clock-me')).toHaveTextContent(/^(10:00|9:59)$/);
+    expect(screen.getByTestId('clock-opponent')).toHaveTextContent('4:05');
+  });
+
+  it('đồng hồ máy mình về 0 thì đứng ở 0:00, KHÔNG tự kết thúc ván – chỉ server gửi game:end', async () => {
+    const conn = new FakeConnection(state({ redTimeLeftMs: 300, clockRunning: 'RED' }));
+    await renderAs(RED, conn);
+    await waitFor(() => expect(screen.getByTestId('clock-me')).toHaveTextContent('0:00.0'), { timeout: 2000 });
+    expect(screen.queryByRole('button', { name: 'Về Sảnh' })).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Đến lượt bạn');
+    expect(conn.resign).not.toHaveBeenCalled();
+
+    act(() => conn.ends.forEach((l) => l({ matchId: '9', result: 'BLACK_WIN', endReason: 'TIMEOUT', endRule: null })));
+    expect(await screen.findByText(/Hết giờ/)).toBeInTheDocument();
   });
 });
