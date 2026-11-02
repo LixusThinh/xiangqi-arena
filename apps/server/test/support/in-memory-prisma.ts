@@ -124,6 +124,7 @@ export class InMemoryPrisma {
           turnStartedAt: null,
           startedAt: null,
           endedAt: null,
+          adjournedAt: null,
         }),
         relations: {
           room: { table: 'room', kind: 'one', localKey: 'roomId', foreignKey: 'id' },

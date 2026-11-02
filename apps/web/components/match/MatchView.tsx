@@ -56,6 +56,7 @@ export default function MatchView({
   const [pending, setPending] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
   const [confirmResign, setConfirmResign] = useState(false);
+  const [confirmAdjourn, setConfirmAdjourn] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const connRef = useRef<GameConnection | null>(null);
   // Bản state của kết nối để hook video call đăng ký nhận tín hiệu khi kết nối sẵn sàng
@@ -260,8 +261,10 @@ export default function MatchView({
   const lastMove = game?.lastMove
     ? { from: algebraicToSquare(game.lastMove.from), to: algebraicToSquare(game.lastMove.to) }
     : null;
-  const endInfo = ended ?? (game && game.status !== 'ACTIVE' && game.status !== 'WAITING' ? game : null);
+  const isEnded = (s?: string) => s === 'FINISHED' || s === 'ABORTED';
+  const endInfo = ended ?? (game && isEnded(game.status) ? game : null);
   const active = game?.status === 'ACTIVE' && endInfo === null;
+  const isAdjourned = game?.status === 'ADJOURNED' && endInfo === null;
   const offer = active ? (game?.drawOffer ?? null) : null;
   const myOffer = offer !== null && offer.by === game?.yourColor;
   const incomingOffer = offer !== null && !myOffer;
@@ -314,13 +317,32 @@ export default function MatchView({
                 </p>
               )}
               {opponentGone && (
-                <p
+                <div
                   data-testid="opponent-disconnected"
                   aria-live="polite"
-                  className="fixed inset-x-3 top-3 z-40 rounded-2xl lg:static border border-sky-400/40 bg-sky-950/95 px-4 py-3 text-sm text-sky-100 shadow-lg"
+                  className="fixed inset-x-3 top-3 z-40 rounded-2xl lg:static border border-sky-400/40 bg-sky-950/95 px-4 py-3 text-sm text-sky-100 shadow-lg flex flex-wrap items-center justify-between gap-3"
                 >
-                  Đối thủ mất kết nối. Nếu không vào lại sau{' '}
-                  <strong>{Math.max(0, Math.ceil((Date.parse(opponentGone.deadline) - now) / 1000))} giây</strong>, bạn được xử thắng.
+                  <div>
+                    Đối thủ mất kết nối. Nếu không vào lại sau{' '}
+                    <strong>{Math.max(0, Math.ceil((Date.parse(opponentGone.deadline) - now) / 1000))} giây</strong>, bạn được xử thắng.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmAdjourn(true)}
+                    disabled={pending}
+                    className="shrink-0 rounded-xl bg-sky-600 hover:bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm disabled:opacity-40"
+                  >
+                    Lưu ván & hoãn
+                  </button>
+                </div>
+              )}
+              {isAdjourned && (
+                <p
+                  data-testid="adjourned-banner"
+                  aria-live="polite"
+                  className="fixed inset-x-3 top-3 z-40 rounded-2xl lg:static border border-amber-400/50 bg-amber-950/95 px-4 py-3 text-sm text-amber-100 shadow-lg"
+                >
+                  Ván đang hoãn – chờ đối thủ vào để đánh tiếp
                 </p>
               )}
 
@@ -394,6 +416,7 @@ export default function MatchView({
                     <MatchChatBox
                       matchId={game.matchId}
                       isFinished={!active}
+                      lockedLabel={isAdjourned ? 'Ván đang hoãn' : undefined}
                       connection={connection}
                       currentUserId={myId}
                     />
@@ -423,7 +446,7 @@ export default function MatchView({
             </div>
 
             <div className="order-1 lg:order-none">
-              {active && (
+              {(active || isAdjourned) && (
                 <div className="flex flex-col gap-2">
                   {myOffer && (
                     <span data-testid="draw-offer-sent" className="text-xs text-slate-400">
@@ -433,7 +456,7 @@ export default function MatchView({
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      disabled={pending || offer !== null}
+                      disabled={pending || offer !== null || isAdjourned}
                       onClick={() => void runAction((conn, id) => conn.offerDraw(id))}
                       className="flex min-h-[40px] items-center justify-center rounded-xl border border-slate-700 px-3 py-2.5 sm:py-2 text-sm font-semibold text-slate-200 hover:border-amber-400/60 hover:text-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
                     >
@@ -462,7 +485,7 @@ export default function MatchView({
         </div>
       </div>
       <Modal
-        isOpen={active && confirmResign}
+        isOpen={(active || isAdjourned) && confirmResign}
         title="Xin thua?"
         message="Bạn chắc chắn muốn xin thua? Đối thủ sẽ được xử thắng và không thể hoàn tác."
         confirmText="Xin thua"
@@ -472,6 +495,18 @@ export default function MatchView({
           void runAction((conn, id) => conn.resign(id));
         }}
         onCancel={() => setConfirmResign(false)}
+      />
+      <Modal
+        isOpen={active && confirmAdjourn}
+        title="Hoãn ván đấu?"
+        message="Bạn chắc chắn muốn lưu thế cờ và hoãn ván đấu này? Khi đối thủ quay lại, cả hai có thể vào chơi tiếp."
+        confirmText="Lưu ván & hoãn"
+        cancelText="Chơi tiếp"
+        onConfirm={() => {
+          setConfirmAdjourn(false);
+          void runAction((conn, id) => conn.adjourn(id));
+        }}
+        onCancel={() => setConfirmAdjourn(false)}
       />
       <Modal
         isOpen={incomingOffer && !confirmResign && !pending}
@@ -505,6 +540,7 @@ export default function MatchView({
 
 function statusText(game: GameState | null, me: RoomMember | null): string {
   if (!game) return 'Đang kết nối ván…';
+  if (game.status === 'ADJOURNED') return 'Ván đang hoãn';
   if (game.status !== 'ACTIVE') return 'Ván đấu đã kết thúc';
   const turnName = game.turn === 'RED' ? 'Đỏ' : 'Đen';
   const check = game.inCheck ? ' · CHIẾU!' : '';

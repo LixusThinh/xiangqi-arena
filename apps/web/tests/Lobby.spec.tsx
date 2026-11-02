@@ -51,12 +51,14 @@ function routeFetch(routes: {
   current?: () => Response;
   list?: () => Response;
   create?: () => Response;
+  adjourned?: () => Response;
 }) {
   (global.fetch as jest.Mock).mockImplementation((url: string, init?: RequestInit) => {
     const method = init?.method ?? 'GET';
     if (url === `${API}/rooms/current`) return Promise.resolve(routes.current?.() ?? ok({ room: null }));
     if (url === `${API}/rooms` && method === 'GET') return Promise.resolve(routes.list?.() ?? ok([]));
     if (url === `${API}/rooms` && method === 'POST') return Promise.resolve(routes.create!());
+    if (url === `${API}/me/adjourned-matches`) return Promise.resolve(routes.adjourned?.() ?? ok([]));
     return Promise.reject(new Error(`unexpected ${method} ${url}`));
   });
 }

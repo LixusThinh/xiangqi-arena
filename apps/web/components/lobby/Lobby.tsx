@@ -7,6 +7,7 @@ import { AuthApiError, getStoredSession } from '@/lib/auth-api';
 import {
   ROOM_ERROR_MESSAGES,
   roomApi,
+  type AdjournedMatch,
   type HostColorPref,
   type RoomDetail,
   type RoomSummary,
@@ -64,6 +65,7 @@ export default function Lobby({ pollIntervalMs = 3000 }: LobbyProps) {
   const [rooms, setRooms] = useState<RoomSummary[] | null>(null);
   const [listError, setListError] = useState<string | null>(null);
   const [current, setCurrent] = useState<RoomDetail | null>(null);
+  const [adjourned, setAdjourned] = useState<AdjournedMatch[]>([]);
 
   const [name, setName] = useState('');
   const [color, setColor] = useState<HostColorPref>('RANDOM');
@@ -91,9 +93,13 @@ export default function Lobby({ pollIntervalMs = 3000 }: LobbyProps) {
     let cancelled = false;
     const load = async () => {
       try {
-        const list = await roomApi.list();
+        const [list, adj] = await Promise.all([
+          roomApi.list(),
+          roomApi.adjournedMatches().catch(() => [] as AdjournedMatch[]),
+        ]);
         if (cancelled) return;
         setRooms(list);
+        setAdjourned(adj);
         setListError(null);
       } catch (error) {
         if (!cancelled) setListError(errorMessage(error, 'Không tải được danh sách phòng. Đang thử lại…'));
@@ -158,6 +164,45 @@ export default function Lobby({ pollIntervalMs = 3000 }: LobbyProps) {
               Quay lại phòng
             </Link>
           </div>
+        )}
+
+        {adjourned.length > 0 && (
+          <section
+            aria-labelledby="adjourned-matches-title"
+            data-testid="adjourned-matches-section"
+            className="mt-6 rounded-2xl border border-amber-500/40 bg-amber-950/20 p-4"
+          >
+            <h2 id="adjourned-matches-title" className="text-base font-bold text-amber-200">
+              Ván đang hoãn của bạn
+            </h2>
+            <ul className="mt-3 divide-y divide-amber-900/30">
+              {adjourned.map((item) => (
+                <li
+                  key={item.matchId}
+                  data-testid={`adjourned-${item.matchId}`}
+                  className="flex flex-wrap items-center justify-between gap-3 py-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-slate-100">
+                      Đối thủ: <span className="text-amber-200">{item.opponent.displayName || item.opponent.username}</span> ({item.opponent.rating})
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      Số nước: {item.plyCount} · Hoãn lúc:{' '}
+                      {item.adjournedAt
+                        ? new Date(item.adjournedAt).toLocaleString('vi-VN')
+                        : '—'}
+                    </p>
+                  </div>
+                  <Link
+                    href={`/room/${encodeURIComponent(item.roomCode)}/play`}
+                    className="flex min-h-[36px] items-center justify-center rounded-xl bg-amber-400 hover:bg-amber-300 px-4 py-2 text-xs font-bold text-slate-950 transition"
+                  >
+                    Vào tiếp
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_20rem]">

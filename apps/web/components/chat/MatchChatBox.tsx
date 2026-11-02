@@ -16,6 +16,8 @@ export interface MatchChatBoxProps {
   connection: GameConnection | null;
   currentUserId?: string | null;
   className?: string;
+  /** Chữ hiện trong ô nhập khi bị khóa (mặc định: ván đã kết thúc; ván hoãn truyền chữ khác). */
+  lockedLabel?: string;
 }
 
 const QUICK_CHIPS = ['Xin chào!', 'Nước cờ hay!', 'Chúc may mắn!', 'Cảm ơn!'];
@@ -26,6 +28,7 @@ export default function MatchChatBox({
   connection,
   currentUserId,
   className = '',
+  lockedLabel = 'Ván đã kết thúc',
 }: MatchChatBoxProps) {
   const [messages, setMessages] = useState<ChatMessageView[]>([]);
   const [inputText, setInputText] = useState('');
@@ -218,7 +221,7 @@ export default function MatchChatBox({
               setInputText(e.target.value);
               if (errorMessage) setErrorMessage(null);
             }}
-            placeholder={isFinished ? 'Ván đã kết thúc' : 'Nhập tin nhắn...'}
+            placeholder={isFinished ? lockedLabel : 'Nhập tin nhắn...'}
             aria-label="Tin nhắn"
             aria-invalid={tooLong}
             aria-describedby="chat-counter"

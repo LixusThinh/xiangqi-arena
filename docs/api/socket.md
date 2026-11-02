@@ -52,6 +52,16 @@ type Ack<T> = { ok: true; data: T } | { ok: false; error: { code: string; messag
 - Lỗi (thế cờ server **không đổi**): `GAME_NOT_PLAYER`, `GAME_NOT_ACTIVE`, `GAME_STALE_STATE`, `GAME_NOT_YOUR_TURN`, `GAME_ILLEGAL_MOVE`, `VALIDATION_ERROR`.
 - Gửi trùng / 2 nước cùng lúc: chỉ 1 nước được ghi, nước còn lại nhận `GAME_STALE_STATE`.
 
+### `game:adjourn`
+
+```jsonc
+{ "matchId": "1" }
+```
+
+- Chỉ người chơi trong ván, ván `ACTIVE`, và đối thủ đang mất kết nối (trong thời gian grace period).
+- Thành công: ván chuyển sang `ADJOURNED`, `turnStartedAt = null`, đồng hồ đứng, server phát `game:update`.
+- Lỗi: `GAME_NOT_PLAYER`, `GAME_NOT_ACTIVE`, `OPPONENT_CONNECTED`, `GAME_NOT_JOINED`, `VALIDATION_ERROR`.
+
 ### `game:resign` (XQA-91)
 
 ```jsonc

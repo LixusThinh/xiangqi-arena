@@ -33,6 +33,7 @@ import { ChatRateLimiter } from './chat-rate-limiter';
 import { CreateReportDto } from './game.dto';
 import { PresenceService } from './presence.service';
 import {
+  AdjournedMatchItem,
   ChatMessageView,
   DisconnectedPlayerView,
   DrawOfferView,
@@ -87,6 +88,7 @@ const matchSelect = {
   blackTimeLeftMs: true,
   startedAt: true,
   endedAt: true,
+  adjournedAt: true,
   turnStartedAt: true,
   roomId: true,
   redPlayerId: true,
@@ -377,7 +379,7 @@ export class GameService {
 
   /** Xin thua (FR-14): người gửi thua, đối thủ thắng, lý do RESIGNATION. */
   async resign(matchId: string, userId: string): Promise<GameStateView> {
-    const { match, color } = await this.activeMatchFor(matchId, userId);
+    const { match, color } = await this.activeMatchFor(matchId, userId, true);
     await this.prisma.$transaction((tx) =>
       this.finishInTx(tx, match, opponentWins(color), MatchEndReason.RESIGNATION),
     );
@@ -456,18 +458,21 @@ export class GameService {
   async presenceTarget(
     matchId: string,
     userId: string,
-  ): Promise<{ active: boolean; color: PlayerColor | null; graceMs: number }> {
+  ): Promise<{ active: boolean; color: PlayerColor | null; graceMs: number; opponentId: string | null }> {
     const match = await this.loadMatch(matchId);
+    const color = this.colorOf(match, userId);
+    const opponentId = color ? (color === 'RED' ? match.blackPlayerId : match.redPlayerId).toString() : null;
     return {
       active: match.status === MatchStatus.ACTIVE,
-      color: this.colorOf(match, userId),
+      color,
       graceMs: match.ruleProfile.reconnectGraceSec * 1000,
+      opponentId,
     };
   }
 
   /**
    * Hết thời gian chờ vào lại (FR-22): người mất kết nối thua, lý do DISCONNECT.
-   * BR-RECON-01 (đề xuất, chờ PM duyệt): lúc hết hạn mà đối thủ cũng đang mất kết nối → ván ABORTED, không ai thắng.
+   * BR-RECON-01 (đề xuất, chờ PM duyệt): lúc hết hạn mà đối thủ cũng đang mất kết nối → tự hoãn ván thay vì ABORTED.
    * Trả null nếu ván không còn ACTIVE (đã kết thúc bằng cách khác trong lúc chờ).
    */
   async forfeitByDisconnect(matchId: string, userId: string): Promise<GameStateView | null> {
@@ -476,11 +481,12 @@ export class GameService {
     if (!color || match.status !== MatchStatus.ACTIVE) return null;
     const opponentId = (color === 'RED' ? match.blackPlayerId : match.redPlayerId).toString();
     const bothGone = this.presence.isDisconnected(matchId, opponentId);
+    if (bothGone) {
+      return this.adjourn(matchId);
+    }
     try {
       await this.prisma.$transaction((tx) =>
-        bothGone
-          ? this.finishInTx(tx, match, null, MatchEndReason.DISCONNECT, MatchStatus.ABORTED)
-          : this.finishInTx(tx, match, opponentWins(color), MatchEndReason.DISCONNECT),
+        this.finishInTx(tx, match, opponentWins(color), MatchEndReason.DISCONNECT),
       );
     } catch (error) {
       if (error instanceof ConflictException) return null;
@@ -488,6 +494,121 @@ export class GameService {
     }
     this.presence.clear(matchId);
     return this.getState(matchId, opponentId);
+  }
+
+  /**
+   * Hoãn ván cờ: tính thời gian đã dùng của bên đang tới lượt, trừ vào *TimeLeftMs,
+   * đặt turnStartedAt = null, status = ADJOURNED, adjournedAt = now.
+   * Huỷ hẹn giờ mất kết nối, đề nghị hòa đang chờ → EXPIRED. Không đổi Elo.
+   */
+  async adjourn(matchId: string, userId?: string): Promise<GameStateView> {
+    const match = await this.loadMatch(matchId);
+    let color: PlayerColor | null = null;
+    if (userId !== undefined) {
+      color = this.colorOf(match, userId);
+      if (!color) {
+        throw this.error(ForbiddenException, 'GAME_NOT_PLAYER', 'You are not a player in this match');
+      }
+    }
+    if (match.status !== MatchStatus.ACTIVE) {
+      throw this.error(ConflictException, 'GAME_NOT_ACTIVE', 'The match is not active');
+    }
+    if (userId !== undefined && color) {
+      const opponentId = (color === 'RED' ? match.blackPlayerId : match.redPlayerId).toString();
+      if (!this.presence.isDisconnected(matchId, opponentId)) {
+        throw this.error(ConflictException, 'OPPONENT_CONNECTED', 'Opponent is still connected');
+      }
+    }
+
+    const now = new Date();
+    const running = this.runningClock(match, now);
+    const frozen = running
+      ? running.color === 'RED'
+        ? { redTimeLeftMs: BigInt(running.leftMs) }
+        : { blackTimeLeftMs: BigInt(running.leftMs) }
+      : {};
+
+    await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.match.updateMany({
+        where: { id: match.id, status: MatchStatus.ACTIVE },
+        data: {
+          status: MatchStatus.ADJOURNED,
+          turnStartedAt: null,
+          adjournedAt: now,
+          ...frozen,
+        },
+      });
+      if (claimed.count !== 1) {
+        throw this.error(ConflictException, 'GAME_NOT_ACTIVE', 'The match has already ended');
+      }
+      await tx.drawOffer.updateMany({
+        where: { matchId: match.id, status: DrawOfferStatus.PENDING },
+        data: { status: DrawOfferStatus.EXPIRED },
+      });
+    });
+
+    this.presence.clearTimers(match.id.toString());
+    return this.getState(matchId, userId ?? match.redPlayerId.toString());
+  }
+
+  /**
+   * Chơi tiếp ván hoãn khi cả 2 người đã có socket trong ván:
+   * status = ACTIVE, turnStartedAt = now.
+   */
+  async resumeAdjourned(matchId: string, userId: string): Promise<GameStateView> {
+    const now = new Date();
+    await this.prisma.match.updateMany({
+      where: { id: BigInt(matchId), status: MatchStatus.ADJOURNED },
+      data: {
+        status: MatchStatus.ACTIVE,
+        turnStartedAt: now,
+      },
+    });
+    return this.getState(matchId, userId);
+  }
+
+  /**
+   * Danh sách ván hoãn của người dùng (GET /me/adjourned-matches).
+   */
+  async listAdjournedMatches(userId: string): Promise<AdjournedMatchItem[]> {
+    const me = BigInt(userId);
+    const matches = await this.prisma.match.findMany({
+      where: {
+        status: MatchStatus.ADJOURNED,
+        OR: [{ redPlayerId: me }, { blackPlayerId: me }],
+      },
+      orderBy: [{ adjournedAt: 'desc' }, { id: 'desc' }],
+      select: {
+        id: true,
+        adjournedAt: true,
+        currentPly: true,
+        redPlayerId: true,
+        blackPlayerId: true,
+        room: { select: { roomCode: true } },
+        redPlayer: { select: { id: true, username: true, displayName: true, rating: true, avatarUrl: true } },
+        blackPlayer: { select: { id: true, username: true, displayName: true, rating: true, avatarUrl: true } },
+      },
+    });
+
+    return matches.map((m) => {
+      const isRed = m.redPlayerId === me;
+      const opp = isRed ? m.blackPlayer : m.redPlayer;
+      const color: PlayerColor = isRed ? 'RED' : 'BLACK';
+      return {
+        matchId: m.id.toString(),
+        roomCode: m.room.roomCode,
+        opponent: {
+          id: opp.id.toString(),
+          username: opp.username,
+          displayName: opp.displayName,
+          rating: opp.rating,
+          avatarUrl: opp.avatarUrl ?? null,
+        },
+        myColor: color,
+        plyCount: m.currentPly,
+        adjournedAt: m.adjournedAt,
+      };
+    });
   }
 
   /**
@@ -586,7 +707,7 @@ export class GameService {
         : { blackTimeLeftMs: BigInt(running.leftMs) }
       : {};
     const claimed = await tx.match.updateMany({
-      where: { id: match.id, status: MatchStatus.ACTIVE },
+      where: { id: match.id, status: { in: [MatchStatus.ACTIVE, MatchStatus.ADJOURNED] } },
       data: { status, result, endReason, endedAt: now, ...frozen },
     });
     if (claimed.count !== 1) {
@@ -661,6 +782,7 @@ export class GameService {
   private async activeMatchFor(
     matchId: string,
     userId: string,
+    allowAdjourned = false,
   ): Promise<{ match: MatchRow; color: PlayerColor }> {
     let match = await this.loadMatch(matchId);
     const color = this.colorOf(match, userId);
@@ -670,7 +792,8 @@ export class GameService {
     if (match.status === MatchStatus.WAITING) {
       match = await this.start(match);
     }
-    if (match.status !== MatchStatus.ACTIVE || (await this.finishIfFlagged(match))) {
+    const isValid = match.status === MatchStatus.ACTIVE || (allowAdjourned && match.status === MatchStatus.ADJOURNED);
+    if (!isValid || (match.status === MatchStatus.ACTIVE && (await this.finishIfFlagged(match)))) {
       throw this.error(ConflictException, 'GAME_NOT_ACTIVE', 'The match has already ended');
     }
     return { match, color };
@@ -842,6 +965,7 @@ export class GameService {
       ...this.clockView(match),
       startedAt: match.startedAt,
       endedAt: match.endedAt,
+      adjournedAt: match.adjournedAt,
     };
   }
 

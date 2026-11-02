@@ -40,6 +40,7 @@ enum MatchStatus {
   ACTIVE
   FINISHED
   ABORTED
+  ADJOURNED
 }
 
 enum MatchResult {
@@ -196,6 +197,7 @@ model Match {
   turnStartedAt   DateTime?       @map("turn_started_at") @db.Timestamptz(6)
   startedAt       DateTime?       @map("started_at") @db.Timestamptz(6)
   endedAt         DateTime?       @map("ended_at") @db.Timestamptz(6)
+  adjournedAt     DateTime?       @map("adjourned_at") @db.Timestamptz(6)
   room            Room            @relation(fields: [roomId], references: [id], onDelete: Restrict)
   redPlayer       User            @relation("RedPlayer", fields: [redPlayerId], references: [id], onDelete: Restrict)
   blackPlayer     User            @relation("BlackPlayer", fields: [blackPlayerId], references: [id], onDelete: Restrict)
